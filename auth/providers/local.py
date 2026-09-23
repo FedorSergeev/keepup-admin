@@ -17,7 +17,7 @@ from fastapi import HTTPException
 # not the one with a module-level decode(). The call fell into `except
 # Exception` and returned None, so the path was closed by accident rather than
 # by decision (task keepup-15).
-from jose import jwt
+import jwt
 from starlette import status
 
 from keepup.roles import ROLE_CLIENT

@@ -14,7 +14,7 @@ import uuid
 
 import httpx
 import pytest
-from jose import jwt
+import jwt
 
 from keepup.auth import oidc, oidc_policy
 from keepup.settings import OidcSettings
@@ -32,7 +32,7 @@ def rsa_pair(kid):
     """
     from cryptography.hazmat.primitives import serialization
     from cryptography.hazmat.primitives.asymmetric import rsa
-    from jose import jwk
+    from jwt.algorithms import RSAAlgorithm
 
     key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
     private_pem = key.private_bytes(
@@ -44,9 +44,7 @@ def rsa_pair(kid):
         serialization.Encoding.PEM,
         serialization.PublicFormat.SubjectPublicKeyInfo,
     ).decode()
-    public_jwk = dict(jwk.construct(public_pem, "RS256").to_dict(), kid=kid)
-    public_jwk = {name: (value.decode() if isinstance(value, bytes) else value)
-                  for name, value in public_jwk.items()}
+    public_jwk = dict(RSAAlgorithm.to_jwk(key.public_key(), as_dict=True), kid=kid)
     return private_pem, public_jwk
 
 

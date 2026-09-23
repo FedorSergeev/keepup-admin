@@ -163,12 +163,22 @@ async def test_a_lock_taken_over_by_somebody_else_stops_pretending():
 # --- the right library by the right name --------------------------------------
 
 def test_the_local_provider_reads_tokens_with_the_library_the_package_declares():
-    """A bare `import jwt` resolves to whichever of two distributions won.
+    """The package declares PyJWT, and `import jwt` must be PyJWT.
 
-    The one pinned in requirements.txt is not the one with a module-level
-    decode(), so the call fell into `except Exception` and returned None: the
-    path was closed by accident rather than by decision.
+    Two distributions install a package called `jwt` -- PyJWT and an unrelated
+    `jwt` -- and a bare import resolves to whichever was installed last. That
+    is why this check exists at all: it once read the other way round, because
+    an application pinned the unrelated one and a module-level decode() call
+    silently fell into `except Exception` and returned None, closing a sign-in
+    path by accident rather than by decision.
+
+    The answer is not to avoid the name but to stop installing the collision;
+    the application no longer pins it, and a test beside its requirements keeps
+    it that way. What is checked here is the other half: the package uses the
+    library it declares, and python-jose -- whose `ecdsa` carries an advisory
+    with no fix -- has not come back (keepup-32).
     """
     source = (PACKAGE / "auth/providers/local.py").read_text(encoding="utf-8")
-    assert "\nimport jwt\n" not in source
-    assert "from jose import jwt" in source
+    assert "\nimport jwt\n" in source
+    assert "from jose import" not in source, \
+        "python-jose is back, and with it an advisory that has no fix (keepup-32)"

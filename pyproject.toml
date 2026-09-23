@@ -55,7 +55,13 @@ dependencies = [
     "psycopg2-binary>=2.9",
     "apscheduler>=3.10,<4",
     "bcrypt>=4.0,<5",
-    "python-jose>=3.5,<4",
+    # PyJWT rather than python-jose: the latter pulls `ecdsa` unconditionally,
+    # and `ecdsa` carries an advisory with no fixed version at all. The path to
+    # it was reachable -- sign-in through a provider allows the ES curves that
+    # `ecdsa` implements -- so no installation of this package could be made
+    # clean (keepup-32). The [crypto] extra brings `cryptography`, which is
+    # what serves the asymmetric algorithms now.
+    "pyjwt[crypto]>=2.10,<3",
     "python-multipart>=0.0.20",
     "PyYAML>=6.0,<7",
     "psutil>=7.0",
@@ -66,14 +72,13 @@ dependencies = [
 
 [project.optional-dependencies]
 # What the package's own suite needs beyond the package. Declared because
-# otherwise nobody who clones the repository can run it: the OIDC tests sign
-# tokens and need cryptography, which the framework itself never imports
-# (keepup-30).
+# otherwise nobody who clones the repository can run it (keepup-30).
+# cryptography is no longer listed here: since keepup-32 it is a real
+# dependency, brought by pyjwt[crypto].
 test = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "pytest-cov>=5",
-    "cryptography>=42",
 ]
 # The bus between replicas listens on PostgreSQL with asyncpg. Optional because
 # a single-process deployment on SQLite runs the in-memory bus instead and has

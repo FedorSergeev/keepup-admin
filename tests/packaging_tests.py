@@ -37,7 +37,7 @@ PYPROJECT = PACKAGE / "pyproject.toml"
 #: else -- an application's dependency that happens to be installed here is
 #: exactly what makes a package work in this repository and nowhere else.
 DEPENDENCY_IMPORTS = {
-    "apscheduler", "bcrypt", "fastapi", "httpx", "jose", "prometheus_client",
+    "apscheduler", "bcrypt", "fastapi", "httpx", "jwt", "prometheus_client",
     "psutil", "psycopg2", "pydantic", "requests", "sqlalchemy", "starlette",
     "yaml", "multipart",
     # Declared as an optional extra: the bus between replicas needs it on
@@ -206,7 +206,7 @@ def test_the_package_asks_for_everything_it_imports():
 def test_each_dependency_is_written_down(name):
     """Including the optional one, which is written down as an extra."""
     distribution = {
-        "jose": "python-jose", "yaml": "PyYAML", "psycopg2": "psycopg2-binary",
+        "jwt": "pyjwt", "yaml": "PyYAML", "psycopg2": "psycopg2-binary",
         "prometheus_client": "prometheus-client", "multipart": "python-multipart",
     }.get(name, name)
     assert distribution.lower() in pyproject_text().lower(), (

@@ -15,7 +15,7 @@ import bcrypt
 
 from fastapi import HTTPException
 from fastapi.security import OAuth2PasswordBearer
-from jose import jwt
+import jwt
 from starlette import status
 
 from keepup.auth.signing_key import resolve_signing_key
@@ -109,7 +109,7 @@ class AuthProvider(ABC):
         except jwt.ExpiredSignatureError:
             logger.warning("JWT token expired")
             return None
-        except jwt.JWTError as e:
+        except jwt.PyJWTError as e:
             logger.error(f"JWT error: {str(e)}")
             return None
         except Exception as e:

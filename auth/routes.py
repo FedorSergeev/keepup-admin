@@ -16,7 +16,8 @@ from typing import List, Optional
 
 import bcrypt
 from fastapi import Depends, HTTPException, Request, Response, status
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, Field, field_validator
 
 from keepup.auth import panel_session

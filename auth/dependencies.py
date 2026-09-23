@@ -17,7 +17,8 @@ from typing import Optional
 
 import bcrypt
 from fastapi import HTTPException, Depends, Request
-from jose import jwt, JWTError
+import jwt
+from jwt import PyJWTError as JWTError
 from starlette import status
 
 from keepup.auth import panel_session

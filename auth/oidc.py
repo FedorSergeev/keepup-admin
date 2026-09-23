@@ -29,7 +29,8 @@ from typing import Any, Dict, Optional, Tuple
 from urllib.parse import urlencode
 
 import httpx
-from jose import JWTError, jwt
+import jwt
+from jwt import PyJWTError as JWTError
 
 from keepup.auth.signing_key import resolve_signing_key
 
@@ -222,8 +223,18 @@ async def verify_id_token(directory: ProviderDirectory, settings, id_token: str,
     if algorithm not in ALLOWED_ALGORITHMS:
         raise SignInRefused(f"id_token signed with {algorithm!r}")
 
-    key = await directory.key_for(header.get("kid"))
+    description = await directory.key_for(header.get("kid"))
     metadata = await directory.metadata()
+
+    # The key set gives descriptions of keys, not keys. Turning one into a key
+    # is a step of its own here, and so is its refusal: a description that
+    # cannot be read is a provider publishing something we do not understand,
+    # which is worth saying plainly rather than reporting as a signature that
+    # did not match.
+    try:
+        key = jwt.PyJWK.from_dict(description)
+    except Exception as error:
+        raise SignInRefused(f"unreadable signing key {header.get('kid')!r}: {error}")
 
     try:
         claims = jwt.decode(
@@ -232,7 +243,6 @@ async def verify_id_token(directory: ProviderDirectory, settings, id_token: str,
             algorithms=[algorithm],
             audience=settings.client_id,
             issuer=metadata.issuer,
-            options={"verify_at_hash": False},
         )
     except JWTError as error:
         raise SignInRefused(f"id_token rejected: {error}")
