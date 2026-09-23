@@ -62,13 +62,26 @@ between replicas needs.
 ## Tests
 
 ```bash
-ci/tests/keepup.sh          # the framework's own suite, needs no application
+pip install -e ".[test]"
+pytest tests/
 ```
 
-The suite runs against SQLite with no network and holds a coverage floor. The
-plugin runtime is the least covered part of the framework, and deliberately so
-for now: the test that exercises it hardest stands up a real application's
-plugins and therefore lives with that application. See `doc/keepup.md`.
+**Install first, then test.** Pointing pytest at the checkout does not work on
+its own: `import keepup` has to resolve, and the directory a clone lands in is
+called `keepup-admin`, so nothing is named `keepup` until the package is
+installed. The `test` extra carries what the suite needs beyond the package —
+notably `cryptography`, which the framework itself never imports and the OIDC
+tests sign tokens with.
+
+The suite runs against SQLite with no network, needs no application beside the
+package, and holds a coverage floor declared in `pyproject.toml`. Checks that
+genuinely need a consumer of the framework find one by trait and skip with a
+reason when there is none, so a skip here always says what is missing.
+
+Every one of these runs on push and on a pull request; see `.github/workflows/`.
+`security.yml` also runs weekly, because that check goes red without anybody
+touching the repository — an advisory gets published against a version that was
+fine yesterday.
 
 ## Licence
 

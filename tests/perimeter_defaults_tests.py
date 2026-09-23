@@ -10,16 +10,15 @@ Run by path, like the other *_tests.py files:
     python3 -m pytest keepup/tests/perimeter_defaults_tests.py -v
 """
 
-import os
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 
 from keepup.factory import create_app
 from keepup.settings import KeepupSettings
 
-REPO = Path(__file__).resolve().parents[2]
+PACKAGE = Path(__file__).resolve().parents[1]
+REPO = PACKAGE.parent
 
 
 def bare_settings(**overrides):
@@ -141,7 +140,7 @@ def test_the_log_goes_where_the_application_said(tmp_path, monkeypatch):
 
 
 def test_the_source_names_no_temporary_directory():
-    source = (REPO / "keepup/logging_setup.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "logging_setup.py").read_text(encoding="utf-8")
     assert "/tmp/app_" not in source
 
 
@@ -154,7 +153,7 @@ def test_the_debug_middleware_writes_no_header_values():
     among them -- then the same again as text and as hex, and the remote
     logger shipped the lot to a collector.
     """
-    source = (REPO / "keepup/factory.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "factory.py").read_text(encoding="utf-8")
 
     assert "Raw request hex" not in source
     assert "Body hex" not in source

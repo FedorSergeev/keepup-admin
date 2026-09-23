@@ -20,10 +20,11 @@ import pytest
 from keepup.db import DatabaseManagerV2
 from keepup.themes import THEMES_TABLE, ConfigService
 
-REPO = Path(__file__).resolve().parents[2]
+PACKAGE = Path(__file__).resolve().parents[1]
+REPO = PACKAGE.parent
 
 #: What an application declares: name, page, brand, logo.
-NEBULA = ("nebula", "index_nebula.html", "servershare.io", None)
+NEBULA = ("nebula", "index_nebula.html", "example.test", None)
 
 
 @pytest.fixture
@@ -77,7 +78,6 @@ def test_importing_the_module_does_not_touch_the_database():
 def test_a_theme_declared_by_the_application_reaches_the_database(empty_themes):
     """The defect itself: a declared theme never reached the database."""
     config_service = service((NEBULA,))
-
     assert "nebula" in names_of(config_service)
 
 
@@ -87,7 +87,7 @@ def test_the_declared_theme_keeps_its_brand(empty_themes):
 
     declared = [theme for theme in config_service.get_all_themes()
                 if theme["theme_name"] == "nebula"]
-    assert declared and declared[0]["brand_name"] == "servershare.io"
+    assert declared and declared[0]["brand_name"] == "example.test"
 
 
 def test_declaring_after_the_service_is_up_still_reaches_the_database(empty_themes):
@@ -109,7 +109,7 @@ def test_a_fresh_database_wears_the_face_of_the_application(empty_themes):
     config_service = service((NEBULA,))
 
     assert active_of(config_service) == "nebula"
-    assert config_service.get_active_theme_brand()["brand_name"] == "servershare.io"
+    assert config_service.get_active_theme_brand()["brand_name"] == "example.test"
 
 
 def test_the_first_declared_theme_is_the_one_that_becomes_active(empty_themes):
@@ -161,7 +161,7 @@ def test_a_restart_keeps_the_theme_an_administrator_chose(empty_themes):
 
 def test_a_restart_does_not_overwrite_the_brand_of_an_existing_theme(empty_themes):
     """Creation is idempotent: an existing row is not rewritten."""
-    config_service = service((NEBULA,))
+    service((NEBULA,))
     DatabaseManagerV2.execute_commit(
         f"UPDATE {THEMES_TABLE} SET brand_name = :brand WHERE theme_name = :name",
         {"brand": "corrected by the administrator", "name": "nebula"},

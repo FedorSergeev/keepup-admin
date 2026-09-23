@@ -16,12 +16,12 @@ truthful answer.
 import logging
 from typing import Any, Dict, List, Optional
 
-from fastapi import HTTPException, Request, Response, status
+from fastapi import HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
 from keepup.auth import oidc, oidc_policy, panel_session
 from keepup.auth.dependencies import issue_session_token
-from keepup.db import DatabaseManager, DatabaseManagerV2, db_config
+from keepup.db import DatabaseManagerV2
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
 
 logger = logging.getLogger(__name__)

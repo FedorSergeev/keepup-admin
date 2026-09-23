@@ -18,15 +18,14 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Set, Tuple
 
 import psutil
-from fastapi import Depends, HTTPException, Query, status
+from fastapi import Depends, HTTPException, Query
 from fastapi.responses import Response as FastAPIResponse
 from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, REGISTRY, generate_latest
 from pydantic import BaseModel
 
 from keepup.auth.dependencies import get_current_admin
-from keepup.db import DatabaseManager, DatabaseManagerV2, db_config
-from keepup.instance import get_instance_id, get_instance_name
-from keepup.roles import ROLE_ADMIN
+from keepup.db import DatabaseManager, DatabaseManagerV2
+from keepup.instance import get_instance_id
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.

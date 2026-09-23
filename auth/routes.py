@@ -11,8 +11,8 @@ import inspect
 import logging
 import os
 import re
-from datetime import datetime, timedelta
-from typing import Any, Dict, List, Optional
+from datetime import datetime
+from typing import List, Optional
 
 import bcrypt
 from fastapi import Depends, HTTPException, Request, Response, status
@@ -20,30 +20,24 @@ from jose import JWTError, jwt
 from pydantic import BaseModel, Field, field_validator
 
 from keepup.auth import panel_session
-from keepup.auth.config import AuthProviderType, auth_config
 from keepup.auth.dependencies import (
     _authenticated_by_cookie,
     _bearer_of,
     authenticate,
     create_user,
-    create_access_token,
     get_all_users,
     get_current_admin,
     get_current_user,
     get_user_by_id,
-    get_user_by_username,
     get_user_by_username_async,
     issue_session_token,
     update_user,
-    verify_password,
 )
 from keepup.auth.dto.token import Token
-from keepup.auth.factory import AuthProviderFactory
-from keepup.auth.providers.base import ACCESS_TOKEN_EXPIRE_MINUTES, ALGORITHM
+from keepup.auth.providers.base import ALGORITHM
 from keepup.auth.signing_key import resolve_signing_key
-from keepup.db import DatabaseManager, DatabaseManagerV2, db_config
+from keepup.db import DatabaseManager, db_config
 from keepup.instance import get_instance_id
-from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.

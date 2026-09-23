@@ -263,7 +263,6 @@ def init_db(app_tables=None, extra_setup=None, plugins_dir=None):
     # One place creates the first-start accounts: three implementations in a
     # row had drifted apart in password, role and status -- see
     # keepup/auth/seed_accounts.py.
-    from keepup.auth.factory import AuthProviderFactory
     from keepup.auth import seed_accounts
 
     auth_source = AuthProviderFactory.get_provider().type

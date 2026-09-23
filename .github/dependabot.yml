@@ -1,0 +1,31 @@
+# Updates proposed as pull requests, so the security workflow has something to
+# go green against.
+#
+# pip-audit says a dependency has an advisory; this is what makes the fix
+# arrive. Without it, an advisory published against a version inside our ranges
+# turns the security check red and leaves somebody to notice.
+#
+# The action versions are watched too: a workflow pinned to an action that stops
+# being maintained is how CI quietly stops checking anything.
+version: 2
+
+updates:
+  - package-ecosystem: pip
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 5
+    labels: [dependencies]
+    commit-message:
+      prefix: "deps"
+
+  - package-ecosystem: github-actions
+    directory: "/"
+    schedule:
+      interval: weekly
+      day: monday
+    open-pull-requests-limit: 3
+    labels: [dependencies]
+    commit-message:
+      prefix: "ci"

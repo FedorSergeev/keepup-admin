@@ -10,15 +10,14 @@ already switched off or taken away from a role.
 import json
 from pathlib import Path
 import logging
-import os
 import time
 from typing import Any, Dict, List, Optional
 
-from fastapi import Depends, HTTPException, status
+from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
 from keepup.auth.dependencies import get_current_admin, get_current_user
-from keepup.db import DatabaseManager, DatabaseManagerV2, db_config
+from keepup.db import DatabaseManager, db_config
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.

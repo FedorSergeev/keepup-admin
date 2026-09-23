@@ -97,8 +97,8 @@ def test_the_path_is_what_the_route_matched_on():
     """
     from pathlib import Path
 
-    source = (Path(__file__).resolve().parents[2]
-              / "keepup/plugins/routes.py").read_text(encoding="utf-8")
+    source = (Path(__file__).resolve().parents[1]
+              / "plugins/routes.py").read_text(encoding="utf-8")
 
     assert source.count("params.update(request.path_params)") == 1, \
         "the path is merged in more than one place again"

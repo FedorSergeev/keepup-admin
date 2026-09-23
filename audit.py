@@ -213,7 +213,6 @@ class IncomingRequestLogger:
     @staticmethod
     async def flush_buffer() -> int:
         """Write the buffered requests to the database."""
-        from keepup.db import DatabaseManager
 
         async with incoming_requests_lock:
             if not incoming_requests_buffer:

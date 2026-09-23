@@ -28,8 +28,8 @@ import pytest
 
 from keepup.tests.repository import alongside
 
-REPO = Path(__file__).resolve().parents[2]
-PACKAGE = REPO / "keepup"
+PACKAGE = Path(__file__).resolve().parents[1]
+REPO = PACKAGE.parent
 PYPROJECT = PACKAGE / "pyproject.toml"
 
 #: Third-party distributions the framework may depend on, by import name. A

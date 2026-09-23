@@ -12,7 +12,7 @@ belong to the application.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Callable, Dict, Optional, Sequence, Tuple
+from typing import Any, Callable, Dict, Optional, Sequence
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.

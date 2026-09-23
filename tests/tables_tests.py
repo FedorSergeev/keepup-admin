@@ -133,8 +133,15 @@ def test_a_default_spelled_differently_per_dialect(catalogue):
     declared = tables.table("demo_defaults", tables.auto_id(),
                             Column("at", DateTime, server_default=tables.per_dialect(
                                 postgres="NOW()", sqlite="CURRENT_TIMESTAMP")))
-    assert "DEFAULT NOW()" in str(CreateTable(declared).compile(dialect=postgresql.dialect()))
-    assert "DEFAULT (CURRENT_TIMESTAMP)" in str(CreateTable(declared).compile(dialect=sqlite.dialect()))
+    on_postgres = str(CreateTable(declared).compile(dialect=postgresql.dialect()))
+    on_sqlite = str(CreateTable(declared).compile(dialect=sqlite.dialect()))
+
+    # Checked by what each dialect was given, not by how SQLAlchemy prints it:
+    # 2.0.36 wrapped the SQLite default in brackets and 2.0.54 does not, while
+    # the package allows any 2.0 -- so pinning the spelling failed for whoever
+    # installed a fresher one (keepup-30).
+    assert "NOW()" in on_postgres and "CURRENT_TIMESTAMP" not in on_postgres
+    assert "CURRENT_TIMESTAMP" in on_sqlite and "NOW()" not in on_sqlite
 
 
 def test_an_index_of_one_dialect_is_made_only_there(fresh_database, catalogue):

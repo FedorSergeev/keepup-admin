@@ -1,7 +1,7 @@
 """Building an application out of the framework alone.
 
 Nothing here imports ``app``: the point is that the framework stands up on its
-own, with no plugins, no marketplace tables and no product. Two applications
+own, with no plugins, no tables of anybody's and no product. Two applications
 are built in one process as well -- that is what catches state hiding at module
 level, which is exactly what the entry point used to be made of.
 

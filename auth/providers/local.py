@@ -98,10 +98,6 @@ class LocalAuthProvider(AuthProvider):
             )
 
             if user_id:
-                default_permissions = ["authenticated", "view_products", "edit_own_profile"]
-                #for permission in default_permissions:
-                #    set_user_permission(user_id, permission, True)
-
                 logger.info(f"Local user {user_data['username']} created with ID {user_id}")
                 return True
 

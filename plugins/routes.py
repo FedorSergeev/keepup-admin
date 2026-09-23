@@ -350,9 +350,33 @@ async def register_plugin_routes(app, manager):
         # tokens of their own and would be refused by the panel's sign-in rule.
         if ws_route.get('require_auth', False):
             handler = signed_in_websocket(handler)
-        app.add_websocket_route(path, handler)
+        _register_websocket(app, path, handler)
         logger.info(f"Registered WebSocket plugin route: {path} "
                     f"(auth={bool(ws_route.get('require_auth', False))})")
+
+
+def _register_websocket(app, path, handler):
+    """Register a socket route on the application, whichever Starlette it has.
+
+    The route is appended as a plain ``WebSocketRoute`` rather than through the
+    application's helpers, because neither helper works on both lines:
+    Starlette 1.0 dropped ``add_websocket_route``, and FastAPI's
+    ``add_api_websocket_route`` reads the handler's signature and refuses one
+    whose socket parameter carries no annotation -- which a plugin's handler
+    need not carry.
+
+    It is done this way rather than by pinning Starlette below 1.0, because
+    that pin is what held installations on a version with four published
+    advisories (keepup-30).
+
+    Args:
+        app: The FastAPI application.
+        path: The address the socket answers on.
+        handler: The coroutine serving the connection.
+    """
+    from starlette.routing import WebSocketRoute
+
+    app.router.routes.append(WebSocketRoute(path, handler))
 
 
 def signed_in_websocket(handler):

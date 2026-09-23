@@ -9,7 +9,7 @@ two implementations of signing are two places to get the signature wrong.
 
 import logging
 from abc import ABC, abstractmethod
-from typing import Optional, Dict, Any, List
+from typing import Optional, Dict, Any
 
 import bcrypt
 

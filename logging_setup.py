@@ -643,7 +643,7 @@ def create_logger_token(admin_token: str, collector_url: str = None,
                 "created_at": datetime.utcnow().isoformat()
             }, f, indent=2)
 
-        logger.info(f"Logger token created and saved to config/logger_token.json")
+        logger.info("Logger token created and saved to config/logger_token.json")
         return token_data['api_token']
     else:
         logger.error(f"Failed to create logger token: {response.text}")

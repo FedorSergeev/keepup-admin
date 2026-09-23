@@ -1,0 +1,62 @@
+# The package stays publishable, checked on every change rather than at a tag.
+#
+# A release is a bad moment to discover that the metadata is invalid, that a
+# data file stopped being included, or that the wheel installs but does not
+# import. All of that is cheap to check now and expensive to fix later: a
+# version on PyPI cannot be replaced, only yanked.
+name: build
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  distributions:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: python -m pip install --upgrade pip build twine
+
+      - name: Build the wheel and the source distribution
+        run: python -m build
+
+      - name: Check what the index will check
+        run: python -m twine check --strict dist/*
+
+      - name: Install the wheel somewhere with nothing of ours around it
+        # The framework's whole claim is that it stands up from settings alone.
+        # This is that claim, as one command, against the built artefact rather
+        # than against the checkout.
+        run: |
+          python -m venv /tmp/elsewhere
+          /tmp/elsewhere/bin/pip install --upgrade pip
+          /tmp/elsewhere/bin/pip install dist/*.whl
+          cd /tmp
+          /tmp/elsewhere/bin/python -c "
+          import pathlib, keepup
+          from keepup import KeepupSettings, create_app
+          app = create_app(KeepupSettings(title='Elsewhere', project_name='elsewhere',
+                                          static_mounts=(), plugin_manager=None))
+          here = pathlib.Path(keepup.__file__).parent
+          assert app.routes, 'the application came up with no routes'
+          assert here.joinpath('static/js/main_new.js').is_file(), 'the panel shell did not ship'
+          assert here.joinpath('sections.json').is_file(), 'the section catalogue did not ship'
+          print('version', keepup.__version__, 'routes', len(app.routes))
+          "
+
+      - name: Keep the distributions for the release to reuse
+        uses: actions/upload-artifact@v4
+        with:
+          name: distributions
+          path: dist/

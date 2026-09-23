@@ -27,8 +27,8 @@ import pytest
 
 from keepup.tests.repository import applications
 
-REPO = Path(__file__).resolve().parents[2]
-PACKAGE = REPO / "keepup"
+PACKAGE = Path(__file__).resolve().parents[1]
+REPO = PACKAGE.parent
 
 
 def imports_of_the_framework():
@@ -139,7 +139,7 @@ def declaring_modules():
         if "tests" in path.parts:
             continue
         if "__all__" in path.read_text(encoding="utf-8"):
-            found.append(".".join(path.relative_to(REPO).with_suffix("").parts))
+            found.append("keepup." + ".".join(path.relative_to(PACKAGE).with_suffix("").parts))
     return found
 
 

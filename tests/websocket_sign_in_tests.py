@@ -12,6 +12,7 @@ from starlette.websockets import WebSocketDisconnect
 
 from keepup.auth import dependencies, panel_session
 from keepup.auth import websocket as ws_auth
+from keepup.plugins import routes
 from keepup.plugins.registry import signed_in_websocket
 
 USERS = {"good-token": {"id": 7, "username": "anna", "role": "CLIENT"}}
@@ -38,7 +39,7 @@ def build():
         await websocket.close()
 
     app = FastAPI()
-    app.add_websocket_route("/ws/test", signed_in_websocket(handler))
+    routes._register_websocket(app, "/ws/test", signed_in_websocket(handler))
     return TestClient(app), seen
 
 

@@ -6,7 +6,6 @@ the entry point was that they can be exercised without starting a deployment.
     python3 -m pytest keepup/tests/runtime_tests.py -v
 """
 
-import asyncio
 import logging
 
 import pytest

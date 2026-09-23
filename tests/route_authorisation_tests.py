@@ -10,7 +10,6 @@ Run by path, like the other *_tests.py files:
 """
 
 import ast
-import os
 import re
 from pathlib import Path
 
@@ -22,7 +21,22 @@ from fastapi.testclient import TestClient
 
 from keepup import themes, web
 
-REPO = Path(__file__).resolve().parents[2]
+PACKAGE = Path(__file__).resolve().parents[1]
+REPO = PACKAGE.parent
+
+
+def _named(path):
+    """Path as a person would name it, whichever tree it came from.
+
+    The walk covers the package and any application beside it, so a single
+    base to make it relative to does not exist.
+    """
+    for base in (PACKAGE, REPO):
+        try:
+            return str(path.relative_to(base))
+        except ValueError:
+            continue
+    return str(path)
 
 
 class StubThemeService:
@@ -148,7 +162,7 @@ def test_the_user_dependency_takes_nothing_from_the_query():
     from keepup.auth import dependencies
 
     signature = ast.parse(
-        (REPO / "keepup/auth/dependencies.py").read_text(encoding="utf-8"))
+        (PACKAGE / "auth/dependencies.py").read_text(encoding="utf-8"))
     found = [node for node in ast.walk(signature)
              if isinstance(node, ast.AsyncFunctionDef) and node.name == "get_current_user"]
     assert found, "get_current_user is gone"
@@ -168,8 +182,8 @@ def test_the_user_dependency_takes_nothing_from_the_query():
 def test_nothing_passes_the_old_switch_any_more():
     """The one caller in the application moved to get_optional_user."""
     offenders = []
-    tests_of_the_package = REPO / "keepup" / "tests"
-    trees = [REPO / "keepup"] + some_application()
+    tests_of_the_package = PACKAGE / "tests"
+    trees = [PACKAGE] + some_application()
     for path in [p for tree in trees for p in tree.rglob("*.py")]:
         # The package's own tests name this parameter for a reason -- they
         # check that it is gone (keepup-6).
@@ -180,7 +194,7 @@ def test_nothing_passes_the_old_switch_any_more():
             if "ignore_empty_user" in line and "_get_local_user" not in line \
                     and "def _get_local_user" not in line:
                 if "get_current_user" in line or "get_optional_user(" in line:
-                    offenders.append(f"{path.relative_to(REPO)}:{number}")
+                    offenders.append(f"{_named(path)}:{number}")
     assert offenders == [], "\n".join(offenders)
 
 
@@ -192,7 +206,7 @@ def test_no_route_calls_a_plugin_handler_by_name():
     A handler is written for a caller that has already decided who may do this,
     so many of them check nothing themselves.
     """
-    source = (REPO / "keepup/plugins/registry.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "plugins/registry.py").read_text(encoding="utf-8")
     assert not re.search(r'@app\.\w+\(\s*["\']\/api\/plugins\/\{plugin_id\}\/\{handler_name\}',
                          source), "the handler route is back"
     assert "call_plugin_handler" not in source

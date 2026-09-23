@@ -20,8 +20,9 @@ from keepup import web
 from keepup.factory import create_app
 from keepup.settings import KeepupSettings
 
-REPO = Path(__file__).resolve().parents[2]
-SHELL = REPO / "keepup" / "static"
+PACKAGE = Path(__file__).resolve().parents[1]
+REPO = PACKAGE.parent
+SHELL = PACKAGE / "static"
 
 #: What the package has to carry in order to draw a panel at all.
 SHELL_FILES = (

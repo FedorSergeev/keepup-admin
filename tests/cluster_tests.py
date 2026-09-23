@@ -72,7 +72,7 @@ class Clock:
         return self.moment
 
 
-def controller(instance_id, clock=None, scheduler=None, blocker="", running=("servershare",),
+def controller(instance_id, clock=None, scheduler=None, blocker="", running=("orders",),
                pending=(), **kwargs):
     async def picture():
         return cluster.PluginPicture(list(running), list(pending))
@@ -109,7 +109,7 @@ def test_a_process_of_its_own_can_restart():
 
 
 @pytest.mark.parametrize("path, allowed", [
-    ("/api/servershare/orders", False),
+    ("/api/orders", False),
     ("/ws/agent", False),
     ("/api/admin/plugins", False),
     ("/api/auth/login", True),
@@ -178,7 +178,7 @@ def test_a_replica_keeps_one_row_however_often_it_publishes(fresh_database):
 
     members = cluster.read_members()
     assert [m["instance_id"] for m in members] == ["host-1"]
-    assert members[0]["plugins_running"] == ["servershare"]
+    assert members[0]["plugins_running"] == ["orders"]
     assert members[0]["build"] == "0.0.1 #17"
     assert members[0]["can_restart"] is True
 
@@ -300,10 +300,10 @@ def test_a_replica_that_cannot_restart_says_why_and_fails_the_command(fresh_data
 
 
 def test_plugins_awaiting_a_restart_are_published_per_replica(fresh_database):
-    run(controller("host-1", running=("servershare", "telegrambot"), pending=("telegrambot",)).tick())
+    run(controller("host-1", running=("orders", "messenger"), pending=("messenger",)).tick())
 
     published = cluster.read_member("host-1")
-    assert published["plugins_pending"] == ["telegrambot"]
+    assert published["plugins_pending"] == ["messenger"]
 
 
 # ============================== admin routes ===============================

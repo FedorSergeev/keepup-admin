@@ -22,8 +22,9 @@ import ast
 import re
 from pathlib import Path
 
-REPO = Path(__file__).resolve().parents[2]
-KEEPUP = REPO / "keepup"
+PACKAGE = Path(__file__).resolve().parents[1]
+REPO = PACKAGE.parent
+KEEPUP = PACKAGE
 
 # Written as escapes, not as the letters themselves: this file is inside the
 # package it checks, and a literal range would make the check fail on itself.
@@ -47,13 +48,13 @@ NOT_A_VALUE = re.compile(r"(_ENV$|^REASON_|_PATH$|_HEADER$|_FIELD$|_NAME$)")
 #: Places where a credential in the source is the opposite of a leak: the
 #: framework lists these in order to refuse them. Each is named with why.
 REFUSAL_LISTS = {
-    ("keepup/auth/signing_key.py", "PLACEHOLDER_KEYS"):
+    ("auth/signing_key.py", "PLACEHOLDER_KEYS"):
         "signing keys from the setup examples -- a deployment still carrying "
         "one has not been configured, and the framework refuses to start",
-    ("keepup/auth/seed_accounts.py", "RETIRED_SYSTEM_PASSWORDS"):
+    ("auth/seed_accounts.py", "RETIRED_SYSTEM_PASSWORDS"):
         "passwords earlier builds gave the system account -- an existing row "
         "holding one stops being a way in at the next start",
-    ("keepup/auth/seed_accounts.py", "RETIRED_ADMIN_PASSWORDS"):
+    ("auth/seed_accounts.py", "RETIRED_ADMIN_PASSWORDS"):
         "the administrator password earlier builds shipped, named so the "
         "start-up can say it is still in place",
 }
@@ -112,8 +113,15 @@ def keepup_tests():
 
 
 def relative(path):
-    """Path as written in the exception lists above."""
-    return str(path.relative_to(REPO))
+    """Path as written in the exception lists above.
+
+    Relative to the package, not to whatever surrounds it: in a clone of the
+    framework's own repository the checkout is called keepup-admin, and a key
+    built through the surrounding directory matched nothing there -- so the
+    exception lists silently stopped applying and the check failed on its own
+    documented refusals (keepup-30).
+    """
+    return str(path.relative_to(PACKAGE))
 
 
 # --- what the package ships besides its code ------------------------------------
@@ -418,6 +426,33 @@ def test_the_package_does_not_name_the_application():
 
 
 # --- the rules reach what the package ships beside its code ---------------------
+
+def test_no_product_is_named_in_the_package_s_own_tests():
+    """Invented test data is read by strangers too.
+
+    The tests travel in the repository and are the first thing a reader opens
+    to see what the framework does. Until keepup-30 they named a product as
+    sample data -- a brand, a plugin id, a route, a reference to another
+    repository's suite -- because the product-name check read sources and left
+    the tests to the application's own boundary test, which does not travel.
+    """
+    offenders = []
+    for path in keepup_tests():
+        if path.name in ("distribution_tests.py", "leftovers_tests.py"):
+            # These two name them in order to forbid them: leftovers_tests
+            # keeps a retired customer's name out of the package, and naming it
+            # is the only way to look for it.
+            continue
+        for number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+            lowered = line.lower()
+            for name in PRODUCT_NAMES:
+                if name in lowered:
+                    offenders.append(f"{relative(path)}:{number}: {name}")
+
+    assert offenders == [], (
+        "the package's own tests name a product built on it:\n  "
+        + "\n  ".join(offenders))
+
 
 def test_no_product_is_named_in_what_the_package_ships():
     """A script of the package is as published as its code.

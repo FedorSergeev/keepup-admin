@@ -26,8 +26,8 @@ from keepup import modules
 from keepup.db import DatabaseManagerV2
 from keepup.schema import init_db
 
-REPO = Path(__file__).resolve().parents[2]
-PACKAGE = REPO / "keepup"
+PACKAGE = Path(__file__).resolve().parents[1]
+REPO = PACKAGE.parent
 CATALOGUE = PACKAGE / "sections.json"
 
 #: What the framework ships. Named here so that adding a section to the package

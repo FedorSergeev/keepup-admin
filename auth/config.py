@@ -16,7 +16,7 @@ and silently getting local sign-in is an open door where nobody looked for one.
 import os
 from enum import Enum
 from pathlib import Path
-from typing import Any, Dict, Optional
+from typing import Any, Dict
 
 import yaml
 from pydantic import BaseModel, ConfigDict, Field

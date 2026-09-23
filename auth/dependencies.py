@@ -13,7 +13,7 @@ invented would be a different rule from the one its invitations enforce.
 import asyncio
 import logging
 from datetime import timedelta, datetime
-from typing import Optional, List, Dict
+from typing import Optional
 
 import bcrypt
 from fastapi import HTTPException, Depends, Request
@@ -26,8 +26,7 @@ from keepup.auth.factory import AuthProviderFactory
 from keepup.auth.providers.base import AuthProvider, ALGORITHM, oauth2_scheme
 from keepup.auth.signing_key import resolve_signing_key
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
-from keepup.auth.config import auth_config, AuthProviderType
-from keepup.db import DatabaseManager, db_config, DatabaseManagerV2
+from keepup.db import DatabaseManager, db_config
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.

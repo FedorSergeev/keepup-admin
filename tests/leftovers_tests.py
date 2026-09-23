@@ -18,7 +18,8 @@ from keepup import tables
 from keepup.db import DatabaseManager, DatabaseManagerV2
 from keepup.schema import init_db
 
-REPO = Path(__file__).resolve().parents[2]
+PACKAGE = Path(__file__).resolve().parents[1]
+REPO = PACKAGE.parent
 KEEPUP = Path(__file__).resolve().parents[1]
 
 
@@ -61,7 +62,7 @@ def test_no_customer_of_an_earlier_project_is_named_in_the_repository():
 
 
 def test_the_legacy_connection_helper_is_gone():
-    source = (REPO / "keepup/db.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "db.py").read_text(encoding="utf-8")
     assert "def get_db_connection" not in source
 
 
@@ -74,7 +75,7 @@ def test_the_interval_is_not_built_out_of_a_string_literal():
     left the literal. Nothing exploited it only because the one caller passes
     an int from a bounded query parameter -- and the method is public.
     """
-    source = (REPO / "keepup/events.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "events.py").read_text(encoding="utf-8")
     # The statements themselves, not the comment above them that quotes the
     # old shape in order to explain it.
     statements = "\n".join(line for line in source.splitlines()
@@ -168,6 +169,6 @@ def test_the_local_provider_reads_tokens_with_the_library_the_package_declares()
     decode(), so the call fell into `except Exception` and returned None: the
     path was closed by accident rather than by decision.
     """
-    source = (REPO / "keepup/auth/providers/local.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "auth/providers/local.py").read_text(encoding="utf-8")
     assert "\nimport jwt\n" not in source
     assert "from jose import jwt" in source

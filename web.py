@@ -19,8 +19,8 @@ from keepup import cluster
 from keepup.api_versions import describe
 from keepup.audit import incoming_requests_buffer
 from keepup.auth.dependencies import get_current_admin
-from keepup.db import DatabaseManager, db_config
-from keepup.instance import get_instance_id, get_instance_name
+from keepup.db import DatabaseManager
+from keepup.instance import get_instance_id
 from keepup.themes import config_service
 
 logger = logging.getLogger(__name__)
@@ -164,7 +164,6 @@ def register_web_routes(app):
     @app.get("/api/versions")
     async def api_versions():
         """Which versions of the API this server speaks; public, read by agents at start."""
-        from keepup.api_versions import describe
         return describe()
     @app.get("/api/admin/health")
     async def admin_health_check(admin: dict = Depends(get_current_admin)):

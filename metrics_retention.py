@@ -20,7 +20,7 @@ import logging
 import os
 from dataclasses import dataclass
 from datetime import datetime, timedelta
-from typing import Any, Dict, Iterable, List, Optional, Sequence, Tuple
+from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from keepup.db import DatabaseManagerV2
 from keepup.metrics import PANEL_HISTORY_HOURS, SNAPSHOT_METRIC_NAMES

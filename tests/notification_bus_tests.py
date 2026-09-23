@@ -1,8 +1,8 @@
 """The replicas' notification bus as a capability of the framework.
 
-The transport's own rules (echo, envelope limit, a failing publish) are covered
-against ServerShare's facade in tests/servershare_notification_bus_tests.py;
-what is checked here is what makes it a framework capability: it carries no
+The transport's own rules -- echo, the envelope limit, a failing publish -- are
+covered by the application that installed the bus, against its own facade; what
+is checked here is what makes it a framework capability: it carries no
 channel of any product, an application switches it on with one setting, and
 the framework installs it before anything that subscribes and removes it after.
 

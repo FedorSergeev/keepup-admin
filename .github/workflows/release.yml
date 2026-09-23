@@ -1,0 +1,68 @@
+# Publishing a tag to PyPI without a long-lived token.
+#
+# Upload is authorised by Trusted Publishing: PyPI is told once that this
+# workflow, in this repository, may publish this project, and each run then
+# exchanges a short-lived OIDC token for upload rights. Nothing is stored -- no
+# token in a secret, none in anybody's ~/.pypirc.
+#
+# ONE-TIME SETUP, without which this workflow fails at the upload step:
+#   pypi.org -> the project -> Settings -> Publishing -> Add a new publisher
+#     Owner: FedorSergeev     Repository: keepup-admin
+#     Workflow: release.yml   Environment: pypi
+# Until that exists, cut a release by hand with twine instead.
+#
+# The tag is the trigger, and the version is not taken from it: the version is
+# what pyproject.toml declares, and the job refuses a tag that disagrees. A tag
+# that says one thing while the metadata says another is how a release gets
+# published under the wrong number.
+name: release
+
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  publish:
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      # The OIDC token PyPI checks. Nothing else is needed, and nothing else
+      # should be granted.
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: python -m pip install --upgrade pip build twine
+
+      - name: The tag and the metadata must agree
+        if: startsWith(github.ref, 'refs/tags/v')
+        run: |
+          set -eu
+          tagged="${GITHUB_REF_NAME#v}"
+          declared=$(python -c "
+          import tomllib, pathlib
+          print(tomllib.loads(pathlib.Path('pyproject.toml').read_text())['project']['version'])
+          ")
+          if [ "$tagged" != "$declared" ]; then
+            echo "::error::tag $GITHUB_REF_NAME says $tagged, pyproject.toml says $declared"
+            exit 1
+          fi
+          echo "publishing $declared"
+
+      - name: Build and check
+        run: |
+          python -m build
+          python -m twine check --strict dist/*
+
+      - name: Publish
+        uses: pypa/gh-action-pypi-publish@release/v1

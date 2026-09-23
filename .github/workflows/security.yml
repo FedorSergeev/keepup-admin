@@ -1,0 +1,44 @@
+# Known vulnerabilities in what an installation of this package pulls in.
+#
+# It runs on a schedule as well as on changes, because this check goes red
+# without anybody touching the repository: an advisory is published against a
+# version that was fine yesterday. That is the point of it. The first run of
+# this workflow would have found four advisories against the Starlette line the
+# package used to pin itself to, and a pin that made the fixed version
+# uninstallable (keepup-30).
+name: security
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    # Mondays, 06:00 UTC. A weekly answer to "is what we ship still clean".
+    - cron: "0 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  dependencies:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install the package as a consumer would
+        # pip itself is upgraded first: the runner's own pip is otherwise
+        # reported as vulnerable, which is true and none of this package's
+        # business.
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -e .
+          python -m pip install pip-audit
+
+      - name: Audit the installed dependency set
+        run: python -m pip_audit --progress-spinner off --strict

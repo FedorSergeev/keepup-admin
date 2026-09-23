@@ -24,7 +24,8 @@ from keepup.plugins.base import (
 )
 from keepup.plugins.admin import get_plugins_status
 
-REPO = Path(__file__).resolve().parents[2]
+PACKAGE = Path(__file__).resolve().parents[1]
+REPO = PACKAGE.parent
 
 PLUGIN_TEMPLATE = '''
 from keepup.plugins.base import BasePlugin

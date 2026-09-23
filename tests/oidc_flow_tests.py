@@ -71,7 +71,10 @@ def begin(client):
     response = client.get("/api/auth/oidc/login")
     assert response.status_code == 303, response.text
     query = parse_qs(urlparse(response.headers["location"]).query)
-    flow = oidc.read_flow_token(response.cookies[oidc.FLOW_COOKIE])
+    # Read, not kept: what matters is that the cookie just issued can be read
+    # at all -- an unreadable one would leave the return from the provider
+    # with nothing to be checked against.
+    assert oidc.read_flow_token(response.cookies[oidc.FLOW_COOKIE])
     return query["state"][0], query["nonce"][0], response.cookies[oidc.FLOW_COOKIE]
 
 
