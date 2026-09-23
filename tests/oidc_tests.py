@@ -40,10 +40,8 @@ def rsa_pair(kid):
         serialization.PrivateFormat.PKCS8,
         serialization.NoEncryption(),
     ).decode()
-    public_pem = key.public_key().public_bytes(
-        serialization.Encoding.PEM,
-        serialization.PublicFormat.SubjectPublicKeyInfo,
-    ).decode()
+    # The public half goes out as a JWK, the way a provider publishes it --
+    # no PEM of it is needed since the key set is what the framework reads.
     public_jwk = dict(RSAAlgorithm.to_jwk(key.public_key(), as_dict=True), kid=kid)
     return private_pem, public_jwk
 
