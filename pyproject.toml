@@ -54,7 +54,7 @@ dependencies = [
     "sqlalchemy>=2.0,<3",
     "psycopg2-binary>=2.9",
     "apscheduler>=3.10,<4",
-    "bcrypt>=4.0,<5",
+    "bcrypt>=4.0,<6",
     # PyJWT rather than python-jose: the latter pulls `ecdsa` unconditionally,
     # and `ecdsa` carries an advisory with no fixed version at all. The path to
     # it was reachable -- sign-in through a provider allows the ES curves that
