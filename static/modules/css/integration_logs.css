@@ -1,0 +1,33 @@
+.integration-logs-table {
+    font-size: 0.875rem;
+}
+
+.integration-logs-table th {
+    background-color: #f9fafb;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.log-detail-pre {
+    white-space: pre-wrap;
+    word-break: break-all;
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', monospace;
+    font-size: 0.75rem;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+}
+
+@media (max-width: 768px) {
+    .stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .integration-logs-table {
+        font-size: 0.75rem;
+    }
+}

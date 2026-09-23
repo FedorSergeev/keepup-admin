@@ -1,0 +1,104 @@
+{
+  "_comment": "The panel sections the framework itself ships (task keepup-4). An application does not declare them: the package enters them into the catalogue at start-up, and the application only grants them to roles where the defaults are not enough. The declarations were carried over from config/modules.json whole -- handlerFunction, routePath, sectionId and adminOnly drive the panel's navigation, and rewriting them from memory has already cost one broken run.",
+  "modules": [
+    {
+      "id": "users",
+      "name": "Users",
+      "js": "/keepup-static/modules/js/users.js",
+      "css": "/keepup-static/modules/css/users.css",
+      "initFunction": "renderUsers",
+      "description": "Accounts, roles and sessions",
+      "version": "1.0.0"
+    },
+    {
+      "id": "modules_management",
+      "name": "Panel sections",
+      "description": "The catalogue of panel sections and which roles are granted them",
+      "version": "1.0.0",
+      "config": {
+        "adminOnly": true
+      },
+      "js": "/keepup-static/modules/js/modules.js",
+      "css": "/keepup-static/modules/css/modules.css",
+      "initFunction": "renderModules"
+    },
+    {
+      "id": "cluster",
+      "name": "Cluster",
+      "description": "Application replicas, their plugins and state; stop, start and restart a replica from the panel",
+      "version": "1.0.0",
+      "js": "/keepup-static/modules/js/cluster.js",
+      "css": "/keepup-static/modules/css/cluster.css",
+      "initFunction": "initClusterModule",
+      "handlerFunction": "showClusterSection",
+      "routePath": "/selfcare/modules/cluster",
+      "sectionId": "cluster-section",
+      "config": {},
+      "adminOnly": true
+    },
+    {
+      "id": "metrics",
+      "name": "System metrics",
+      "description": "CPU and memory load per replica",
+      "version": "1.0.0",
+      "js": "/keepup-static/modules/js/metrics.js",
+      "css": "/keepup-static/modules/css/metrics.css",
+      "initFunction": "renderMetrics"
+    },
+    {
+      "id": "themes",
+      "name": "Visual themes",
+      "description": "Manage the visual themes of the interface",
+      "version": "1.0.0",
+      "js": "/keepup-static/modules/js/themes.js",
+      "css": "/keepup-static/modules/css/themes.css",
+      "initFunction": "initThemesModule",
+      "handlerFunction": "showThemesSection",
+      "routePath": "/selfcare/modules/themes",
+      "sectionId": "themes-section"
+    },
+    {
+      "id": "event_manager",
+      "name": "System events",
+      "description": "The application's own event log",
+      "initFunction": "initAuditModule",
+      "css": "/keepup-static/modules/css/event_manager.css",
+      "js": "/keepup-static/modules/js/event_manager.js",
+      "version": "1.0.0"
+    },
+    {
+      "id": "background_tasks",
+      "name": "Background tasks",
+      "description": "Scheduled jobs and the distributed locks they hold",
+      "version": "1.0.0",
+      "js": "/keepup-static/modules/js/background_tasks.js",
+      "css": "/keepup-static/modules/css/background_tasks.css",
+      "initFunction": "initBackgroundTasks"
+    },
+    {
+      "id": "integration_logs",
+      "name": "Integration log",
+      "description": "Calls this application makes to outside systems",
+      "version": "1.0.0",
+      "js": "/keepup-static/modules/js/integration_logs.js",
+      "css": "/keepup-static/modules/css/integration_logs.css",
+      "initFunction": "initIntegrationLogs"
+    }
+  ],
+  "roles": [
+    {
+      "_comment": "These are the administrator's own tools: a panel where the administrator cannot see the users section is not an admin panel. What is granted here can be taken away in the panel, and the sync does not put it back.",
+      "name": "ADMIN",
+      "modules": [
+        "users",
+        "modules_management",
+        "cluster",
+        "metrics",
+        "themes",
+        "event_manager",
+        "background_tasks",
+        "integration_logs"
+      ]
+    }
+  ]
+}

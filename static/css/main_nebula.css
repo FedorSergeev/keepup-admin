@@ -1,0 +1,232 @@
+/* ==========================================================================
+   Theme: nebula
+
+   The night palette of the project's public page (static/main.html, served as
+   the public site). Values are taken from the application's own stylesheet, where they are
+   already declared as variables, rather than matched by eye.
+
+   This file only redefines tokens and adds the background effects. The chrome
+   rules themselves live in main_new.css and are written against var(), so a
+   theme is a set of values, not a second copy of the rules. Load order in
+   index_nebula.html: tailwind -> main_new.css -> this file.
+   ========================================================================== */
+:root {
+    /* Palette of static/css/style.css */
+    --nebula-bg: #030305;
+    --nebula-surface: rgba(255, 255, 255, 0.03);
+    --nebula-surface-hover: rgba(255, 255, 255, 0.05);
+    --nebula-border: rgba(255, 255, 255, 0.08);
+    --nebula-border-hover: rgba(255, 255, 255, 0.15);
+    --nebula-text: #e2e8f0;
+    --nebula-text-dim: #94a3b8;
+    /* The ink of the content area. In this theme the area stays light, so its
+       text is dark: --nebula-text is meant for the sidebar. */
+    --nebula-ink: #0f172a;
+    --nebula-cyan: #06b6d4;
+    --nebula-violet: #8b5cf6;
+
+    /* Chrome tokens, mapped onto that palette */
+    --sidebar-bg: rgba(3, 3, 5, 0.72);
+    --sidebar-fg: var(--nebula-text);
+    --sidebar-header-bg: transparent;
+    --sidebar-width: 16rem;
+    --sidebar-width-collapsed: 72px;
+
+    --nav-item-padding: 0.7rem 1.25rem;
+    --nav-item-padding-collapsed: 0.7rem;
+    --nav-item-radius: 12px;
+    --nav-item-fg: var(--nebula-text-dim);
+    --nav-item-bg: transparent;
+    --nav-item-fg-hover: #ffffff;
+    /* Hover and the active state are painted in the theme's own cyan. The
+       white film of --surface-hover reads on the public page's panels, but on
+       a menu row it is barely a difference against the background, and blue
+       belongs to another theme. */
+    --nav-item-bg-hover: rgba(6, 182, 212, 0.16);
+    --nav-item-fg-active: #ffffff;
+    --nav-item-bg-active: rgba(6, 182, 212, 0.24);
+    --nav-item-icon-gap: 0.75rem;
+
+    --modules-nav-max-height: calc(100vh - 200px);
+    --modules-nav-padding: 8px 10px 16px;
+    --sidebar-scrollbar-track: rgba(255, 255, 255, 0.04);
+    --sidebar-scrollbar-thumb: var(--nebula-cyan);
+    --sidebar-scrollbar-thumb-hover: var(--nebula-violet);
+
+    --chrome-transition: all 0.3s ease;
+
+    /* Adaptive layout. Only values -- the drawer rules themselves live in
+       main_new.css. The sidebar background is translucent here, which reads
+       well against the page but not over content the drawer floats above, so
+       the drawer gets a near-opaque variant of the same colour. */
+    --drawer-bg: rgba(3, 3, 5, 0.96);
+    --backdrop-color: rgba(3, 3, 5, 0.72);
+    --sidebar-blur: 16px;
+    --nebula-orb-size: 500px;
+    --nebula-orb-blur: 100px;
+}
+
+/* Narrow layout drops the expensive effects rather than shrinking them: a
+   16px backdrop-filter behind an opaque drawer buys nothing, and two blurred
+   orbs wider than the viewport cost a phone GPU a repaint per scroll. */
+:root.is-narrow {
+    --sidebar-blur: 0px;
+    --nebula-orb-size: 280px;
+    --nebula-orb-blur: 60px;
+}
+
+body {
+    background-color: var(--nebula-bg);
+    color: var(--nebula-text);
+}
+
+/* --------------------------------------------------------------------------
+   Background effects, ported from the public page: two blurred orbs and a
+   masked grid. Fixed and non-interactive, so they never intercept clicks.
+   -------------------------------------------------------------------------- */
+.nebula-bg {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    overflow: hidden;
+}
+
+.nebula-grid {
+    position: absolute;
+    inset: 0;
+    background-size: 60px 60px;
+    background-image:
+        linear-gradient(to right, rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+        linear-gradient(to bottom, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+    mask-image: radial-gradient(circle at 50% 50%, black 20%, transparent 80%);
+    -webkit-mask-image: radial-gradient(circle at 50% 50%, black 20%, transparent 80%);
+}
+
+.nebula-orb {
+    position: absolute;
+    border-radius: 50%;
+    filter: blur(var(--nebula-orb-blur, 100px));
+    opacity: 0.3;
+    animation: nebula-float 12s infinite ease-in-out;
+}
+
+.nebula-orb-1 {
+    width: var(--nebula-orb-size, 500px);
+    height: var(--nebula-orb-size, 500px);
+    background: radial-gradient(circle, var(--nebula-cyan), transparent 70%);
+    top: -120px;
+    left: -120px;
+}
+
+.nebula-orb-2 {
+    width: calc(var(--nebula-orb-size, 500px) * 1.2);
+    height: calc(var(--nebula-orb-size, 500px) * 1.2);
+    background: radial-gradient(circle, var(--nebula-violet), transparent 70%);
+    bottom: -180px;
+    right: -180px;
+    animation-delay: -6s;
+}
+
+@keyframes nebula-float {
+    0%, 100% { transform: translate(0, 0); }
+    50% { transform: translate(40px, -40px); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .nebula-orb {
+        animation: none;
+    }
+}
+
+/* --------------------------------------------------------------------------
+   Chrome details that the palette alone cannot express.
+   -------------------------------------------------------------------------- */
+#sidebar {
+    border-right: 1px solid var(--nebula-border);
+    backdrop-filter: blur(var(--sidebar-blur, 16px));
+}
+
+/* The hairline above the menu, as on the public page's panels. */
+#main-nav {
+    position: relative;
+}
+
+#main-nav::before {
+    content: "";
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 1px;
+    background: linear-gradient(90deg, transparent, var(--nebula-cyan), transparent);
+    opacity: 0.6;
+}
+
+.nav-item:hover {
+    border-color: var(--nebula-border-hover);
+}
+
+.nav-item.active {
+    box-shadow: inset 2px 0 0 var(--nebula-cyan);
+}
+
+.toggle-sidebar-btn {
+    color: var(--nebula-text-dim);
+}
+
+.toggle-sidebar-btn:hover {
+    color: var(--nebula-text);
+}
+
+/* Logo: white word with an accented suffix, as in .logo/.logo .accent. */
+.logo-text {
+    font-weight: 800;
+    letter-spacing: -0.03em;
+    color: #ffffff;
+}
+
+.logo-text .accent {
+    color: var(--nebula-cyan);
+}
+
+.logo-text .logo-image {
+    max-height: 28px;
+    width: auto;
+    display: block;
+}
+
+/* --------------------------------------------------------------------------
+   Content area. The admin panel's own widgets come from main_new.css and the
+   module stylesheets; here only the surfaces that would otherwise stay light
+   on a near-black background.
+   -------------------------------------------------------------------------- */
+.main-content {
+    color: var(--nebula-ink);
+}
+
+/* Sections hang their modals on <body> rather than inside .main-content, so
+   the ink of the content area never reached them: a white card kept
+   --nebula-text, the colour of the dark sidebar, and could not be read. The
+   colour is therefore set on the overlay itself -- descendants that carry a
+   colour class of their own (text-gray-500 and the like) keep it, since a
+   class always beats inheritance.
+
+   The sign-in window covers the page the same way, but through its own
+   .auth-block class rather than the .fixed utility, so the same rule did not
+   reach it: on a white card the login and password fields -- the only things
+   in it with no colour class of their own -- inherited the dark panel's
+   colour and read as pale grey. */
+body > .fixed,
+.auth-block {
+    color: var(--nebula-ink);
+}
+
+.main-content header,
+.content-section {
+    background-color: transparent;
+}
+
+.section-title {
+    color: var(--nebula-ink);
+}

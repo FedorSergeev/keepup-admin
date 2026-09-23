@@ -1,0 +1,278 @@
+/* Styles of the users section only */
+.users-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.users-table th,
+.users-table td {
+    padding: 12px;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.users-table th {
+    background-color: #f9fafb;
+    font-weight: 600;
+    color: #374151;
+}
+
+.user-actions {
+    min-width: 300px;
+}
+
+.user-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 4px;
+    font-weight: 500;
+    transition: all 0.2s;
+    cursor: pointer;
+    white-space: nowrap;
+}
+
+.user-action-btn:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+.btn-block {
+    background-color: #dc2626;
+    color: white;
+    border: 1px solid #dc2626;
+}
+
+.btn-block:hover {
+    background-color: #b91c1c;
+    border-color: #b91c1c;
+}
+
+.btn-activate {
+    background-color: #059669;
+    color: white;
+    border: 1px solid #059669;
+}
+
+.btn-activate:hover {
+    background-color: #047857;
+    border-color: #047857;
+}
+
+.btn-make-admin {
+    background-color: #7c3aed;
+    color: white;
+    border: 1px solid #7c3aed;
+}
+
+.btn-make-admin:hover {
+    background-color: #6d28d9;
+    border-color: #6d28d9;
+}
+
+.btn-make-client {
+    background-color: #f59e0b;
+    color: white;
+    border: 1px solid #f59e0b;
+}
+
+.btn-make-client:hover {
+    background-color: #d97706;
+    border-color: #d97706;
+}
+
+.btn-change-password {
+    background-color: #2563eb;
+    color: white;
+    border: 1px solid #2563eb;
+}
+
+.btn-change-password:hover {
+    background-color: #1d4ed8;
+    border-color: #1d4ed8;
+}
+
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.status-active {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-blocked {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+}
+
+.role-admin {
+    background-color: #ede9fe;
+    color: #5b21b6;
+}
+
+.role-client {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.users-table tr:hover {
+    background-color: #f9fafb;
+}
+
+.user-actions {
+    display: flex;
+    gap: 8px;
+    flex-wrap: wrap;
+}
+
+.user-action-btn {
+    padding: 4px 8px;
+    border-radius: 4px;
+    font-size: 12px;
+    font-weight: 500;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+
+.user-action-btn:hover {
+    transform: translateY(-1px);
+}
+
+.btn-activate {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.btn-activate:hover {
+    background-color: #bbf7d0;
+}
+
+.btn-block {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.btn-block:hover {
+    background-color: #fecaca;
+}
+
+.btn-make-admin {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.btn-make-admin:hover {
+    background-color: #bfdbfe;
+}
+
+.btn-make-client {
+    background-color: #f3e8ff;
+    color: #7e22ce;
+}
+
+.btn-make-client:hover {
+    background-color: #e9d5ff;
+}
+
+.user-tariff-info {
+    min-width: 200px;
+}
+
+.tariff-dropdown {
+    font-size: 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    background-color: white;
+}
+
+.user-action-btn {
+    border: none;
+    border-radius: 0.25rem;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    cursor: pointer;
+    transition: background-color 0.2s;
+}
+
+.btn-block {
+    background-color: #fef2f2;
+    color: #dc2626;
+}
+
+.btn-block:hover {
+    background-color: #fee2e2;
+}
+
+.btn-activate {
+    background-color: #f0fdf4;
+    color: #16a34a;
+}
+
+.btn-activate:hover {
+    background-color: #dcfce7;
+}
+
+.btn-make-admin {
+    background-color: #eff6ff;
+    color: #2563eb;
+}
+
+.btn-make-admin:hover {
+    background-color: #dbeafe;
+}
+
+.btn-make-client {
+    background-color: #faf5ff;
+    color: #7c3aed;
+}
+
+.btn-make-client:hover {
+    background-color: #f3e8ff;
+}
+
+.status-badge, .role-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.375rem;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.status-active {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.status-blocked {
+    background-color: #fecaca;
+    color: #991b1b;
+}
+
+.role-admin {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.role-client {
+    background-color: #f3e8ff;
+    color: #7c3aed;
+}

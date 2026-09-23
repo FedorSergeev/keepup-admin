@@ -1,0 +1,31 @@
+# The rules of the repository this package used to live in stop at its edge:
+# a parent's .gitignore does not reach inside a submodule. Everything the
+# framework's own work leaves behind is therefore listed here, or it would be
+# published along with the package.
+
+# Byte code and interpreter caches
+__pycache__/
+*.py[cod]
+*.so
+
+# What `python -m build` leaves next to pyproject.toml
+build/
+dist/
+*.egg-info/
+
+# Test runs
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+
+# The minified copy of the panel shell, built by the application's
+# minify_frontend.sh and never committed.
+static.min/
+
+# Local environments and editors
+.venv/
+venv/
+.idea/
+.vscode/
+.DS_Store

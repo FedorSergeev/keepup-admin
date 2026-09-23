@@ -1,0 +1,16 @@
+/* cluster.css -- the Cluster section (role ADMIN).
+      Its own section only: the panel's chrome belongs to the theme. */
+
+#cluster-section .cluster-admin {
+    animation: clusterFadeIn 0.2s ease-out;
+}
+
+#cluster-section .responsive-table td,
+#cluster-section .responsive-table th {
+    vertical-align: top;
+}
+
+@keyframes clusterFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}

@@ -1,0 +1,386 @@
+/* audit_module.css -- styles for the event log section */
+
+/* The event log section itself */
+#audit-section {
+    animation: fadeIn 0.3s ease;
+}
+
+/* Appearance animation */
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* Event cards */
+.audit-event {
+    transition: all 0.2s ease;
+    cursor: pointer;
+}
+
+.audit-event:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -2px rgba(0, 0, 0, 0.05);
+}
+
+/* Event types -- the colours themselves are set from the script, as classes */
+.bg-green-100.text-green-800 {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.bg-gray-100.text-gray-800 {
+    background-color: #f3f4f6;
+    color: #1f2937;
+}
+
+.bg-blue-100.text-blue-800 {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.bg-red-100.text-red-800 {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.bg-yellow-100.text-yellow-800 {
+    background-color: #fef9c3;
+    color: #854d0e;
+}
+
+.bg-purple-100.text-purple-800 {
+    background-color: #ede9fe;
+    color: #5b21b6;
+}
+
+.bg-indigo-100.text-indigo-800 {
+    background-color: #e0e7ff;
+    color: #3730a3;
+}
+
+/* The container holding an event's data */
+#audit-events-container {
+    min-height: 400px;
+}
+
+/* Preformatted text (JSON) */
+#audit-events-container pre {
+    font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Consolas', monospace;
+    font-size: 12px;
+    line-height: 1.5;
+    white-space: pre-wrap;
+    word-wrap: break-word;
+    background-color: #f9fafb;
+    border: 1px solid #e5e7eb;
+}
+
+/* Action buttons */
+.audit-event button {
+    transition: all 0.2s ease;
+}
+
+.audit-event button:hover {
+    transform: translateX(2px);
+}
+
+/* Pagination */
+#audit-pagination button {
+    transition: all 0.2s ease;
+    min-width: 40px;
+}
+
+#audit-pagination button:hover:not(:disabled) {
+    background-color: #f3f4f6;
+    transform: translateY(-1px);
+}
+
+#audit-pagination button:active:not(:disabled) {
+    transform: translateY(0);
+}
+
+#audit-pagination button:disabled {
+    cursor: not-allowed;
+    opacity: 0.5;
+}
+
+/* Filters */
+#audit-filters-form select,
+#audit-filters-form input {
+    transition: all 0.2s ease;
+}
+
+#audit-filters-form select:focus,
+#audit-filters-form input:focus {
+    outline: none;
+    ring: 2px solid #3b82f6;
+    border-color: #3b82f6;
+}
+
+/* Statistics cards */
+#audit-stats-container .bg-blue-50,
+#audit-stats-container .bg-green-50,
+#audit-stats-container .bg-purple-50 {
+    transition: all 0.2s ease;
+}
+
+#audit-stats-container .bg-blue-50:hover,
+#audit-stats-container .bg-green-50:hover,
+#audit-stats-container .bg-purple-50:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);
+}
+
+/* Progress bars */
+.bg-gray-200 {
+    background-color: #e5e7eb;
+}
+
+.bg-blue-600 {
+    background-color: #2563eb;
+}
+
+.rounded-full {
+    border-radius: 9999px;
+}
+
+.h-2 {
+    height: 0.5rem;
+}
+
+/* The loading indicator's animation */
+@keyframes spin {
+    from {
+        transform: rotate(0deg);
+    }
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+.animate-spin {
+    animation: spin 1s linear infinite;
+}
+
+/* Notifications, where the shared ones are not used */
+.audit-notification {
+    position: fixed;
+    top: 20px;
+    right: 20px;
+    z-index: 1000;
+    animation: slideIn 0.3s ease;
+}
+
+@keyframes slideIn {
+    from {
+        transform: translateX(100%);
+        opacity: 0;
+    }
+    to {
+        transform: translateX(0);
+        opacity: 1;
+    }
+}
+
+/* Narrow layout, for phones */
+@media (max-width: 768px) {
+    #audit-section .flex.justify-between {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    #audit-section .flex.space-x-2 {
+        justify-content: flex-start;
+    }
+
+    .audit-event {
+        margin-bottom: 1rem;
+    }
+
+    #audit-pagination .flex {
+        flex-wrap: wrap;
+        gap: 0.5rem;
+    }
+
+    #audit-pagination button {
+        padding: 0.5rem 0.75rem;
+        font-size: 0.875rem;
+    }
+
+    #audit-filters-form {
+        grid-template-columns: 1fr;
+    }
+}
+
+/* The scrollbar inside pre blocks */
+#audit-events-container pre::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+#audit-events-container pre::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#audit-events-container pre::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 4px;
+}
+
+#audit-events-container pre::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+
+/* The empty state */
+#audit-events-container .text-center {
+    padding: 3rem;
+}
+
+#audit-events-container .text-center i {
+    opacity: 0.5;
+}
+
+/* Active filters */
+.bg-gray-100.px-2.py-1.rounded {
+    font-size: 0.75rem;
+    background-color: #f3f4f6;
+    transition: all 0.2s ease;
+}
+
+.bg-gray-100.px-2.py-1.rounded:hover {
+    background-color: #e5e7eb;
+}
+
+/* The reset filters button */
+.text-red-600.hover\:text-red-800 {
+    transition: color 0.2s ease;
+}
+
+/* The confirmation modal */
+.audit-modal {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background-color: rgba(0, 0, 0, 0.5);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 1050;
+    animation: fadeIn 0.2s ease;
+}
+
+.audit-modal-content {
+    background: white;
+    border-radius: 0.5rem;
+    max-width: 500px;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideUp 0.3s ease;
+}
+
+@keyframes slideUp {
+    from {
+        transform: translateY(50px);
+        opacity: 0;
+    }
+    to {
+        transform: translateY(0);
+        opacity: 1;
+    }
+}
+
+/* The export table */
+.audit-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.audit-table th,
+.audit-table td {
+    padding: 0.75rem;
+    text-align: left;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.audit-table th {
+    background-color: #f9fafb;
+    font-weight: 600;
+}
+
+.audit-table tr:hover {
+    background-color: #f9fafb;
+}
+
+/* Status badges */
+.status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 9999px;
+}
+
+.status-active {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-blocked {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.role-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.5rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+    border-radius: 9999px;
+}
+
+.role-admin {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+.role-client {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+/* Tooltips */
+[data-tooltip] {
+    position: relative;
+    cursor: help;
+}
+
+[data-tooltip]:before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.5rem;
+    background-color: #1f2937;
+    color: white;
+    font-size: 0.75rem;
+    white-space: nowrap;
+    border-radius: 0.25rem;
+    display: none;
+    z-index: 10;
+}
+
+[data-tooltip]:hover:before {
+    display: block;
+}
