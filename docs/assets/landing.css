@@ -1,0 +1,318 @@
+/*
+ * Styles of the project's front page.
+ *
+ * The palette is the panel's night theme (static/css/main_nebula.css), which
+ * is itself the palette of the public page: a reader who arrives here and then
+ * signs into a panel built on the framework sees one project, not two.
+ *
+ * Nothing is loaded from outside -- no font, no framework, no reset. The page
+ * has to render identically from a working tree and from the published site,
+ * and a page that fetches a stylesheet from elsewhere renders as unstyled text
+ * without a network. The panel's own Tailwind build is not reused for the same
+ * reason: it is package data, and this page is not part of the package.
+ */
+
+:root {
+    --bg: #030305;
+    --surface: rgba(255, 255, 255, 0.03);
+    --surface-hover: rgba(255, 255, 255, 0.05);
+    --border: rgba(255, 255, 255, 0.08);
+    --border-hover: rgba(255, 255, 255, 0.15);
+    --text: #e2e8f0;
+    --text-dim: #94a3b8;
+    --cyan: #06b6d4;
+    --violet: #8b5cf6;
+
+    --page-width: 62rem;
+    --radius: 14px;
+    --orb-size: 500px;
+    --orb-blur: 100px;
+}
+
+*,
+*::before,
+*::after {
+    box-sizing: border-box;
+}
+
+html {
+    -webkit-text-size-adjust: 100%;
+}
+
+body {
+    margin: 0;
+    padding: 0 1.5rem 4rem;
+    background-color: var(--bg);
+    color: var(--text);
+    font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    font-size: 17px;
+    line-height: 1.65;
+}
+
+/* Two blurred orbs behind everything, fixed so scrolling does not move the
+ * light. Ported from the panel's night theme rather than invented here. */
+.backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: -1;
+    pointer-events: none;
+    background:
+        radial-gradient(var(--orb-size) var(--orb-size) at 15% -10%, rgba(6, 182, 212, 0.18), transparent 70%),
+        radial-gradient(var(--orb-size) var(--orb-size) at 90% 10%, rgba(139, 92, 246, 0.16), transparent 70%);
+    filter: blur(calc(var(--orb-blur) / 2));
+}
+
+a {
+    color: var(--cyan);
+    text-decoration: none;
+}
+
+a:hover {
+    text-decoration: underline;
+}
+
+code {
+    font-family: ui-monospace, SFMono-Regular, "SF Mono", Menlo, Consolas, monospace;
+    font-size: 0.92em;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    /* Narrow on purpose: wider padding reads as a space before the
+     * punctuation that follows an inline `code`. */
+    padding: 0.1em 0.25em;
+}
+
+pre {
+    margin: 0 0 1.25rem;
+    padding: 1.25rem;
+    overflow-x: auto;
+    background: rgba(3, 3, 5, 0.6);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+pre code {
+    padding: 0;
+    border: 0;
+    background: none;
+    color: var(--text);
+    line-height: 1.7;
+}
+
+h1,
+h2,
+h3 {
+    line-height: 1.2;
+    margin: 0 0 0.75rem;
+    font-weight: 650;
+    letter-spacing: -0.01em;
+}
+
+h1 {
+    font-size: clamp(2.1rem, 6vw, 3.4rem);
+}
+
+h2 {
+    font-size: 1.6rem;
+    margin-bottom: 1.5rem;
+}
+
+h3 {
+    font-size: 1.05rem;
+}
+
+p {
+    margin: 0 0 1rem;
+}
+
+/* --- Chrome --------------------------------------------------------------- */
+
+.top {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    flex-wrap: wrap;
+    max-width: var(--page-width);
+    margin: 0 auto;
+    padding: 1.75rem 0;
+}
+
+.wordmark {
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.01em;
+    color: var(--text);
+    background: linear-gradient(90deg, var(--cyan), var(--violet));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.top-nav {
+    display: flex;
+    gap: 1.5rem;
+    font-size: 0.95rem;
+}
+
+.top-nav a {
+    color: var(--text-dim);
+}
+
+.top-nav a:hover {
+    color: var(--text);
+    text-decoration: none;
+}
+
+main {
+    max-width: var(--page-width);
+    margin: 0 auto;
+}
+
+section {
+    margin: 4.5rem 0;
+}
+
+footer {
+    max-width: var(--page-width);
+    margin: 4rem auto 0;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+    color: var(--text-dim);
+    font-size: 0.9rem;
+}
+
+/* --- Hero ----------------------------------------------------------------- */
+
+.hero {
+    margin-top: 3rem;
+}
+
+.eyebrow {
+    margin-bottom: 1rem;
+    color: var(--text-dim);
+    font-size: 0.85rem;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+}
+
+.accent {
+    background: linear-gradient(90deg, var(--cyan), var(--violet));
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+}
+
+.tagline {
+    color: var(--text-dim);
+    font-size: 1.05rem;
+}
+
+.lede {
+    max-width: 44rem;
+    font-size: 1.15rem;
+}
+
+.install {
+    margin-top: 2.5rem;
+}
+
+.install-command {
+    display: inline-block;
+    padding: 0.75rem 1.25rem;
+    font-size: 1.05rem;
+    background: var(--surface);
+    border: 1px solid var(--border-hover);
+    border-radius: var(--radius);
+}
+
+.install-note {
+    max-width: 44rem;
+    margin-top: 1rem;
+    color: var(--text-dim);
+    font-size: 0.95rem;
+}
+
+/* --- Blocks --------------------------------------------------------------- */
+
+.panel {
+    padding: 2rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.panel p:last-child {
+    margin-bottom: 0;
+}
+
+.aside {
+    color: var(--text-dim);
+    font-size: 0.95rem;
+}
+
+.grid {
+    display: grid;
+    grid-template-columns: 1fr;
+    gap: 1rem;
+}
+
+.card {
+    padding: 1.25rem 1.4rem;
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius);
+}
+
+.card p {
+    margin: 0;
+    color: var(--text-dim);
+    font-size: 0.95rem;
+}
+
+.card.link {
+    display: block;
+    color: inherit;
+    transition: background-color 0.2s ease, border-color 0.2s ease;
+}
+
+.card.link:hover {
+    background: var(--surface-hover);
+    border-color: var(--border-hover);
+    text-decoration: none;
+}
+
+.card.link h3 {
+    color: var(--cyan);
+}
+
+.plain {
+    margin: 0;
+    padding: 0;
+    list-style: none;
+}
+
+.plain li {
+    padding: 0.6rem 0;
+    border-bottom: 1px solid var(--border);
+}
+
+.plain li:last-child {
+    border-bottom: 0;
+}
+
+/* Two columns from the width where a card still holds a line of text, three
+ * where the grid would otherwise stretch. Matched to the panel's own
+ * breakpoint (768px) so the two look like one project on a phone. */
+@media (min-width: 48rem) {
+    .grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 64rem) {
+    .grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}

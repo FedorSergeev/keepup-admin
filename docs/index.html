@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<!--
+  The project's front page, published by GitHub Pages from `main` and this
+  directory. It is not part of the package: `package-data` in pyproject.toml
+  lists what ships, and `docs/` is not in it -- an installation carries the
+  panel shell, not this.
+
+  Everything it needs sits beside it and is addressed relatively, so opening
+  this file from a working tree looks exactly like the published site. That is
+  what makes the page reviewable before Pages is switched on, and it keeps a
+  third party the reader did not choose off the page.
+
+  What the page repeats after the package -- the distribution name in the
+  install command, the Python requirement, the licence, the addresses -- is
+  checked against pyproject.toml by tests/landing_page_tests.py. Change it
+  here and there in the same commit, or the suite says so.
+-->
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KeepUP — an admin framework over FastAPI</title>
+    <meta name="description" content="An admin framework over FastAPI: plugins, panel, users, replicas.">
+    <link rel="icon" type="image/svg+xml" href="assets/favicon.svg">
+    <link rel="stylesheet" href="assets/landing.css">
+</head>
+<body>
+<div class="backdrop" aria-hidden="true"></div>
+
+<header class="top">
+    <a class="wordmark" href="./">KeepUP</a>
+    <nav class="top-nav">
+        <a href="https://github.com/FedorSergeev/keepup-admin">Source</a>
+        <a href="https://pypi.org/project/keepup-admin/">Package</a>
+        <a href="https://github.com/FedorSergeev/keepup-admin/blob/main/CHANGELOG.md">Changes</a>
+    </nav>
+</header>
+
+<main>
+    <section class="hero">
+        <p class="eyebrow">Apache 2.0 · Python 3.11 or newer</p>
+        <h1>An admin framework over <span class="accent">FastAPI</span></h1>
+        <!-- The one line the package describes itself with, kept identical to
+             `description` in pyproject.toml. -->
+        <p class="tagline">An admin framework over FastAPI: plugins, panel, users, replicas</p>
+        <p class="lede">
+            You give it settings; it gives you an application with a panel, a plugin runtime,
+            users, a database layer, an audit, metrics and coordination between replicas
+            already wired.
+        </p>
+
+        <div class="install">
+            <code class="install-command">pip install keepup-admin</code>
+            <p class="install-note">
+                Installed as <code>keepup-admin</code>; imported as <code>keepup</code>.
+                The name <code>keepup</code> in the index belongs to an unrelated project
+                from 2015 that installs a script and no module, so the import name is free.
+            </p>
+        </div>
+    </section>
+
+    <section class="panel" id="start">
+        <h2>The whole of it</h2>
+        <pre><code>from keepup import KeepupSettings, create_app
+
+app = create_app(KeepupSettings(title="Your product", project_name="yours"))</code></pre>
+        <p>
+            That is a running application with a working panel at <code>/selfcare</code>:
+            the shell, the themes and eight administrative sections ship inside the package,
+            so there is nothing to copy into your tree to see them.
+        </p>
+    </section>
+
+    <section id="what">
+        <h2>What it gives you</h2>
+        <div class="grid">
+            <article class="card">
+                <h3>Application assembly</h3>
+                <p><code>create_app(settings)</code> — FastAPI, middleware, lifespan, static mounts.</p>
+            </article>
+            <article class="card">
+                <h3>Plugin runtime</h3>
+                <p>Features as plugins; routes are data, not decorators.</p>
+            </article>
+            <article class="card">
+                <h3>Panel</h3>
+                <p>The shell, visual themes, and the catalogue of sections with role grants.</p>
+            </article>
+            <article class="card">
+                <h3>Users</h3>
+                <p>Local accounts, roles, panel sessions, sign-in through an external provider.</p>
+            </article>
+            <article class="card">
+                <h3>Database</h3>
+                <p>A SQLAlchemy layer with a pool, table declarations for two dialects.</p>
+            </article>
+            <article class="card">
+                <h3>Replicas</h3>
+                <p>Distributed locks, leader election, a message bus, a cluster registry.</p>
+            </article>
+            <article class="card">
+                <h3>Observability</h3>
+                <p>Audit of incoming requests, an event log, metrics, log shipping.</p>
+            </article>
+        </div>
+    </section>
+
+    <section class="panel" id="boundary">
+        <h2>What it does not decide for you</h2>
+        <p>
+            The framework carries no product. Anything it cannot know arrives through
+            <code>KeepupSettings</code>: your name and version, where your logs are shipped,
+            which fields of a request are secret, what a password must look like, which
+            tables belong to you, which origins may read your answers.
+        </p>
+        <p>
+            Where a default would have to guess, it closes rather than opens. Metrics are not
+            served without credentials, no origin is allowed cross-origin, the audit keeps
+            field names and not values, and there is no collector address, no signing key and
+            no password anywhere in the source. An application says what it needs open; the
+            package does not decide that on its behalf.
+        </p>
+        <p class="aside">
+            What is public is declared: the names in <code>__all__</code> are the contract,
+            and a test holds the package to it. Everything else is internal and may change
+            without notice.
+        </p>
+    </section>
+
+    <section id="requirements">
+        <h2>Requirements</h2>
+        <ul class="plain">
+            <li><strong>Python 3.11 or newer.</strong></li>
+            <li>PostgreSQL in production; SQLite works and is meant for development.</li>
+            <li><code>pip install keepup-admin[postgres]</code> adds the driver the bus between replicas needs.</li>
+        </ul>
+    </section>
+
+    <section id="links">
+        <h2>Where to go next</h2>
+        <div class="grid links">
+            <a class="card link" href="https://github.com/FedorSergeev/keepup-admin">
+                <h3>Source</h3>
+                <p>The repository: the code, the README, the test suite.</p>
+            </a>
+            <a class="card link" href="https://pypi.org/project/keepup-admin/">
+                <h3>Package</h3>
+                <p>The distribution in the index, with its metadata and files.</p>
+            </a>
+            <a class="card link" href="https://github.com/FedorSergeev/keepup-admin/blob/main/CHANGELOG.md">
+                <h3>Changes</h3>
+                <p>What each version added, changed and removed.</p>
+            </a>
+            <a class="card link" href="https://github.com/FedorSergeev/keepup-admin/issues">
+                <h3>Questions</h3>
+                <p>Report something that does not work, or ask for something that is missing.</p>
+            </a>
+            <a class="card link" href="https://github.com/FedorSergeev/keepup-admin/blob/main/LICENSE">
+                <h3>Licence</h3>
+                <p>Apache 2.0 — the terms, in full.</p>
+            </a>
+            <a class="card link" href="https://github.com/FedorSergeev/keepup-admin/blob/main/THIRD-PARTY.md">
+                <h3>Third-party notices</h3>
+                <p>The bundles the panel shell carries, and their licences.</p>
+            </a>
+        </div>
+    </section>
+</main>
+
+<footer>
+    <p>
+        KeepUP — an admin framework over FastAPI. Copyright 2026 Fedor Sergeev.
+        Licensed under Apache-2.0.
+    </p>
+</footer>
+</body>
+</html>

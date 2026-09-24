@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="KeepUP">
+  <!-- The wordmark's gradient on a dark square: the tab icon of the project
+       page, and the only image the page carries. -->
+  <defs>
+    <linearGradient id="g" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#06b6d4"/>
+      <stop offset="1" stop-color="#8b5cf6"/>
+    </linearGradient>
+  </defs>
+  <rect width="64" height="64" rx="14" fill="#030305"/>
+  <path d="M20 16v32M20 32l16-16M20 32l16 16" stroke="url(#g)" stroke-width="6"
+        stroke-linecap="round" stroke-linejoin="round" fill="none"/>
+  <circle cx="46" cy="18" r="4" fill="url(#g)"/>
+</svg>

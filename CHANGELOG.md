@@ -2,6 +2,18 @@
 
 Notable changes to `keepup-admin`.
 
+## Unreleased
+
+### Added
+
+- A project page: `docs/index.html`, one static page for GitHub Pages to serve
+  from this branch. Until now there was no address to give somebody who has not
+  heard of the package — the README speaks to a reader already in the
+  repository, and the index page needs the name `keepup-admin` to be found at
+  all. What the page repeats after the metadata is checked against it, not kept
+  in step by hand. `[project.urls]` names four places instead of two, so a
+  reader who arrives from the index has somewhere to go.
+
 ## 0.1.1 — 2026-09-24
 
 A security release. Do not use 0.1.0: its dependency ranges made a safe

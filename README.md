@@ -1,5 +1,9 @@
 # keepup
 
+[Project page](https://fedorsergeev.github.io/keepup-admin/) ·
+[Package](https://pypi.org/project/keepup-admin/) ·
+[Changes](CHANGELOG.md)
+
 An admin framework over FastAPI. You give it settings; it gives you an
 application with a panel, a plugin runtime, users, a database layer, an audit,
 metrics and coordination between replicas already wired.

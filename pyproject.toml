@@ -86,8 +86,15 @@ test = [
 postgres = ["asyncpg>=0.31"]
 
 [project.urls]
-Homepage = "https://github.com/FedorSergeev/keepup-admin"
+# The index draws its sidebar from these, and a reader who arrives from there
+# had no way out of it but the repository. Homepage is the project page
+# (docs/index.html, published by Pages from this branch); the rest are the
+# places a reader asks for next. The landing page carries the same addresses,
+# and tests/landing_page_tests.py holds the two to each other.
+Homepage = "https://fedorsergeev.github.io/keepup-admin/"
 Repository = "https://github.com/FedorSergeev/keepup-admin"
+Changelog = "https://github.com/FedorSergeev/keepup-admin/blob/main/CHANGELOG.md"
+Issues = "https://github.com/FedorSergeev/keepup-admin/issues"
 
 [tool.setuptools]
 # The package is this directory. Spelled out rather than discovered: from
