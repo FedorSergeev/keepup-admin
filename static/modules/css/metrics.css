@@ -1,0 +1,115 @@
+/* metrics.css -- styles for the system metrics section */
+
+.metrics-instance-card {
+    transition: all 0.3s ease;
+    border: 1px solid #e5e7eb;
+}
+
+.metrics-instance-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.1);
+}
+
+.metrics-chart-container {
+    position: relative;
+    height: 256px;
+    background: white;
+    border-radius: 0.5rem;
+}
+
+.metrics-status-online {
+    background-color: #10b981;
+    color: white;
+}
+
+.metrics-status-offline {
+    background-color: #ef4444;
+    color: white;
+}
+
+.metrics-status-warning {
+    background-color: #f59e0b;
+    color: white;
+}
+
+.metrics-gauge {
+    width: 100px;
+    height: 100px;
+    position: relative;
+}
+
+.metrics-gauge-fill {
+    transform-origin: center;
+    transition: transform 0.5s ease;
+}
+
+.metrics-tooltip {
+    position: absolute;
+    background: rgba(0, 0, 0, 0.8);
+    color: white;
+    padding: 8px 12px;
+    border-radius: 4px;
+    font-size: 12px;
+    pointer-events: none;
+    z-index: 1000;
+}
+
+.metrics-legend {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    margin-top: 16px;
+}
+
+.metrics-legend-item {
+    display: flex;
+    align-items: center;
+    gap: 4px;
+    font-size: 12px;
+}
+
+.metrics-legend-color {
+    width: 12px;
+    height: 12px;
+    border-radius: 2px;
+}
+
+/* Chart animations */
+@keymetrics fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.metrics-chart-container canvas {
+    animation: fadeIn 0.5s ease-in;
+}
+
+/* Narrow layout */
+@media (max-width: 768px) {
+    .metrics-chart-container {
+        height: 200px;
+    }
+
+    .metrics-instance-card {
+        margin-bottom: 1rem;
+    }
+}
+
+/* Scrollbars of the modals */
+.metrics-modal-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.metrics-modal-content::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 3px;
+}
+
+.metrics-modal-content::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 3px;
+}
+
+.metrics-modal-content::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}

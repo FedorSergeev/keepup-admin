@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <base href="/selfcare">
+    <title>KeepUP</title>
+    <link rel="icon" href="/favicon.ico?v=2" type="image/x-icon">
+    <link rel="stylesheet" href="/keepup-static/css/tailwind.css">
+    <style>
+        .auth-block {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background-color: #f3f4f6;
+            z-index: 9999;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        .hidden {
+            display: none !important;
+        }
+    </style>
+    <link rel="stylesheet" href="/keepup-static/css/main_new.css">
+    <link rel="stylesheet" href="/keepup-static/css/main_nebula.css">
+    <script src="/keepup-static/js/feather-icons.js"></script>
+    <script src="/keepup-static/js/aos.js"></script>
+    <script src="/keepup-static/js/tailwind.js"></script>
+    <!-- Adaptive layout bootstrap. Runs while the head is parsed, after the
+         theme stylesheets, so --layout-breakpoint already resolves and the
+         narrow layout never flashes as the desktop one. It also feeds the same
+         token to Tailwind, so the md: utilities the sections use switch at the
+         same width as the chrome instead of at Tailwind's own 768px. From here
+         on main_new.js owns the class. Kept in every theme that links
+         main_new.css -- checked by tests/frontend_mobile_layout_tests.py. -->
+    <script>
+        (function () {
+            var declared = getComputedStyle(document.documentElement)
+                .getPropertyValue('--layout-breakpoint');
+            var breakpoint = parseFloat(declared) || 768;
+            if (window.matchMedia('(max-width: ' + (breakpoint - 0.02) + 'px)').matches) {
+                document.documentElement.classList.add('is-narrow');
+            }
+            if (window.tailwind) {
+                window.tailwind.config = {
+                    theme: { extend: { screens: { md: breakpoint + 'px' } } }
+                };
+            }
+        })();
+    </script>
+</head>
+
+<body class="bg-gray-50">
+<div id="authBlock" class="auth-block hidden">
+        <div class="bg-white rounded-lg shadow-xl p-6 max-w-md w-full mx-4">
+            <div class="flex justify-between items-center mb-6">
+                <h3 class="text-2xl font-bold text-gray-800">Sign in</h3>
+            </div>
+            <div class="flex border-b mb-6">
+                <button id="loginTab" class="tab-button px-4 py-2 font-medium text-blue-600 border-b-2 border-blue-600 text-sm">
+                    Sign in
+                </button>
+                <button id="registerTab" class="tab-button px-4 py-2 font-medium text-gray-500 text-sm">
+                    Register
+                </button>
+            </div>
+            <div id="loginTabContent" class="tab-content active">
+                <form id="loginForm">
+                    <div class="mb-4">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Username</label>
+                        <input type="text" id="loginUsername" required
+                               class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <div class="mb-6">
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input type="password" id="loginPassword" required
+                               class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+                    </div>
+                    <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-medium">
+                        Sign in
+                    </button>
+                    <p class="mt-3 text-center text-sm text-gray-500">
+                        Forgot your password?
+                        <a id="forgotPasswordLink" href="#" class="text-blue-600 hover:underline">Ask the bot</a>
+                        and send <code>/password</code>.
+                    </p>
+                </form>
+            </div>
+
+            <div id="registerTabContent" class="tab-content">
+    <form id="registerForm" class="space-y-4">
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Username *</label>
+            <input type="text" id="registerUsername" required
+                   class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500">
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+            <input type="email" id="registerEmail"
+                   class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   placeholder="example@email.com">
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Phone</label>
+            <input type="tel" id="registerPhone"
+                   class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   placeholder="+1 555 000 0000">
+        </div>
+
+        <div>
+            <label class="block text-sm font-medium text-gray-700 mb-2">Full name</label>
+            <input type="text" id="registerFullName"
+                   class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500"
+                   placeholder="Jane Doe">
+        </div>
+
+        <div class="relative">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Password *</label>
+            <input type="password" id="registerPassword" required
+                   class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10">
+            <button type="button" onclick="togglePasswordVisibility('registerPassword')"
+                    id="registerPasswordToggle"
+                    class="absolute right-3 top-9 transform text-gray-500 hover:text-gray-700">
+                <i data-feather="eye" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <div class="relative">
+            <label class="block text-sm font-medium text-gray-700 mb-2">Confirm password *</label>
+            <input type="password" id="registerPasswordConfirm" required
+                   class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10">
+            <button type="button" onclick="togglePasswordVisibility('registerPasswordConfirm')"
+                    id="registerPasswordConfirmToggle"
+                    class="absolute right-3 top-9 transform text-gray-500 hover:text-gray-700">
+                <i data-feather="eye" class="w-4 h-4"></i>
+            </button>
+        </div>
+
+        <div class="flex items-center">
+            <input type="checkbox" id="registerAgreeTerms" required
+                   class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
+            <label for="registerAgreeTerms" class="ml-2 block text-sm text-gray-700">
+                I agree to the <a href="#" onclick="openTermsModal(); return false;" class="text-blue-600 hover:text-blue-800 underline">terms of use</a>
+            </label>
+        </div>
+
+        <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 font-medium mt-4">
+            Create account
+        </button>
+    </form>
+</div>
+
+            <div id="authMessage" class="mt-4 hidden p-3 rounded-lg"></div>
+        </div>
+    </div>
+
+
+<div class="min-h-screen">
+    <div class="nebula-bg" aria-hidden="true">
+        <div class="nebula-grid"></div>
+        <div class="nebula-orb nebula-orb-1"></div>
+        <div class="nebula-orb nebula-orb-2"></div>
+    </div>
+
+    <div class="min-h-screen">
+        <!-- Sidebar -->
+        <div id="sidebar">
+            <div class="flex items-center justify-between h-16 px-4">
+                <h1 class="text-xl font-bold logo-text">KeepUP</h1>
+                <button id="toggleSidebar" class="toggle-sidebar-btn p-1 rounded">
+                    <i data-feather="chevron-left" class="w-4 h-4"></i>
+                </button>
+            </div>
+            <nav class="mt-4" id="main-nav">
+
+                <div id="modules-nav-container"></div>
+            </nav>
+        </div>
+
+        <!-- Drawer backdrop. Chrome, so the theme styles it; a module must not.
+             It stays in the DOM and is hidden by visibility, which keeps the
+             fade in CSS and out of the toggle code. -->
+        <div id="nav-backdrop" class="nav-backdrop"></div>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <header class="app-header bg-white shadow-sm">
+                <div class="app-header-row flex items-center justify-between px-4 py-3">
+                    <div class="app-header-title flex items-center">
+                        <button id="sidebarToggle" type="button" aria-expanded="false"
+                                aria-controls="sidebar" aria-label="Sections menu"
+                                class="nav-toggle-btn p-2 text-gray-600 rounded-md focus:outline-none">
+                            <i data-feather="menu"></i>
+                        </button>
+                        <h2 class="ml-2 text-xl font-semibold text-gray-800" id="current-section-title">Dashboard</h2>
+                    </div>
+                    <div class="app-header-actions flex items-center space-x-4">
+    <div class="text-sm text-gray-600" id="userInfo">
+
+
+        <!-- Additional user fields (shown when data is available) -->
+        <div id="userExtraInfo" class="hidden">
+            <div class="text-xs text-gray-500 mt-1">
+                <span id="userFullName" class="mr-2"></span>
+                <span id="userEmail"></span>
+                <span id="userPhone" class="ml-2"></span>
+            </div>
+        </div>
+
+        <div id="userUpperPanel" class="flex items-center mt-1">
+            <div class="flex items-center">
+                <i data-feather="user" class="w-4 h-4 mr-1 text-gray-500"></i>
+                <span id="usernameDisplay" class="font-medium"></span>
+            </div>
+            <span id="userRole" class="role-badge"></span>
+            <span id="userStatus" class="ml-2 status-badge"></span>
+        </div>
+    </div>
+
+    <button onclick="logout()"
+            class="ml-4 p-2 text-gray-600 rounded-full hover:bg-gray-100 hover:text-red-600 transition-colors duration-150">
+        <i data-feather="log-out" class="w-4 h-4"></i>
+    </button>
+
+    <button class="app-header-bell p-2 text-gray-600 rounded-full hover:bg-gray-100">
+        <i data-feather="bell"></i>
+    </button>
+</div>
+                </div>
+            </header>
+
+            <!-- Content Sections -->
+            <main class="p-6">
+                <div id="modules-container"></div>
+                <div id="profile-section" class="content-section">
+                    <div class="bg-white rounded-lg shadow-sm p-6">
+                        <div id="profile-content">
+                            <div class="text-center py-8">
+                                <i data-feather="user" class="w-12 h-12 text-gray-400 mx-auto mb-4"></i>
+                                <p class="text-gray-500">Loading profile...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+    <div id="versionPanel" class="hidden fixed bottom-0 left-0 right-0 bg-gray-800 text-white text-xs py-1 px-4 border-t border-gray-700">
+        <div class="flex justify-between items-center">
+            <div class="version-panel-fields flex space-x-6">
+                <span><strong>Project:</strong> <span id="versionProject">-</span></span>
+                <span><strong>Release:</strong> <span id="versionRelease">-</span></span>
+                <span><strong>Build:</strong> <span id="versionBuildNumber">-</span></span>
+                <span><strong>Built:</strong> <span id="versionBuildDate">-</span></span>
+            </div>
+            <button onclick="hideVersionPanel()" class="text-gray-400 hover:text-white">
+                <i data-feather="x" class="w-3 h-3"></i>
+            </button>
+        </div>
+    </div>
+    <!-- Terms of use modal. The text is the application's and arrives at run
+         time: a theme of the framework must not carry one application's
+         agreement -- the previous copy named a real person and their taxpayer
+         id, and the package goes to a public index (keepup-27). -->
+    <div id="termsModal" class="modal-overlay hidden">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h2 class="modal-title">Terms of use</h2>
+                <button class="close-btn" onclick="closeTermsModal()">
+                    <i data-feather="x" class="w-5 h-5 lg:w-6 lg:h-6"></i>
+                </button>
+            </div>
+
+            <div class="modal-body">
+                <div class="modal-section">
+                    <div class="terms-content" id="termsContent">
+                        <p>Loading the terms...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+    <script src="/keepup-static/js/main_new.js"></script>
+</body>
+
+</html>

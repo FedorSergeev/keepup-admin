@@ -1,0 +1,852 @@
+/* ==========================================================================
+   Design tokens of the active theme.
+
+   The theme owns the admin chrome: the sidebar, the navigation buttons, the
+   collapsed menu and the content area. Module stylesheets are scoped to their
+   own section and must not declare these selectors -- module CSS is injected
+   after the page stylesheets, so a module rule would win on cascade order and
+   the chrome would depend on which sections a role happens to be granted.
+
+   Every var() below carries a fallback: a theme that does not declare a token
+   must fall back to the default look, not to no styling at all.
+   ========================================================================== */
+:root {
+    /* Sidebar */
+    --sidebar-bg: #1d4ed8;
+    --sidebar-fg: #ffffff;
+    --sidebar-header-bg: #1e40af;
+    --sidebar-width: 16rem;
+    --sidebar-width-collapsed: 64px;
+    --modules-nav-max-height: calc(100vh - 200px);
+    --modules-nav-padding: 8px 0 16px 0;
+    --sidebar-scrollbar-track: #1e3a8a;
+    --sidebar-scrollbar-thumb: #60a5fa;
+    --sidebar-scrollbar-thumb-hover: #93c5fd;
+
+    /* Navigation button */
+    --nav-item-padding: 0.75rem 1.5rem;
+    --nav-item-padding-collapsed: 0.75rem;
+    --nav-item-radius: 0;
+    --nav-item-fg: #dbeafe;
+    --nav-item-bg: transparent;
+    --nav-item-fg-hover: #dbeafe;
+    --nav-item-bg-hover: #2563eb;
+    --nav-item-fg-active: #ffffff;
+    --nav-item-bg-active: #1e40af;
+    --nav-item-icon-gap: 0.75rem;
+
+    /* Adaptive layout. --layout-breakpoint is the single source of the
+       narrow/wide boundary: main_new.js reads it off :root, drives a
+       matchMedia off it and keeps the .is-narrow class on <html>, and the
+       theme's head script feeds the same value to tailwind.config so the
+       md: utilities in the sections switch at the same width as the chrome.
+       A media query cannot read a custom property, and the project has no
+       CSS build step to expand one, so the class is what the rules match on.
+       The default is 768px because that is where the md: utilities the
+       sections already use switch today. */
+    --layout-breakpoint: 768px;
+    --drawer-width: 16rem;
+    /* The drawer floats over the content, so a sidebar background that is
+       translucent against the page (nebula's is) would let the content read
+       through it. A theme with such a background overrides this one. */
+    --drawer-bg: var(--sidebar-bg, #1d4ed8);
+    --backdrop-color: rgba(15, 23, 42, 0.55);
+    --content-padding-narrow: 1rem;
+    --tap-target-min: 44px;
+    /* Above this many columns a table stops folding into cards and scrolls
+       sideways instead: six narrow columns still read as a card, six wide
+       ones do not, so the threshold is a value to tune, not a constant. */
+    --table-card-columns: 6;
+    --table-card-bg: #ffffff;
+    --table-card-border: #e5e7eb;
+    --table-card-label-fg: #6b7280;
+    /* A pinned column needs an opaque background of its own, or the columns
+       scrolling past show through it. */
+    --table-sticky-bg: #ffffff;
+    --table-sticky-header-bg: #f9fafb;
+
+    /* Shared */
+    --chrome-transition: all 0.3s ease;
+}
+
+/* Tabs */
+.tab-content {
+    display: none;
+}
+
+.tab-content.active {
+    display: block;
+}
+
+.tab-button {
+    border: none;
+    background: none;
+    cursor: pointer;
+    padding: 0.5rem 1rem;
+    border-bottom: 2px solid transparent;
+}
+
+.tab-button.active {
+    border-bottom-color: #3b82f6;
+    color: #3b82f6;
+}
+
+/* Content sections */
+.content-section {
+    display: none;
+}
+
+.content-section.active {
+    display: block;
+}
+
+/* Shared modals */
+.modal {
+    display: none;
+    position: fixed;
+    z-index: 1000;
+    left: 0;
+    top: 0;
+    width: 100%;
+    height: 100%;
+    background-color: rgba(0, 0, 0, 0.5);
+}
+
+.modal-content {
+    background-color: white;
+    margin: 10% auto;
+    padding: 2rem;
+    border-radius: 0.5rem;
+    width: 90%;
+    max-width: 400px;
+}
+
+.modal.hidden {
+    opacity: 0;
+    pointer-events: none;
+}
+
+/* Notifications */
+.notification {
+    transition: all 0.3s ease;
+}
+
+/* ==========================================================================
+   Admin chrome. Owned by the theme; module stylesheets must not declare these
+   selectors. See the tokens above and tests/frontend_style_boundary_tests.py.
+   ========================================================================== */
+
+/* Sidebar. Position and stacking used to be Tailwind utilities in the theme
+   markup (fixed inset-y-0 left-0 w-64 z-50 -translate-x-full md:translate-x-0);
+   they live here so the theme owns the panel on every width, not just its
+   colours. */
+#sidebar {
+    position: fixed;
+    top: 0;
+    bottom: 0;
+    left: 0;
+    z-index: 50;
+    width: var(--sidebar-width, 16rem);
+    background-color: var(--sidebar-bg, #1d4ed8);
+    color: var(--sidebar-fg, #ffffff);
+    transition: var(--chrome-transition, all 0.3s ease);
+    /* A long menu has to scroll. This used to come from documentation.css, so
+       the sidebar only scrolled for roles that were granted that section. */
+    overflow-x: hidden;
+    overflow-y: auto;
+}
+
+/* Content sits beside the panel; this used to be md:ml-64 in the markup. */
+.main-content {
+    margin-left: var(--sidebar-width, 16rem);
+    transition: var(--chrome-transition, all 0.3s ease);
+}
+
+/* The button that opens the drawer belongs to the narrow layout only. */
+.nav-toggle-btn {
+    display: none;
+}
+
+#modules-nav-container {
+    width: 100%;
+    max-height: var(--modules-nav-max-height, calc(100vh - 200px));
+    padding: var(--modules-nav-padding, 8px 0 16px 0);
+    overflow-x: hidden;
+    overflow-y: auto;
+    scrollbar-width: thin;
+}
+
+#modules-nav-container::-webkit-scrollbar {
+    width: 4px;
+    height: 6px;
+}
+
+#modules-nav-container::-webkit-scrollbar-track,
+#modules-nav-container::-webkit-scrollbar-corner {
+    background: var(--sidebar-scrollbar-track, #1e3a8a);
+    border-radius: 3px;
+}
+
+#modules-nav-container::-webkit-scrollbar-thumb {
+    background: var(--sidebar-scrollbar-thumb, #60a5fa);
+    border-radius: 3px;
+}
+
+#modules-nav-container::-webkit-scrollbar-thumb:hover {
+    background: var(--sidebar-scrollbar-thumb-hover, #93c5fd);
+}
+
+/* Navigation button. Its whole appearance lives here: main_new.js gives the
+   element only the semantic classes, so the theme is the single owner. */
+.nav-item {
+    display: flex;
+    align-items: center;
+    padding: var(--nav-item-padding, 0.75rem 1.5rem);
+    border-radius: var(--nav-item-radius, 0);
+    color: var(--nav-item-fg, #dbeafe);
+    background-color: var(--nav-item-bg, transparent);
+    transition: var(--chrome-transition, all 0.3s ease);
+}
+
+.nav-item:hover {
+    color: var(--nav-item-fg-hover, #dbeafe);
+    background-color: var(--nav-item-bg-hover, #2563eb);
+}
+
+.nav-item.active {
+    color: var(--nav-item-fg-active, #ffffff);
+    background-color: var(--nav-item-bg-active, #1e40af);
+}
+
+.nav-item i {
+    flex-shrink: 0;
+    margin-right: var(--nav-item-icon-gap, 0.75rem);
+    transition: margin 0.3s ease;
+}
+
+/* Collapsed sidebar. Declared once, for the whole panel, and only for the wide
+   layout: below the breakpoint the panel is a drawer, so a collapsed flag saved
+   on a desktop would narrow the drawer and shift the content 64px to the right
+   of a column that is not on screen. The saved value is left alone -- it is the
+   wide layout's state, and the panel comes back collapsed when the window
+   widens again. */
+:root:not(.is-narrow) .sidebar-collapsed {
+    width: var(--sidebar-width-collapsed, 64px) !important;
+}
+
+:root:not(.is-narrow) .sidebar-collapsed .nav-text {
+    display: none;
+}
+
+:root:not(.is-narrow) .sidebar-collapsed .logo-text {
+    display: none;
+}
+
+:root:not(.is-narrow) .sidebar-collapsed .nav-item {
+    justify-content: center;
+    padding-left: var(--nav-item-padding-collapsed, 0.75rem);
+    padding-right: var(--nav-item-padding-collapsed, 0.75rem);
+}
+
+:root:not(.is-narrow) .sidebar-collapsed .nav-item i {
+    margin-right: 0;
+}
+
+:root:not(.is-narrow) .sidebar-collapsed ~ .main-content {
+    margin-left: var(--sidebar-width-collapsed, 64px) !important;
+}
+
+.toggle-sidebar-btn {
+    transition: var(--chrome-transition, all 0.3s ease);
+    min-width: var(--tap-target-min, 44px);
+    min-height: var(--tap-target-min, 44px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+:root:not(.is-narrow) .sidebar-collapsed .toggle-sidebar-btn {
+    transform: rotate(180deg);
+}
+
+/* ==========================================================================
+   Narrow layout. Matched on the .is-narrow class that main_new.js keeps on
+   <html> from the --layout-breakpoint token -- a media query cannot read a
+   custom property, and there is no CSS build step here to expand one.
+
+   Declared once, for every theme. A theme redefines the token values above;
+   it must not restate these rules, or the drawer would behave differently
+   depending on which theme is active.
+   ========================================================================== */
+.is-narrow #sidebar {
+    width: var(--drawer-width, 16rem);
+    /* Never the whole screen: the content behind has to stay visible enough to
+       read as content, so tapping the backdrop is an obvious way out. */
+    max-width: 85vw;
+    background-color: var(--drawer-bg, var(--sidebar-bg, #1d4ed8));
+    transform: translateX(-100%);
+}
+
+.is-narrow.nav-open #sidebar {
+    transform: translateX(0);
+}
+
+.is-narrow .main-content {
+    margin-left: 0;
+}
+
+/* The content well is padded p-6 in the theme markup: 48px of a 360px screen
+   spent on margins before the section gets to draw anything. */
+.is-narrow .main-content > main {
+    padding: var(--content-padding-narrow, 1rem);
+}
+
+.is-narrow .nav-toggle-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    min-width: var(--tap-target-min, 44px);
+    min-height: var(--tap-target-min, 44px);
+}
+
+.is-narrow .nav-item {
+    min-height: var(--tap-target-min, 44px);
+}
+
+.nav-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 40;
+    background-color: var(--backdrop-color, rgba(15, 23, 42, 0.55));
+    opacity: 0;
+    visibility: hidden;
+    transition: opacity 0.2s ease, visibility 0.2s ease;
+}
+
+.is-narrow.nav-open .nav-backdrop {
+    opacity: 1;
+    visibility: visible;
+}
+
+/* Scrolling with the drawer open belongs to the list of sections, not to the
+   page behind it. A class rather than an inline style, so there is no previous
+   value to remember and restore. */
+body.nav-locked {
+    overflow: hidden;
+}
+
+/* Top row. At 360px the section title, the user's name, role and status badges
+   and three buttons do not fit on one line, so the row wraps and the parts that
+   are not needed to navigate give way first. */
+.is-narrow .app-header-row {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+    padding-left: 0.75rem;
+    padding-right: 0.75rem;
+}
+
+.is-narrow .app-header-title {
+    /* Menu button and title take the first line and keep it whole. */
+    flex: 1 1 100%;
+    min-width: 0;
+}
+
+.is-narrow #current-section-title {
+    font-size: 1rem;
+    line-height: 1.25;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.is-narrow .app-header-actions {
+    flex: 1 1 100%;
+    flex-wrap: wrap;
+    justify-content: flex-start;
+    min-width: 0;
+}
+
+.is-narrow #userInfo {
+    min-width: 0;
+    font-size: 0.75rem;
+}
+
+.is-narrow #usernameDisplay {
+    display: inline-block;
+    max-width: 9rem;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+    vertical-align: bottom;
+}
+
+/* The bell has no handler behind it; on a phone the space is worth more. */
+.is-narrow .app-header-bell {
+    display: none;
+}
+
+.is-narrow .app-header-actions button {
+    min-width: var(--tap-target-min, 44px);
+    min-height: var(--tap-target-min, 44px);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+/* Build version strip: four labelled fields laid out in a row stretch the
+   document instead of wrapping, because space-x-* sets margins, not gaps. */
+.is-narrow .version-panel-fields {
+    flex-wrap: wrap;
+    gap: 0.25rem 0.75rem;
+}
+
+.is-narrow .version-panel-fields > span {
+    margin-left: 0 !important;
+}
+
+/* --------------------------------------------------------------------------
+   Responsive tables. The mode is chosen by the helper in main_new.js and
+   published as data-responsive-mode; everything below is the drawing of it.
+   Above the breakpoint none of this applies and the table stays a table.
+   -------------------------------------------------------------------------- */
+
+/* Wide tables: the scroll belongs to this container, never to the document. */
+.table-scroll {
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.is-narrow .responsive-table[data-responsive-mode="scroll"] th:first-child,
+.is-narrow .responsive-table[data-responsive-mode="scroll"] td:first-child {
+    position: sticky;
+    left: 0;
+    z-index: 1;
+    background-color: var(--table-sticky-bg, #ffffff);
+}
+
+.is-narrow .responsive-table[data-responsive-mode="scroll"] thead th:first-child {
+    background-color: var(--table-sticky-header-bg, #f9fafb);
+}
+
+/* Narrow tables: one card per row, each cell labelled with its heading. */
+.is-narrow .responsive-table[data-responsive-mode="cards"] thead {
+    display: none;
+}
+
+.is-narrow .responsive-table[data-responsive-mode="cards"],
+.is-narrow .responsive-table[data-responsive-mode="cards"] tbody,
+.is-narrow .responsive-table[data-responsive-mode="cards"] tr,
+.is-narrow .responsive-table[data-responsive-mode="cards"] td {
+    display: block;
+    width: auto;
+    min-width: 0;
+}
+
+.is-narrow .responsive-table[data-responsive-mode="cards"] tr {
+    margin-bottom: 0.75rem;
+    padding: 0.25rem 0.75rem;
+    border: 1px solid var(--table-card-border, #e5e7eb);
+    border-radius: 0.5rem;
+    background-color: var(--table-card-bg, #ffffff);
+}
+
+.is-narrow .responsive-table[data-responsive-mode="cards"] td {
+    display: flex;
+    align-items: baseline;
+    justify-content: space-between;
+    gap: 0.75rem;
+    padding: 0.4rem 0;
+    border: 0;
+    text-align: right;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.is-narrow .responsive-table[data-responsive-mode="cards"] td::before {
+    content: attr(data-label);
+    flex: 0 0 40%;
+    text-align: left;
+    font-weight: 600;
+    color: var(--table-card-label-fg, #6b7280);
+}
+
+/* Rows the helper deliberately left unlabelled -- empty states, spanning
+   summary rows -- read as plain text rather than growing an empty label. */
+.is-narrow .responsive-table[data-responsive-mode="cards"] td:not([data-label]) {
+    display: block;
+    text-align: left;
+}
+
+.is-narrow .responsive-table[data-responsive-mode="cards"] td:not([data-label])::before {
+    content: none;
+}
+
+/* --------------------------------------------------------------------------
+   Modals. Both shapes in this file -- the plain .modal and the .modal-overlay
+   one -- carry a fixed max-width and generous margins that leave a phone with
+   a window it cannot read. Here they fill the screen minus a margin and scroll
+   inside themselves, with the header and its close button staying put.
+   -------------------------------------------------------------------------- */
+/* One scroll container, and it is the overlay.
+
+   The sections build their dialogs two ways -- the .modal-overlay pair in this
+   file, and, far more often, a Tailwind overlay
+   (`fixed inset-0 ... flex items-center justify-center`) holding a panel. Both
+   broke the same way on a phone, for two reasons:
+
+     * a flex item centred in a container it is taller than overflows equally
+       at both ends, and neither end can be scrolled to, so the top of the
+       dialog and the buttons at its bottom were simply unreachable;
+     * the `flex flex-col` panels put their scrolling body in a `flex-1`
+       child, whose default `min-height: auto` refuses to shrink below its
+       content. The panel grew past its own max-height instead of the body
+       scrolling inside it, and the footer went off-screen.
+
+   Rather than constrain the panel and rely on an inner scroller, the narrow
+   layout lets the panel be its natural height and gives the scroll to the
+   overlay. That removes both failures at once, needs nothing from the panel's
+   markup, and sidesteps `vh` on mobile browsers counting an address bar that
+   has already slid away. A sticky header inside a panel still sticks -- the
+   overlay is its scrollport. */
+.is-narrow .modal-overlay,
+.is-narrow .fixed.inset-0.items-center {
+    align-items: flex-start;
+    overflow-y: auto;
+    padding: 0.75rem;
+}
+
+.is-narrow .modal-overlay > *,
+.is-narrow .fixed.inset-0.items-center > * {
+    /* w-96 is 384px, wider than a 360px screen on its own. */
+    max-width: 100%;
+    max-height: none;
+    margin-top: 0;
+    margin-bottom: 0;
+}
+
+.is-narrow .modal-content {
+    width: 100%;
+    padding: 1rem;
+    border-radius: 1rem;
+}
+
+.is-narrow .modal-header {
+    position: sticky;
+    top: 0;
+    z-index: 10;
+    padding: 1rem;
+    border-radius: 1rem 1rem 0 0;
+}
+
+.is-narrow .modal-body {
+    padding: 1rem;
+}
+
+.is-narrow .modal-title {
+    font-size: 1.125rem;
+}
+
+/* The .modal-overlay shape pads its own content, so the sticky header has to
+   sit flush; the .modal shape pads the box instead. Both end up with the close
+   button reachable without horizontal scrolling. */
+.is-narrow .modal-overlay .modal-content {
+    padding: 0;
+}
+
+/* --------------------------------------------------------------------------
+   Section content: the two shapes that overflow a phone in almost every
+   section, fixed once here rather than in twenty stylesheets.
+   -------------------------------------------------------------------------- */
+
+/* A title on the left and a row of buttons on the right is the standard header
+   of a section and of its filter panel. At 360px the pair does not fit on one
+   line, and without wrapping the buttons are pushed past the edge. */
+.is-narrow .content-section .flex.justify-between {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+}
+
+/* Inputs sized in ch or with a fixed width are common in filter panels and
+   push the panel wider than the screen. */
+.is-narrow .content-section input:not([type="checkbox"]):not([type="radio"]),
+.is-narrow .content-section select,
+.is-narrow .content-section textarea {
+    max-width: 100%;
+}
+
+/* A safety net, not the fix: a section that overflows is meant to scroll inside
+   its own container, and the checks in tests/frontend_mobile_layout_tests.py
+   are what keep it that way. This only stops one missed section from making the
+   whole document slide sideways. */
+.is-narrow body {
+    overflow-x: hidden;
+}
+
+/* A user's status and role */
+.status-badge {
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.status-active {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.status-blocked {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.status-inactive {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.role-badge {
+    padding: 2px 8px;
+    border-radius: 12px;
+    font-size: 0.75rem;
+    font-weight: 600;
+}
+
+.role-admin {
+    background-color: #e9d5ff;
+    color: #7c3aed;
+}
+
+.role-client {
+    background-color: #dbeafe;
+    color: #1d4ed8;
+}
+
+/* File upload */
+.upload-area {
+    border: 2px dashed #d1d5db;
+    border-radius: 0.5rem;
+    padding: 2rem;
+    text-align: center;
+    transition: border-color 0.3s;
+}
+
+.upload-area:hover {
+    border-color: #3b82f6;
+}
+
+/* XML sources */
+.source-item {
+    transition: box-shadow 0.3s;
+}
+
+.source-item:hover {
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* The version panel */
+#versionPanel {
+    z-index: 1000;
+    font-family: monospace;
+}
+
+/* Further shared classes */
+.flex-center {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.text-truncate {
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.cursor-help {
+    cursor: help;
+}
+
+.hidden {
+    display: none !important;
+}
+
+.user-info-field {
+        transition: all 0.3s ease;
+    }
+
+    .terms-link {
+        color: #2563eb;
+        text-decoration: underline;
+        transition: color 0.2s;
+    }
+
+    .terms-link:hover {
+        color: #1d4ed8;
+    }
+
+    .phone-input {
+        font-family: 'Roboto Mono', monospace;
+    }
+    .auth-block {
+        position: fixed;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        background-color: #f3f4f6;
+        z-index: 9999;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+    }
+
+    /* The modal */
+.modal-overlay {
+    position: fixed;
+    inset: 0;
+    background: rgba(0, 0, 0, 0.5);
+    backdrop-filter: blur(4px);
+    z-index: 99999;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+    pointer-events: none;
+}
+
+.modal-overlay.active {
+    opacity: 1;
+    pointer-events: all;
+}
+
+.modal-content {
+    background: white;
+    border-radius: 1.5rem;
+    width: 100%;
+    max-width: 600px;
+    max-height: 90vh;
+    overflow-y: auto;
+    transform: scale(0.95);
+    transition: transform 0.3s ease;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    margin: auto;
+}
+
+.modal-overlay.active .modal-content {
+    transform: scale(1);
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid #e2e8f0;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    background: linear-gradient(135deg, #0ea5e9 0%, #3b82f6 100%);
+    border-radius: 1.5rem 1.5rem 0 0;
+    color: white;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.modal-body {
+    padding: 1.5rem;
+    font-size: 0.95rem;
+    line-height: 1.6;
+}
+
+.modal-section {
+    margin-bottom: 2rem;
+}
+
+.modal-section:last-child {
+    margin-bottom: 0;
+}
+
+.modal-title {
+    font-size: 1.5rem;
+    font-weight: 600;
+    margin: 0;
+    color: white;
+}
+
+.section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin-bottom: 1rem;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid #e2e8f0;
+}
+
+.terms-content {
+    background: #f8fafc;
+    padding: 1rem;
+    border-radius: 0.75rem;
+    max-height: 300px;
+    overflow-y: auto;
+    font-size: 0.9rem;
+    line-height: 1.5;
+}
+
+.terms-content h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    color: #1e293b;
+    margin: 1rem 0 0.5rem 0;
+}
+
+.terms-content h3:first-child {
+    margin-top: 0;
+}
+
+.terms-content p {
+    margin-bottom: 0.75rem;
+    color: #475569;
+}
+
+.close-btn {
+    background: rgba(255, 255, 255, 0.2);
+    border: none;
+    border-radius: 0.75rem;
+    padding: 0.5rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    color: white;
+}
+
+.close-btn:hover {
+    background: rgba(255, 255, 255, 0.3);
+    transform: rotate(90deg);
+}
+
+/* Smoother scrolling */
+.terms-content::-webkit-scrollbar {
+    width: 6px;
+}
+
+.terms-content::-webkit-scrollbar-track {
+    background: #f1f5f9;
+    border-radius: 3px;
+}
+
+.terms-content::-webkit-scrollbar-thumb {
+    background: #cbd5e1;
+    border-radius: 3px;
+}
+
+.terms-content::-webkit-scrollbar-thumb:hover {
+    background: #94a3b8;
+}
+/* The terms arrive as plain text from the server and are inserted as text, not
+   as markup: whatever the file says, it cannot bring tags into the page. */
+.terms-plain {
+    white-space: pre-wrap;
+    font-size: 0.9rem;
+    line-height: 1.6;
+}

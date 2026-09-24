@@ -1,0 +1,189 @@
+/* modules.css -- styles for the panel sections catalogue */
+
+/* The sections table */
+.modules-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.modules-table th {
+    background-color: #f8fafc;
+    padding: 12px;
+    text-align: left;
+    font-weight: 600;
+    color: #374151;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modules-table td {
+    padding: 12px;
+    border-bottom: 1px solid #e5e7eb;
+}
+
+.modules-table tr:hover {
+    background-color: #f9fafb;
+}
+
+/* Modals */
+.modules-modal {
+    transition: all 0.3s ease;
+}
+
+.modules-modal-content {
+    max-height: 80vh;
+    overflow-y: auto;
+}
+
+/* Statistics */
+.modules-stats-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.stat-card {
+    background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+    border: 1px solid #bae6fd;
+    border-radius: 0.5rem;
+    padding: 1.5rem;
+    text-align: center;
+}
+
+.stat-card.green {
+    background: linear-gradient(135deg, #f0fdf4 0%, #dcfce7 100%);
+    border-color: #bbf7d0;
+}
+
+.stat-card.purple {
+    background: linear-gradient(135deg, #faf5ff 0%, #f3e8ff 100%);
+    border-color: #e9d5ff;
+}
+
+.stat-card.orange {
+    background: linear-gradient(135deg, #fff7ed 0%, #ffedd5 100%);
+    border-color: #fed7aa;
+}
+
+.stat-value {
+    font-size: 1.875rem;
+    font-weight: bold;
+    margin-bottom: 0.5rem;
+}
+
+.stat-label {
+    font-size: 0.875rem;
+    color: #4b5563;
+}
+
+/* Forms */
+.module-form input,
+.module-form textarea,
+.module-form select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid #d1d5db;
+    border-radius: 0.375rem;
+    transition: all 0.2s;
+}
+
+.module-form input:focus,
+.module-form textarea:focus,
+.module-form select:focus {
+    outline: none;
+    ring: 2px;
+    ring-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+/* Buttons */
+.module-btn {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.5rem 1rem;
+    border-radius: 0.375rem;
+    font-weight: 500;
+    transition: all 0.2s;
+    cursor: pointer;
+}
+
+.module-btn-primary {
+    background-color: #3b82f6;
+    color: white;
+    border: none;
+}
+
+.module-btn-primary:hover {
+    background-color: #2563eb;
+}
+
+.module-btn-secondary {
+    background-color: #6b7280;
+    color: white;
+    border: none;
+}
+
+.module-btn-secondary:hover {
+    background-color: #4b5563;
+}
+
+.module-btn-success {
+    background-color: #10b981;
+    color: white;
+    border: none;
+}
+
+.module-btn-success:hover {
+    background-color: #059669;
+}
+
+/* Roles */
+.role-badge {
+    display: inline-block;
+    padding: 0.25rem 0.5rem;
+    border-radius: 0.25rem;
+    font-size: 0.75rem;
+    font-weight: 500;
+}
+
+.role-admin {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.role-client {
+    background-color: #dbeafe;
+    color: #1e40af;
+}
+
+/* Animations */
+@keyframes slideIn {
+    from {
+        opacity: 0;
+        transform: translateY(-10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modules-modal {
+    animation: slideIn 0.3s ease;
+}
+
+/* Narrow layout */
+@media (max-width: 768px) {
+    .modules-stats-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .modules-table {
+        font-size: 0.875rem;
+    }
+
+    .modules-table th,
+    .modules-table td {
+        padding: 0.5rem;
+    }
+}

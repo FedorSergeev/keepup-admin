@@ -1,0 +1,40 @@
+# Lint that blocks, on a rule set the code already satisfies.
+#
+# The selection is deliberately narrow. Ruff's wider families find real things
+# here -- around five hundred findings apiece for line length and for modern
+# syntax -- but a check that is red on the day it is written is a check nobody
+# reads, and turning it green would be a rewrite of the package rather than a
+# review of a change. So what blocks is what no change should ever introduce:
+# syntax errors, undefined names, unused imports and variables.
+#
+# Widening the selection is a piece of work of its own, done by fixing the
+# findings and then adding the family here -- not by adding the family and
+# living with a red badge.
+name: quality
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  ruff:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: python -m pip install --upgrade pip ruff
+
+      - name: Real errors -- syntax, undefined names, unused imports
+        # --isolated so the run does not depend on a config file appearing
+        # later and quietly changing what is checked.
+        run: ruff check . --isolated --select E9,F63,F7,F82,F --output-format=github

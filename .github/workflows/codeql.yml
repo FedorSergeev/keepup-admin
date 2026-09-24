@@ -1,0 +1,51 @@
+# GitHub's own code scanning: what the sources say, not what they depend on.
+#
+# It sits beside security.yml rather than inside it because the two answer
+# different questions. pip-audit asks whether a dependency has a published
+# advisory; this asks whether this code has a weakness -- an injected query, a
+# path built from a request, a comparison that is not constant-time. Neither
+# one covers the other.
+#
+# Findings appear under Security -> Code scanning, not only in the run's log,
+# which is why the job asks for security-events write.
+name: codeql
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+  schedule:
+    - cron: "30 6 * * 1"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  security-events: write
+
+jobs:
+  analyse:
+    # Code scanning is free on a public repository and needs GitHub Advanced
+    # Security on a private one. While this repository is private without it,
+    # the analysis cannot run at all -- the API answers "Code scanning is not
+    # enabled for this repository" -- and a red X that nobody can turn green
+    # teaches people to ignore the whole tab.
+    #
+    # So the job states its condition instead of failing on it: it is skipped
+    # while the repository is private, and starts running by itself the moment
+    # that changes. Making the repository public is the cheaper of the two ways
+    # -- the package is published under Apache 2.0 anyway, so the sources are
+    # already meant to be readable.
+    if: github.event.repository.private == false
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: github/codeql-action/init@v3
+        with:
+          languages: python
+          # security-extended adds the checks that are accurate but noisier
+          # than the default set; on a framework that hands out sessions and
+          # builds SQL that is the trade worth making.
+          queries: security-extended
+
+      - uses: github/codeql-action/analyze@v3

@@ -1,0 +1,563 @@
+/* ============================================
+   The visual themes section
+   Visual Themes Management Module Styles
+   ============================================ */
+
+/* ----------------------------
+   The themes section itself
+   ---------------------------- */
+#themes-section {
+    animation: fadeIn 0.3s ease-in-out;
+}
+
+@keyframes fadeIn {
+    from {
+        opacity: 0;
+        transform: translateY(10px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+/* ----------------------------
+   Theme cards
+   ---------------------------- */
+.theme-item {
+    position: relative;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    overflow: hidden;
+}
+
+.theme-item:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 20px 25px -12px rgba(0, 0, 0, 0.15);
+}
+
+/* The active theme */
+.theme-item.border-blue-400 {
+    border-width: 2px;
+    position: relative;
+}
+
+.theme-item.border-blue-400::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 4px;
+    background: linear-gradient(90deg, #3b82f6, #60a5fa, #3b82f6);
+    background-size: 200% 100%;
+    animation: gradientShift 2s ease infinite;
+}
+
+@keyframes gradientShift {
+    0% {
+        background-position: 0% 50%;
+    }
+    50% {
+        background-position: 100% 50%;
+    }
+    100% {
+        background-position: 0% 50%;
+    }
+}
+
+/* ----------------------------
+   A theme's action buttons
+   ---------------------------- */
+.theme-action-btn {
+    transition: all 0.2s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.theme-action-btn:active {
+    transform: scale(0.96);
+}
+
+.theme-action-btn::before {
+    content: '';
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    width: 0;
+    height: 0;
+    border-radius: 50%;
+    background: rgba(255, 255, 255, 0.3);
+    transform: translate(-50%, -50%);
+    transition: width 0.6s, height 0.6s;
+}
+
+.theme-action-btn:active::before {
+    width: 200%;
+    height: 200%;
+}
+
+/* A colour per action */
+.theme-action-btn.bg-green-600:hover {
+    background-color: #059669 !important;
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+.theme-action-btn.bg-blue-600:hover {
+    background-color: #2563eb !important;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);
+}
+
+.theme-action-btn.bg-red-600:hover {
+    background-color: #dc2626 !important;
+    box-shadow: 0 4px 12px rgba(239, 68, 68, 0.3);
+}
+
+/* ----------------------------
+   The themes container (a grid)
+   ---------------------------- */
+#themes-container {
+    display: grid;
+    gap: 1.5rem;
+    margin-top: 1rem;
+}
+
+/* Responsive grid */
+@media (min-width: 640px) {
+    #themes-container {
+        grid-template-columns: repeat(1, 1fr);
+    }
+}
+
+@media (min-width: 768px) {
+    #themes-container {
+        grid-template-columns: repeat(2, 1fr);
+    }
+}
+
+@media (min-width: 1024px) {
+    #themes-container {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+/* ----------------------------
+   The loading skeleton
+   ---------------------------- */
+.theme-skeleton {
+    background: linear-gradient(
+        90deg,
+        #f0f0f0 25%,
+        #e0e0e0 50%,
+        #f0f0f0 75%
+    );
+    background-size: 200% 100%;
+    animation: loading 1.5s infinite;
+    border-radius: 0.5rem;
+}
+
+@keyframes loading {
+    0% {
+        background-position: 200% 0;
+    }
+    100% {
+        background-position: -200% 0;
+    }
+}
+
+/* ----------------------------
+   The modal
+   ---------------------------- */
+#theme-modal {
+    animation: modalFadeIn 0.2s ease-out;
+}
+
+@keyframes modalFadeIn {
+    from {
+        opacity: 0;
+        backdrop-filter: blur(0);
+    }
+    to {
+        opacity: 1;
+        backdrop-filter: blur(4px);
+    }
+}
+
+#theme-modal .bg-white {
+    animation: modalSlideIn 0.3s ease-out;
+}
+
+@keyframes modalSlideIn {
+    from {
+        opacity: 0;
+        transform: scale(0.95) translateY(-20px);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1) translateY(0);
+    }
+}
+
+/* Input fields inside a modal */
+#theme-modal input,
+#theme-modal textarea,
+#theme-modal select {
+    transition: all 0.2s ease;
+}
+
+#theme-modal input:focus,
+#theme-modal textarea:focus,
+#theme-modal select:focus {
+    border-color: #3b82f6;
+    box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.1);
+    outline: none;
+}
+
+/* A checkbox inside a modal */
+#theme-modal input[type="checkbox"] {
+    width: 1.2rem;
+    height: 1.2rem;
+    cursor: pointer;
+    transition: all 0.2s ease;
+}
+
+#theme-modal input[type="checkbox"]:checked {
+    background-color: #3b82f6;
+    border-color: #3b82f6;
+}
+
+/* ----------------------------
+   Status badges
+   ---------------------------- */
+.theme-status-badge {
+    display: inline-flex;
+    align-items: center;
+    padding: 0.25rem 0.75rem;
+    border-radius: 9999px;
+    font-size: 0.75rem;
+    font-weight: 500;
+    line-height: 1;
+    transition: all 0.2s ease;
+}
+
+.theme-status-badge.active {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.theme-status-badge.inactive {
+    background-color: #f3f4f6;
+    color: #374151;
+}
+
+.theme-status-badge i {
+    width: 0.875rem;
+    height: 0.875rem;
+    margin-right: 0.25rem;
+}
+
+/* ----------------------------
+   Icons on the cards
+   ---------------------------- */
+.theme-item i[data-feather] {
+    transition: transform 0.2s ease;
+}
+
+.theme-item:hover i[data-feather] {
+    transform: scale(1.1);
+}
+
+/* ----------------------------
+   Information blocks
+   ---------------------------- */
+.theme-info-block {
+    background-color: #f9fafb;
+    border-radius: 0.5rem;
+    padding: 0.75rem;
+    margin-top: 0.5rem;
+}
+
+.theme-info-block code {
+    background-color: #e5e7eb;
+    padding: 0.125rem 0.375rem;
+    border-radius: 0.25rem;
+    font-size: 0.875rem;
+    font-family: 'Courier New', monospace;
+}
+
+/* ----------------------------
+   The empty state
+   ---------------------------- */
+.empty-themes-state {
+    text-align: center;
+    padding: 3rem;
+    background: linear-gradient(135deg, #f9fafb 0%, #ffffff 100%);
+    border-radius: 1rem;
+    border: 2px dashed #d1d5db;
+}
+
+.empty-themes-state i {
+    color: #9ca3af;
+    margin-bottom: 1rem;
+}
+
+.empty-themes-state p {
+    color: #6b7280;
+    margin-bottom: 1.5rem;
+}
+
+/* ----------------------------
+   Notifications
+   ---------------------------- */
+.theme-notification {
+    position: fixed;
+    top: 1rem;
+    right: 1rem;
+    z-index: 1000;
+    min-width: 300px;
+    max-width: 450px;
+    animation: slideInRight 0.3s ease-out;
+}
+
+@keyframes slideInRight {
+    from {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+    to {
+        opacity: 1;
+        transform: translateX(0);
+    }
+}
+
+.theme-notification.success {
+    background-color: #10b981;
+    color: white;
+    border-left: 4px solid #047857;
+}
+
+.theme-notification.error {
+    background-color: #ef4444;
+    color: white;
+    border-left: 4px solid #b91c1c;
+}
+
+.theme-notification.info {
+    background-color: #3b82f6;
+    color: white;
+    border-left: 4px solid #1e40af;
+}
+
+/* ----------------------------
+   Action buttons in the header
+   ---------------------------- */
+#themes-section .action-button {
+    padding: 0.5rem 1rem;
+    border-radius: 0.5rem;
+    font-weight: 500;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    transition: all 0.2s ease;
+}
+
+#themes-section .action-button i {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+#themes-section .action-button:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
+}
+
+#themes-section .action-button:active {
+    transform: translateY(0);
+}
+
+/* ----------------------------
+   The modal's scrollbar
+   ---------------------------- */
+#theme-modal .overflow-auto::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+#theme-modal .overflow-auto::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+#theme-modal .overflow-auto::-webkit-scrollbar-thumb {
+    background: #c1c1c1;
+    border-radius: 4px;
+}
+
+#theme-modal .overflow-auto::-webkit-scrollbar-thumb:hover {
+    background: #a8a8a8;
+}
+
+/* ----------------------------
+   The removal animation
+   ---------------------------- */
+.theme-item.removing {
+    animation: slideOut 0.3s ease-out forwards;
+}
+
+@keyframes slideOut {
+    from {
+        opacity: 1;
+        transform: translateX(0);
+    }
+    to {
+        opacity: 0;
+        transform: translateX(100%);
+    }
+}
+
+/* ----------------------------
+   Tooltips
+   ---------------------------- */
+.theme-item [data-tooltip] {
+    position: relative;
+    cursor: help;
+}
+
+.theme-item [data-tooltip]:before {
+    content: attr(data-tooltip);
+    position: absolute;
+    bottom: 100%;
+    left: 50%;
+    transform: translateX(-50%);
+    padding: 0.25rem 0.5rem;
+    background-color: #1f2937;
+    color: white;
+    font-size: 0.75rem;
+    border-radius: 0.25rem;
+    white-space: nowrap;
+    z-index: 10;
+    opacity: 0;
+    pointer-events: none;
+    transition: opacity 0.2s;
+}
+
+.theme-item [data-tooltip]:hover:before {
+    opacity: 1;
+}
+
+/* ----------------------------
+   The preloader
+   ---------------------------- */
+.theme-loader {
+    display: inline-block;
+    width: 2rem;
+    height: 2rem;
+    border: 3px solid #e5e7eb;
+    border-top-color: #3b82f6;
+    border-radius: 50%;
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+/* ----------------------------
+   Media queries for phones
+   ---------------------------- */
+@media (max-width: 640px) {
+    #themes-section .flex {
+        flex-direction: column;
+        gap: 1rem;
+    }
+
+    #themes-section .flex .space-x-2 {
+        margin-top: 0.5rem;
+    }
+
+    .theme-item {
+        padding: 1rem !important;
+    }
+
+    .theme-item .flex-wrap {
+        gap: 0.5rem;
+    }
+
+    .theme-action-btn {
+        padding: 0.5rem 0.75rem !important;
+        font-size: 0.875rem;
+    }
+
+    #theme-modal {
+        padding: 0.5rem;
+    }
+
+    #theme-modal .max-w-md {
+        width: 95%;
+        margin: auto;
+    }
+}
+
+/* ----------------------------
+   Dark mode
+   ---------------------------- */
+@media (prefers-color-scheme: dark) {
+    .theme-item {
+        background-color: #1f2937;
+        border-color: #374151;
+    }
+
+    .theme-item .text-gray-800 {
+        color: #f3f4f6;
+    }
+
+    .theme-item .text-gray-600,
+    .theme-item .text-gray-500 {
+        color: #9ca3af;
+    }
+
+    .theme-status-badge.inactive {
+        background-color: #374151;
+        color: #9ca3af;
+    }
+
+    .theme-info-block {
+        background-color: #111827;
+    }
+
+    .theme-info-block code {
+        background-color: #374151;
+        color: #e5e7eb;
+    }
+
+    .empty-themes-state {
+        background: linear-gradient(135deg, #1f2937 0%, #111827 100%);
+        border-color: #374151;
+    }
+
+    .empty-themes-state p {
+        color: #9ca3af;
+    }
+}
+
+/* ----------------------------
+   Print styles
+   ---------------------------- */
+@media print {
+    .theme-action-btn,
+    .action-button {
+        display: none !important;
+    }
+
+    .theme-item {
+        break-inside: avoid;
+        page-break-inside: avoid;
+        border: 1px solid #ddd;
+        box-shadow: none;
+    }
+
+    #themes-container {
+        display: block;
+    }
+}
