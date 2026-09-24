@@ -15,6 +15,7 @@ what this module does once, it does to all of them.
 """
 
 import inspect
+import json
 import logging
 
 from fastapi import Depends, HTTPException, Request
@@ -33,6 +34,16 @@ __all__ = [
 ]
 
 logger = logging.getLogger(__name__)
+
+#: The media type whose body the runtime parses. One type, compared as a media
+#: type and not as a whole header -- see media_type().
+JSON_MEDIA_TYPE = "application/json"
+
+#: The structured syntax suffix of types that are JSON by construction
+#: (RFC 6839): application/merge-patch+json and friends. They are recognised in
+#: order to be named in the log, not in order to be read -- a route declares
+#: what it accepts.
+JSON_SUFFIX = "+json"
 
 
 def raw_request_wrapper(handler):
@@ -158,7 +169,26 @@ def route_kind(methods):
     return None, None
 
 
-async def json_body(request: Request):
+def media_type(header):
+    """The media type of a Content-Type header, without its parameters.
+
+    Lowercased and stripped of everything after the semicolon, because that is
+    what the standard says the type is: `application/json; charset=utf-8` and
+    `Application/JSON` name the same type as `application/json`. Comparing the
+    header as a whole string -- which is what this replaced -- lost the body of
+    every client that writes a charset, and most write one by default.
+
+    Args:
+        header: the Content-Type header, or None when there is none.
+
+    Returns:
+        The media type in lower case, or an empty string when the header is
+        absent.
+    """
+    return (header or "").split(";", 1)[0].strip().lower()
+
+
+async def json_body(request: Request, path: str = None):
     """The body of a write, parsed, or an empty one.
 
     The content type decides, not the bytes: a handler written for a dictionary
@@ -166,15 +196,66 @@ async def json_body(request: Request):
     A body that claims to be JSON and is not becomes empty rather than a
     refusal -- the plugin is handed {} and decides for itself, because a
     handler that needs a field says so by missing it.
+
+    That tolerance stays, but it is no longer silent. An empty body used to
+    mean three different things at once -- there was none, the type was not
+    JSON, or it arrived and could not be read -- and the handler, unable to
+    tell them apart, answered "field required" about a field the client had
+    sent. An agent writing its body in the machine's code page cost three rounds
+    of searching that way, with the word "encoding" in neither log. A body that
+    claims to be JSON and does not parse is now named in the log.
+
+    Args:
+        request: the request being served.
+        path: the route's path as declared, for the log line. Defaults to the
+            address of this request, which names an instance rather than the
+            route.
+
+    Returns:
+        The parsed body, or {} when there is none, the type is not JSON, or it
+        could not be read.
     """
-    if request.headers.get("content-type") != "application/json":
+    declared = media_type(request.headers.get("content-type"))
+    if declared != JSON_MEDIA_TYPE:
+        if declared.endswith(JSON_SUFFIX):
+            # JSON by construction (RFC 6839) and refused anyway: a route
+            # declares what it accepts, and a media type nobody declared must
+            # not start arriving because the runtime grew lenient. Named in the
+            # log, because the point of this whole function is that a body
+            # nobody reads does not vanish quietly.
+            logger.warning(
+                "body of a media type the runtime does not read: "
+                "route=%s method=%s content-type=%s",
+                path or request.url.path, request.method, declared)
         return {}
+    body = None
     try:
-        return await request.json()
-    except Exception:
+        body = await request.body()
+        if not body:
+            # A write with no body at all is ordinary -- a great many routes
+            # take everything in the path. Warning about it would bury the
+            # lines this exists to produce.
+            return {}
+        return json.loads(body)
+    except Exception as exc:
         # Not a bare except, which used to be here: CancelledError does not
         # inherit from Exception, and swallowing it turned a cancelled request
         # into an empty body and a handler that ran on anyway.
+        #
+        # The body itself is never written: passwords and keys go through these
+        # routes. The length says one arrived without saying what was in it,
+        # and the exception text names a position and at most the single byte
+        # that could not be decoded -- which is what makes an encoding fault
+        # diagnosable at all. "unread" rather than 0 when reading itself
+        # failed: a client that disconnected mid-request sent a length nobody
+        # knows, and 0 would read as "sent nothing".
+        logger.warning(
+            "body declared as JSON could not be read: "
+            "route=%s method=%s content-type=%s length=%s reason=%s: %s",
+            path or request.url.path, request.method,
+            request.headers.get("content-type"),
+            len(body) if body is not None else "unread",
+            type(exc).__name__, exc)
         return {}
 
 
@@ -251,7 +332,8 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
                     # An upload is handed the request itself: reading a file
                     # into memory to pass it as a value is what such a route
                     # exists to avoid.
-                    params['request'] = request if is_upload else await json_body(request)
+                    params['request'] = (request if is_upload
+                                        else await json_body(request, path))
 
                 response = await handler(**params)
 

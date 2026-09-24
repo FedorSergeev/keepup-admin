@@ -23,6 +23,7 @@ TestClient. Nothing of an application is imported, read or started.
 
 import asyncio
 import json
+import logging
 
 import pytest
 from fastapi import FastAPI, HTTPException
@@ -30,7 +31,7 @@ from fastapi.testclient import TestClient
 
 from keepup import audit
 from keepup.auth.dependencies import get_panel_user
-from keepup.plugins import admin, registry
+from keepup.plugins import admin, registry, routes
 from keepup.plugins.base import (
     OUTCOME_DISABLED,
     OUTCOME_INITIALIZED,
@@ -241,6 +242,159 @@ def test_a_json_body_that_does_not_parse_becomes_an_empty_one():
                                   headers={"content-type": "application/json"}).json()
 
     assert answer == {"body": {}}
+
+
+# --- the content type, and what an unreadable body leaves behind ---------------
+
+
+def runtime_warnings(caplog):
+    """What the runtime warned about, in order."""
+    return [record.getMessage() for record in caplog.records
+            if record.name == "keepup.plugins.routes"
+            and record.levelno == logging.WARNING]
+
+
+@pytest.mark.parametrize("header,expected", [
+    ("application/json", "application/json"),
+    ("application/json; charset=utf-8", "application/json"),
+    ("application/json;charset=UTF-8", "application/json"),
+    ("Application/JSON", "application/json"),
+    ("  application/json  ", "application/json"),
+    ("application/x-www-form-urlencoded", "application/x-www-form-urlencoded"),
+    ("", ""),
+    (None, ""),
+])
+def test_the_media_type_is_the_type_without_its_parameters(header, expected):
+    """The header is not the type, and comparing it as one lost bodies.
+
+    A charset is written by default by a great many clients, and the type is
+    case-insensitive by the standard -- so `application/json; charset=utf-8`
+    used to be a different string and the body went nowhere.
+    """
+    assert routes.media_type(header) == expected
+
+
+@pytest.mark.parametrize("header", [
+    "application/json; charset=utf-8",
+    "application/json;charset=UTF-8",
+    "Application/JSON",
+])
+def test_a_body_reaches_the_handler_whatever_the_header_is_spelled_like(header):
+    answer = running([NOTE]).post("/api/probe/notes", content=b'{"name": "x"}',
+                                  headers={"content-type": header}).json()
+
+    assert answer == {"body": {"name": "x"}}
+
+
+def test_a_body_that_does_not_parse_is_named_in_the_log(caplog):
+    """The whole point of the task: an empty body used to mean three things.
+
+    There was none, the type was not JSON, or it arrived and could not be read
+    -- and the handler, unable to tell them apart, answered about a missing
+    field the client had sent.
+    """
+    client = running([NOTE])
+    body = b'{"password": "hunter2"'
+
+    with caplog.at_level(logging.WARNING):
+        answer = client.post("/api/probe/notes", content=body,
+                             headers={"content-type": "application/json"}).json()
+
+    assert answer == {"body": {}}, "the handler is still handed {} and decides"
+    warned = runtime_warnings(caplog)
+    assert len(warned) == 1, warned
+    assert "/api/probe/notes" in warned[0], "the route the call was for"
+    assert "POST" in warned[0]
+    assert "application/json" in warned[0], "what the body claimed to be"
+    assert f"length={len(body)}" in warned[0], "a body arrived, and this long"
+    assert "JSONDecodeError" in warned[0], "and this is why it was not read"
+
+
+def test_the_body_itself_is_never_written_to_the_log(caplog):
+    """Passwords and keys go through these routes.
+
+    The length says a body arrived without saying what was in it. The reason
+    names a position and at most the single byte that would not decode, which
+    is what makes an encoding fault diagnosable without quoting the request.
+    """
+    client = running([NOTE])
+
+    with caplog.at_level(logging.WARNING):
+        client.post("/api/probe/notes", content=b'{"password": "hunter2"',
+                    headers={"content-type": "application/json"})
+
+    assert "hunter2" not in "\n".join(runtime_warnings(caplog))
+
+
+def test_a_body_in_another_encoding_says_so(caplog):
+    """The fault this task exists for.
+
+    A client on a Russian Windows built its body out of strings the machine
+    hands over in its code page. JSON is UTF-8 by definition, the parse fell
+    over, and the client read `400 id is required` about an id it had sent
+    correctly. Neither log said the word "encoding".
+    """
+    client = running([NOTE])
+    # A word in a single-byte code page, written as the bytes it is rather than
+    # as letters: the package is in English, and what matters here is that no
+    # UTF-8 decoder accepts these bytes -- 0xe2 opens a three-byte sequence and
+    # 0xf1 is not a continuation of one.
+    in_the_code_page = b'{"name": "\xe2\xf1\xf2"}'
+
+    with caplog.at_level(logging.WARNING):
+        client.post("/api/probe/notes", content=in_the_code_page,
+                    headers={"content-type": "application/json"})
+
+    warned = runtime_warnings(caplog)
+    assert len(warned) == 1, warned
+    assert "UnicodeDecodeError" in warned[0], (
+        "the one word three rounds of searching went without")
+
+
+def test_a_request_with_no_body_at_all_stays_silent(caplog):
+    """Ordinary, not an incident: plenty of writes take everything in the path.
+
+    Warning about them would bury the lines this exists to produce.
+    """
+    client = running([NOTE])
+
+    with caplog.at_level(logging.WARNING):
+        answer = client.post("/api/probe/notes",
+                             headers={"content-type": "application/json"}).json()
+
+    assert answer == {"body": {}}
+    assert runtime_warnings(caplog) == []
+
+
+def test_a_body_of_another_type_stays_silent(caplog):
+    """A form is not a broken JSON body, it is a different thing entirely."""
+    client = running([NOTE])
+
+    with caplog.at_level(logging.WARNING):
+        client.post("/api/probe/notes", content="name=x",
+                    headers={"content-type": "application/x-www-form-urlencoded"})
+
+    assert runtime_warnings(caplog) == []
+
+
+def test_a_json_structured_type_is_not_read_but_is_named(caplog):
+    """`+json` means JSON by construction (RFC 6839) and is still not read.
+
+    A route declares what it accepts, and a media type nobody declared must not
+    start arriving because the runtime grew lenient. But it does not vanish
+    quietly either -- that silence is the bug this task is about.
+    """
+    client = running([NOTE])
+
+    with caplog.at_level(logging.WARNING):
+        answer = client.post("/api/probe/notes", content=b'{"name": "x"}',
+                             headers={"content-type": "application/merge-patch+json"}).json()
+
+    assert answer == {"body": {}}
+    warned = runtime_warnings(caplog)
+    assert len(warned) == 1, warned
+    assert "application/merge-patch+json" in warned[0]
+    assert "/api/probe/notes" in warned[0]
 
 
 def test_an_upload_is_handed_the_request_itself():

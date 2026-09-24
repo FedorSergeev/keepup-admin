@@ -4,6 +4,26 @@ Notable changes to `keepup-admin`.
 
 ## Unreleased
 
+### Fixed
+
+- **A body whose content type carried a charset was lost entirely.** The header
+  was compared as a whole string, so `application/json; charset=utf-8` and
+  `Application/JSON` were not JSON — and a media type is case-insensitive and
+  carries parameters by the standard, which most clients write by default. Such
+  a client lost its body on every request and read the answer as a missing
+  field. The media type is now parsed rather than compared.
+- **An unreadable body no longer looks like an absent one.** `{}` meant three
+  things at once — there was none, the type was not JSON, or it arrived and
+  could not be read — and a handler that cannot tell them apart answers about a
+  field the client did send. A body declared as JSON that does not parse is now
+  a warning naming the route, the method, the content type, the length and the
+  reason. The body itself is never written: passwords go through these routes.
+  A request with no body stays silent, and the handler is still handed `{}` and
+  decides for itself — refusing instead would have turned hundreds of routes of
+  every application into refusals in one release.
+- A media type with a `+json` suffix is still not read — a route declares what
+  it accepts — but it is named in the log instead of vanishing quietly.
+
 ### Added
 
 - A project page: `docs/index.html`, one static page for GitHub Pages to serve
