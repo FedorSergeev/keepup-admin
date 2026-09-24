@@ -41,4 +41,13 @@ jobs:
           python -m pip install pip-audit
 
       - name: Audit the installed dependency set
-        run: python -m pip_audit --progress-spinner off --strict
+        # No --strict, on purpose. It fails the run when anything cannot be
+        # collected, and the one package that cannot be is this one: between a
+        # version bump and its release our own version is not on PyPI, and an
+        # editable install is refused as well. That made the check red on every
+        # release -- exactly when it needs to be readable.
+        #
+        # Without the flag the exit code still says what matters: 1 when a
+        # vulnerability is found, 0 when the only thing skipped is ourselves.
+        # Verified both ways rather than assumed (keepup-33).
+        run: python -m pip_audit --progress-spinner off
