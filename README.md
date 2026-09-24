@@ -1,8 +1,22 @@
 # keepup
 
+[![tests](https://github.com/FedorSergeev/keepup-admin/actions/workflows/tests.yml/badge.svg?branch=main)](https://github.com/FedorSergeev/keepup-admin/actions/workflows/tests.yml)
+[![security](https://github.com/FedorSergeev/keepup-admin/actions/workflows/security.yml/badge.svg?branch=main)](https://github.com/FedorSergeev/keepup-admin/actions/workflows/security.yml)
+[![PyPI](https://img.shields.io/pypi/v/keepup-admin)](https://pypi.org/project/keepup-admin/)
+[![licence](https://img.shields.io/pypi/l/keepup-admin)](LICENSE)
+
 [Project page](https://fedorsergeev.github.io/keepup-admin/) ·
 [Package](https://pypi.org/project/keepup-admin/) ·
 [Changes](CHANGELOG.md)
+
+Four badges, not six checks. These answer what somebody deciding whether to
+install asks: does it run on my Python, is there a known vulnerability in what
+it pulls in, what will I get, and may I use it. `quality`, `build` and `codeql`
+are housekeeping and live on the Actions page -- six badges in a row stop being
+read at all.
+
+A badge shows; it does not require. What keeps a red check from being merged is
+a branch rule, not a picture -- see `doc/keepup.md`.
 
 An admin framework over FastAPI. You give it settings; it gives you an
 application with a panel, a plugin runtime, users, a database layer, an audit,
