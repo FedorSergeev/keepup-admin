@@ -613,6 +613,23 @@ body.nav-locked {
     font-weight: 600;
 }
 
+/* The application's badge in the role's place (keepup-37): the tones are the
+   theme's to colour, the application only names one. */
+.header-badge-neutral {
+    background-color: var(--surface-muted, #eef2f7);
+    color: var(--text-strong, #1f2937);
+}
+
+.header-badge-positive {
+    background-color: #dcfce7;
+    color: #166534;
+}
+
+.header-badge-warning {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
 .role-admin {
     background-color: #e9d5ff;
     color: #7c3aed;

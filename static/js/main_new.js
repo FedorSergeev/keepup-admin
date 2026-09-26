@@ -1374,6 +1374,52 @@ function handleValidationError(data) {
 }
 
 
+// --- The application's badge in the header -----------------------------------
+//
+// The top right corner shows the user's role unless the application puts a badge
+// of its own there -- a client's balance, a plan, a quota. The application calls
+// AppHeader.setBadge({text, title, tone}) and AppHeader.clearBadge(); the text
+// is only ever text, and the tone one of a closed list the theme styles. The
+// badge belongs to the session: signing out takes it away, so the next person on
+// the same computer does not see the previous one's figure.
+
+const HEADER_BADGE_TONES = ['neutral', 'positive', 'warning'];
+let headerBadge = null;
+
+/** What the corner shows for this user and this badge -- pure, tested under node. */
+function headerBadgeView(user, badge) {
+    if (badge && badge.text) {
+        const tone = HEADER_BADGE_TONES.includes(badge.tone) ? badge.tone : 'neutral';
+        return { text: String(badge.text), title: badge.title ? String(badge.title) : '',
+                 className: `ml-2 role-badge header-badge header-badge-${tone}` };
+    }
+    const admin = Boolean(user && user.role === ROLE_ADMIN);
+    return { text: admin ? 'Admin' : 'Client', title: '',
+             className: `ml-2 role-badge ${admin ? 'role-admin' : 'role-client'}` };
+}
+
+function renderHeaderBadge() {
+    const corner = document.getElementById('userRole');
+    if (!corner) return;
+    const view = headerBadgeView(currentUser, headerBadge);
+    corner.textContent = view.text;
+    corner.title = view.title;
+    corner.className = view.className;
+}
+
+window.AppHeader = {
+    setBadge(badge) {
+        headerBadge = badge && badge.text ? { text: badge.text, title: badge.title, tone: badge.tone } : null;
+        renderHeaderBadge();
+    },
+    clearBadge() {
+        headerBadge = null;
+        renderHeaderBadge();
+    },
+};
+
+// --- end of the application's badge in the header ------------------------------
+
 async function logout() {
     // The server ends the session first: forgetting it only in this browser
     // would leave a copied token working.
@@ -1385,6 +1431,7 @@ async function logout() {
     localStorage.removeItem('authToken');
     localStorage.removeItem('auth_token');
     currentUser = null;
+    headerBadge = null;
     updateUIAfterAuth();
     showAuthModal();
     hideVersionPanel();
@@ -1452,9 +1499,8 @@ function updateUIAfterAuth() {
         userStatus.textContent = currentUser.status === 'active' ? 'Active' : 'Blocked';
         userStatus.className = `ml-2 status-badge ${currentUser.status === 'active' ? 'status-active' : 'status-blocked'}`;
 
-        const userRole = document.getElementById('userRole');
-        userRole.textContent = currentUser.role === ROLE_ADMIN ? 'Admin' : 'Client';
-        userRole.className = `ml-2 role-badge ${currentUser.role === ROLE_ADMIN ? 'role-admin' : 'role-client'}`;
+        // The role, or the application's badge in its place (keepup-37).
+        renderHeaderBadge();
 
         document.getElementById('userInfo').style.display = 'block';
 
