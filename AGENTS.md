@@ -108,7 +108,10 @@ class ReportsPlugin(BasePlugin):          # plugin_id "reports"
   role's `plugins` list is visibility, not enablement. `GET /api/admin/plugins`
   shows each plugin's outcome and the reason it failed.
 - **Route keys**: `path`, `methods`, `handler`, `require_auth` (default true),
-  `include_in_schema`, `is_upload`, `raw_request`, and `params` -- the request
+  `include_in_schema`, `is_upload`, `raw_request`, `max_body_bytes` (the
+  largest body the route accepts, or None for none; a route that reads its own
+  body -- `is_upload`, `raw_request` -- should say, since the application's
+  general limit does not reach it), and `params` -- the request
   mask (`keepup/plugins/route_mask.py`: per parameter a type, `required`,
   `in`, `choices`, `min`, `max`, `max_length`, `pattern`).
 - **Handlers take plain arguments**, not FastAPI objects: path and query values

@@ -48,6 +48,8 @@ Notable changes to `keepup-admin`.
 - `AuthProvider.lookup_user(username)` — the synchronous read of an account,
   for callers that cannot await; the local provider reads its table. The
   default keeps a provider that only has `get_user_info()` working.
+- The plugin route key `max_body_bytes`: the largest body the route accepts,
+  or `None` for no limit.
 - `keepup.scheduler.new_scheduler()` and `JOB_DEFAULTS`, and
   `KeepupSettings.scheduler_job_defaults` to override them.
 - `BasePlugin.post_construct_once_per_cluster` and
@@ -66,6 +68,11 @@ Notable changes to `keepup-admin`.
 
 ### Changed
 
+- **`max_upload_bytes` is enforced** — it was declared and checked nowhere. A
+  body over the limit is refused with 413 before the route reads it (at once
+  when `Content-Length` says so, as it arrives otherwise). It applies to
+  routes whose body the framework reads; a route that reads its own body
+  (`is_upload`, `raw_request`) is limited only by what it declares.
 - **Failed sign-ins arriving at once are all counted.** The count was read,
   incremented and written back, so failures landing together on several
   replicas counted as one and the lockout came later than

@@ -123,7 +123,11 @@ class KeepupSettings:
     #: Response headers the framework adds. The panel is a page, so without
     #: X-Frame-Options it can be framed by anybody.
     security_headers: bool = True
-    #: The largest body an upload route accepts, in bytes. None removes the
+    #: The largest request body, in bytes, of a route whose body the framework
+    #: reads (a plain write route, the framework's own routes) and that declares
+    #: no ``max_body_bytes`` of its own; refused with 413 before it is read
+    #: (keepup/body_limit.py). A route that reads its own body -- is_upload,
+    #: raw_request -- is limited only by what it declares. None removes the
     #: limit, which is a thing an application may want and should have to say.
     max_upload_bytes: Optional[int] = 256 * 1024 * 1024
     #: Pool, audit buffer and metrics interval, in one place (keepup-38).

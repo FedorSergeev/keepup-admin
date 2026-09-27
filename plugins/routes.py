@@ -23,6 +23,7 @@ from fastapi import Depends, HTTPException, Request
 from keepup.audit import IncomingRequestLogger, log_api_request
 from keepup.auth.dependencies import get_panel_user
 from keepup.auth.websocket import authenticate_websocket
+from keepup.body_limit import declare_limit
 from keepup.plugins import route_mask
 
 #: What an application may import from this module. Everything else is
@@ -411,6 +412,10 @@ async def register_plugin_routes(app, manager):
             wrapper = raw_request_wrapper(handler)
         else:
             wrapper = create_wrapper(handler, path, methods, require_auth, is_upload, mask)
+
+        # What the route says about its body: its own limit, or that it reads
+        # the body itself (keepup/body_limit.py).
+        declare_limit(wrapper, route)
 
         app.add_api_route(
             path,

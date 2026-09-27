@@ -496,6 +496,14 @@ def create_app(settings: KeepupSettings = None) -> FastAPI:
     # registered path.
     app.add_middleware(cluster.StoppedReplicaGate)
 
+    # The largest body a route accepts, checked before the route reads it
+    # (keepup/body_limit.py). Inside the version middleware, so it matches the
+    # registered path; it finds the route itself, before routing, since a body
+    # read by the route is a body already received.
+    from keepup.body_limit import BodyLimitMiddleware
+    app.add_middleware(BodyLimitMiddleware, router_of=app,
+                       default_limit=settings.max_upload_bytes)
+
     # Versioned paths (/api/v1, /ws/v1) reach the same handlers; added last, so it
     # runs first and every middleware and route below sees the registered path.
     app.add_middleware(ApiVersionMiddleware)

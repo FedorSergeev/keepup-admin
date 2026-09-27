@@ -49,7 +49,9 @@ def test_every_route_key_the_guide_names_is_one_the_runtime_reads():
     text = guide()
     line = text[text.index("**Route keys**"):text.index("- **Handlers take plain")]
     keys = set(re.findall(r"`([a-z_]+)`", line))
-    runtime = (PACKAGE / "plugins" / "routes.py").read_text(encoding="utf-8")
+    # The route runtime, and the body limit it hands each route's declaration to.
+    runtime = "\n".join((PACKAGE / name).read_text(encoding="utf-8")
+                        for name in ("plugins/routes.py", "body_limit.py"))
     read = set(re.findall(r"route\.get\('([a-z_]+)'", runtime)) | {"path", "methods", "handler"}
     read |= {route_mask.MASK_FIELD} | set(route_mask.DECLARATION_FIELDS)
     assert not (keys - read), f"route keys the runtime does not read: {sorted(keys - read)}"
