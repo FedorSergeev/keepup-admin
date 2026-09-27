@@ -349,7 +349,8 @@ async def flush_remaining_logs():
     """Ship the remaining incoming-request logs at shutdown."""
     try:
         logger.info("Flushing remaining incoming request logs...")
-        count = await audit.IncomingRequestLogger.flush_buffer()
+        # Everything, the running requests too: nothing finishes after shutdown.
+        count = await audit.IncomingRequestLogger.flush_buffer(include_in_flight=True)
         logger.info(f"Flushed {count} remaining logs")
     except Exception as e:
         logger.error(f"Error flushing remaining logs: {str(e)}")

@@ -132,6 +132,15 @@ incoming_requests_lock = asyncio.Lock()
 
 BUFFER_FLUSH_INTERVAL = 125
 BUFFER_MAX_SIZE = 100
+#: A request running this long is written without its outcome (keepup-41): the
+#: process that would have finished it has most likely gone.
+IN_FLIGHT_STALE_SECONDS = 3600
+
+
+def _as_datetime(value) -> datetime:
+    if isinstance(value, str):
+        return datetime.fromisoformat(value.replace('Z', ''))
+    return value
 
 
 class IncomingRequestLogger:
@@ -211,92 +220,67 @@ class IncomingRequestLogger:
             return True
 
     @staticmethod
-    async def flush_buffer() -> int:
-        """Write the buffered requests to the database."""
+    async def flush_buffer(include_in_flight: bool = False, now: Optional[datetime] = None) -> int:
+        """Write the finished requests of the buffer to the database.
 
+        A request still running stays in the buffer (keepup-41): written by a
+        timed flush and dropped from the buffer, it could no longer receive its
+        outcome -- end_request found nothing, logged "not found", and the table
+        kept a request with no status. Two exceptions: a request running longer
+        than IN_FLIGHT_STALE_SECONDS is written without an outcome, since the
+        process that would finish it has most likely gone and the buffer must
+        not grow forever; and at shutdown (``include_in_flight``) everything is
+        written -- nothing will finish afterwards.
+        """
+        now = now or datetime.utcnow()
         async with incoming_requests_lock:
-            if not incoming_requests_buffer:
+            chosen = {
+                request_id: req for request_id, req in incoming_requests_buffer.items()
+                if include_in_flight or 'request_end_at' in req
+                or (now - _as_datetime(req['request_start_at'])).total_seconds()
+                >= IN_FLIGHT_STALE_SECONDS
+            }
+            if not chosen:
                 return 0
 
-            requests_to_insert = list(incoming_requests_buffer.values())
-            inserted_count = 0
+            rows = [{
+                'instance_id': req['instance_id'],
+                'method': req['method'],
+                'endpoint': req['endpoint'],
+                'host': req['host'],
+                'request_data': json.dumps(req['request_data']) if req['request_data'] else None,
+                'request_start_at': req['request_start_at'],
+                'request_end_at': req.get('request_end_at'),
+                'duration_ms': req.get('duration_ms'),
+                'http_status': req.get('http_status'),
+                'response_data': (json.dumps(req.get('response_data'))
+                                  if req.get('response_data') else None),
+                'error_message': req.get('error_message'),
+                'created_at': req['created_at'],
+            } for req in chosen.values()]
+            columns = ("instance_id, method, endpoint, host, request_data, request_start_at, "
+                       "request_end_at, duration_ms, http_status, response_data, error_message, "
+                       "created_at")
+            placeholders = ", ".join(":" + c.strip() for c in columns.split(","))
+            if db_config.is_postgres():
+                query = (f"INSERT INTO incoming_requests ({columns}) VALUES ({placeholders}) "
+                         f"ON CONFLICT (instance_id, method, endpoint, request_start_at) DO NOTHING")
+            else:
+                query = f"INSERT OR IGNORE INTO incoming_requests ({columns}) VALUES ({placeholders})"
 
             try:
-                values = []
-                for req in requests_to_insert:
-                    values.append((
-                        req['instance_id'],
-                        req['method'],
-                        req['endpoint'],
-                        req['host'],
-                        json.dumps(req['request_data']) if req['request_data'] else None,
-                        req['request_start_at'],
-                        req.get('request_end_at'),
-                        req.get('duration_ms'),
-                        req.get('http_status'),
-                        json.dumps(req.get('response_data')) if req.get('response_data') else None,
-                        req.get('error_message'),
-                        req['created_at']
-                    ))
-
-                if values:
-                    if db_config.is_postgres():
-                        query = '''
-                        INSERT INTO incoming_requests 
-                        (instance_id, method, endpoint, host, request_data, request_start_at, 
-                         request_end_at, duration_ms, http_status, response_data, error_message, created_at)
-                        VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
-                        ON CONFLICT (instance_id, method, endpoint, request_start_at) 
-                        DO NOTHING
-                        '''
-                    else:
-                        query = '''
-                        INSERT OR IGNORE INTO incoming_requests 
-                        (instance_id, method, endpoint, host, request_data, request_start_at, 
-                         request_end_at, duration_ms, http_status, response_data, error_message, created_at)
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                        '''
-
-                    if db_config.is_postgres():
-                        conn = DatabaseManager.get_connection()
-                        cursor = conn.cursor()
-                        try:
-                            cursor.executemany(query, values)
-                            inserted_count = cursor.rowcount
-                            conn.commit()
-                        finally:
-                            cursor.close()
-                            conn.close()
-                    else:
-                        conn = DatabaseManager.get_connection()
-                        cursor = conn.cursor()
-                        try:
-                            cursor.executemany(query, values)
-                            inserted_count = cursor.rowcount
-                            conn.commit()
-                        finally:
-                            cursor.close()
-                            conn.close()
-
-                    if inserted_count > 0:
-                        inserted_ids = []
-                        for req_id, req_data in incoming_requests_buffer.items():
-                            for v in values:
-                                if (req_data['instance_id'] == v[0] and
-                                        req_data['method'] == v[1] and
-                                        req_data['endpoint'] == v[2] and
-                                        req_data['request_start_at'] == v[5]):
-                                    inserted_ids.append(req_id)
-                                    break
-
-                        for req_id in inserted_ids:
-                            incoming_requests_buffer.pop(req_id, None)
-
-                        logger.info(f"Flushed {inserted_count} incoming requests to database")
-
+                inserted_count = DatabaseManagerV2.execute_many(query, rows)
             except Exception as e:
+                # Kept in the buffer: the next flush tries again.
                 logger.error(f"Error flushing incoming requests buffer: {str(e)}")
+                return 0
 
+            # Every chosen request is dropped, written or ignored as a duplicate
+            # alike: an ignored one is already in the table.
+            for request_id in chosen:
+                incoming_requests_buffer.pop(request_id, None)
+            if inserted_count:
+                logger.info(f"Flushed {inserted_count} incoming requests to database")
             return inserted_count
 
 
