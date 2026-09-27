@@ -10,6 +10,7 @@ KeepupSettings: the framework holds the table, the API and the retention, and
 knows none of the names. See `doc/event_manager.md`.
 """
 
+import asyncio
 import logging
 import json
 from datetime import datetime, timedelta
@@ -121,7 +122,7 @@ class EventManager:
             int: id of the created event.
         """
         if not self._initialized:
-            self.init_table()
+            await asyncio.to_thread(self.init_table)
 
         try:
             event_instance_id = instance_id or self.instance_id
@@ -129,7 +130,7 @@ class EventManager:
 
             event_data_json = json.dumps(event_data, ensure_ascii=False) if event_data else None
 
-            row = DatabaseManagerV2.execute_commit_returning('''
+            row = await DatabaseManagerV2.execute_commit_returning_async('''
             INSERT INTO app_events (event_type, event_text, event_data, instance_id, instance_name)
             VALUES (:event_type, :event_text, :event_data, :instance_id, :instance_name)
             ''', {"event_type": event_type, "event_text": event_text,
@@ -167,7 +168,7 @@ class EventManager:
             Dict with the events and their metadata.
         """
         if not self._initialized:
-            self.init_table()
+            await asyncio.to_thread(self.init_table)
 
         try:
             conditions, params = [], {}
@@ -183,12 +184,12 @@ class EventManager:
 
             where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
-            total_result = DatabaseManagerV2.execute_one(
+            total_result = await DatabaseManagerV2.execute_one_async(
                 f"SELECT COUNT(*) as total FROM app_events {where_clause}", params)
             total = total_result['total'] if total_result else 0
 
             offset = (page - 1) * page_size
-            rows = DatabaseManagerV2.execute(f'''
+            rows = await DatabaseManagerV2.execute_async(f'''
             SELECT id, event_type, event_text, event_data, instance_id, instance_name, created_at
             FROM app_events
             {where_clause}
@@ -240,10 +241,10 @@ class EventManager:
             List[str]: the event types.
         """
         if not self._initialized:
-            self.init_table()
+            await asyncio.to_thread(self.init_table)
 
         try:
-            rows = DatabaseManagerV2.execute(
+            rows = await DatabaseManagerV2.execute_async(
                 "SELECT DISTINCT event_type FROM app_events ORDER BY event_type")
             return [row['event_type'] for row in rows]
 
@@ -258,10 +259,10 @@ class EventManager:
             List[Dict]: instances with their id and name.
         """
         if not self._initialized:
-            self.init_table()
+            await asyncio.to_thread(self.init_table)
 
         try:
-            rows = DatabaseManagerV2.execute('''
+            rows = await DatabaseManagerV2.execute_async('''
             SELECT DISTINCT instance_id, instance_name 
             FROM app_events 
             WHERE instance_name IS NOT NULL
@@ -284,7 +285,7 @@ class EventManager:
             int: number of deleted events.
         """
         if not self._initialized:
-            self.init_table()
+            await asyncio.to_thread(self.init_table)
 
         try:
             # The boundary is computed here rather than written into the
@@ -294,7 +295,7 @@ class EventManager:
             # exploited it only because the one caller passes an int from a
             # bounded query parameter, and this is a public method (keepup-15).
             cutoff = datetime.utcnow() - timedelta(days=int(days))
-            deleted_count = DatabaseManagerV2.execute_commit(
+            deleted_count = await DatabaseManagerV2.execute_commit_async(
                 "DELETE FROM app_events WHERE created_at < :cutoff", {"cutoff": cutoff})
             if deleted_count > 0:
                 logger.info(f"Deleted {deleted_count} old events (older than {days} days)")
@@ -311,19 +312,19 @@ class EventManager:
             Dict: the statistics.
         """
         if not self._initialized:
-            self.init_table()
+            await asyncio.to_thread(self.init_table)
 
         try:
             # One statement for both dialects; rows are read by column name,
             # which is what a PostgreSQL row is (it has no positions).
-            type_rows = DatabaseManagerV2.execute('''
+            type_rows = await DatabaseManagerV2.execute_async('''
             SELECT event_type, COUNT(*) as count,
                    MIN(created_at) as first_event, MAX(created_at) as last_event
             FROM app_events
             GROUP BY event_type
             ORDER BY count DESC
             ''')
-            instance_rows = DatabaseManagerV2.execute('''
+            instance_rows = await DatabaseManagerV2.execute_async('''
             SELECT instance_id, instance_name, COUNT(*) as event_count,
                    MIN(created_at) as first_event, MAX(created_at) as last_event
             FROM app_events

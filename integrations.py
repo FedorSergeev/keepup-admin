@@ -10,6 +10,7 @@ Calls are recorded against a user, and background work has no user of its own
 unsigned row never appears.
 """
 
+import asyncio
 import json
 import logging
 import time
@@ -52,7 +53,7 @@ class IntegrationLogger:
             if response_body_str and len(response_body_str) > 10000:
                 response_body_str = response_body_str[:10000] + "... [truncated]"
 
-            DatabaseManagerV2.execute_commit('''
+            await DatabaseManagerV2.execute_commit_async('''
             INSERT INTO integration_logs 
             (user_id, username, host, endpoint, method, request_body, response_body, status_code, duration_ms)
             VALUES (:user_id, :username, :host, :endpoint, :method, :request_body,
@@ -140,17 +141,17 @@ def log_external_request(host: str, endpoint: str):
             finally:
                 try:
                     user_id = extract_user_id_from_args(args, kwargs)
-                    user = get_user_by_id(user_id)
+                    user = await asyncio.to_thread(get_user_by_id, user_id)
                     username = 'unknown'
                     if not user:
                         logger.warning(f"User {user_id} not found, skipping log")
-                        user = get_user_by_username('system')
+                        user = await asyncio.to_thread(get_user_by_username, 'system')
                         username = user.get('username', 'unknown')
                         user_id = user.get('id')
                     else:
                         username = user.get('username', 'unknown')
 
-                    DatabaseManagerV2.execute_commit('''
+                    await DatabaseManagerV2.execute_commit_async('''
                     INSERT INTO integration_logs 
                     (user_id, username, host, endpoint, method, request_body, response_body, status_code, duration_ms)
                     VALUES (:user_id, :username, :host, :endpoint, :method, :request_body,

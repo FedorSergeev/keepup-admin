@@ -24,6 +24,12 @@ Notable changes to `keepup-admin`.
 - A media type with a `+json` suffix is still not read — a route declares what
   it accepts — but it is named in the log instead of vanishing quietly.
 
+- **A task holding a `distributed_lock` could not be cancelled while the lock
+  was winding down its renewal.** The exit awaited the renewal task under
+  `except CancelledError: pass`, which swallowed the holder's own cancellation
+  too: a background loop went back to its sleep, and a shutdown waited for it
+  forever. The holder's cancellation now propagates, and the lock is released
+  either way.
 - Event statistics (`/api/events/stats`) read rows by position, which a
   PostgreSQL row does not have; they are read by column name now.
 
@@ -42,11 +48,24 @@ Notable changes to `keepup-admin`.
 - `AuthProvider.lookup_user(username)` — the synchronous read of an account,
   for callers that cannot await; the local provider reads its table. The
   default keeps a provider that only has `get_user_info()` working.
+- `DatabaseManagerV2.execute_async()`, `execute_one_async()`,
+  `execute_commit_async()`, `execute_many_async()`,
+  `execute_commit_returning_async()` — the same queries, awaitable: the call
+  runs in a worker thread.
 - `DatabaseManagerV2.test_connection()` — the health check's answer (whether
   the database responds, which one, its version), which never raises.
 
 ### Changed
 
+- **No query to the database holds the event loop.** The audit flush,
+  distributed locks, the event log, the panel section catalogue, the health
+  check, sign-in, the cluster heartbeat, metrics and the plugin panel ran
+  blocking queries inside coroutines: while one waited for the database, the
+  process served nobody. Coroutines now await the new `*_async` methods or hand
+  their blocking helpers to a worker thread, and endpoints that only query are
+  plain functions, which FastAPI runs in its thread pool. The audit flush holds
+  the buffer lock only while it picks rows, not while it writes them. Sign-in
+  checks the password (bcrypt) off the loop as well.
 - **The user check on every signed-in request reads the account once, off the
   event loop.** It read the account twice, and each read started a thread with
   an event loop of its own that the request waited for with a blocking join —

@@ -7,6 +7,7 @@ new sections are added from it without touching what an administrator has
 already switched off or taken away from a role.
 """
 
+import asyncio
 import json
 from pathlib import Path
 import logging
@@ -392,19 +393,19 @@ def register_module_routes(app):
     """Register the panel-section endpoints on the application."""
 
     @app.get("/api/admin/modules")
-    async def get_all_modules_admin(admin: dict = Depends(get_current_admin)):
+    def get_all_modules_admin(admin: dict = Depends(get_current_admin)):
         """Return every module (administrators only)."""
         modules = get_all_modules_from_db()
         return {"modules": modules}
     @app.get("/api/admin/modules/{module_id}")
-    async def get_module_admin(module_id: str, admin: dict = Depends(get_current_admin)):
+    def get_module_admin(module_id: str, admin: dict = Depends(get_current_admin)):
         """Return a module by id (administrators only)."""
         module = get_module_by_id(module_id)
         if not module:
             raise HTTPException(status_code=404, detail="Module not found")
         return module
     @app.post("/api/admin/modules")
-    async def create_module(
+    def create_module(
             module_data: ModuleCreate,
             admin: dict = Depends(get_current_admin)
     ):
@@ -415,7 +416,7 @@ def register_module_routes(app):
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
     @app.put("/api/admin/modules/{module_id}")
-    async def update_module(
+    def update_module(
             module_id: str,
             module_data: ModuleUpdate,
             admin: dict = Depends(get_current_admin)
@@ -433,7 +434,7 @@ def register_module_routes(app):
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
     @app.delete("/api/admin/modules/{module_id}")
-    async def delete_module_endpoint(
+    def delete_module_endpoint(
             module_id: str,
             admin: dict = Depends(get_current_admin)
     ):
@@ -445,7 +446,7 @@ def register_module_routes(app):
         delete_module(module_id)
         return {"success": True, "message": "Module deleted successfully"}
     @app.get("/api/admin/role-modules")
-    async def get_role_modules(admin: dict = Depends(get_current_admin)):
+    def get_role_modules(admin: dict = Depends(get_current_admin)):
         """Return the modules granted to each role."""
         roles_modules = {}
         roles = DatabaseManagerV2.execute('''
@@ -458,7 +459,7 @@ def register_module_routes(app):
 
         return roles_modules
     @app.post("/api/admin/role-modules")
-    async def update_role_modules_endpoint(
+    def update_role_modules_endpoint(
             role_data: RoleModulesUpdate,
             admin: dict = Depends(get_current_admin)
     ):
@@ -469,7 +470,7 @@ def register_module_routes(app):
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
     @app.post("/api/admin/modules/import-from-json")
-    async def import_modules_from_json_endpoint(admin: dict = Depends(get_current_admin)):
+    def import_modules_from_json_endpoint(admin: dict = Depends(get_current_admin)):
         """Import the modules from the JSON file."""
         success = import_modules_from_json()
         if success:
@@ -477,7 +478,7 @@ def register_module_routes(app):
         else:
             raise HTTPException(status_code=500, detail="Error importing modules")
     @app.post("/api/admin/modules/export-to-json")
-    async def export_modules_to_json_endpoint(admin: dict = Depends(get_current_admin)):
+    def export_modules_to_json_endpoint(admin: dict = Depends(get_current_admin)):
         """Export the modules to the JSON file."""
         try:
             modules = get_all_modules_from_db()
@@ -523,7 +524,8 @@ def register_module_routes(app):
         """Return the modules available to the current user, from the database."""
         try:
             user_role = current_user['role']
-            modules = get_modules_for_role(user_role)
+            # Every page of the panel asks for this; the read leaves the loop.
+            modules = await asyncio.to_thread(get_modules_for_role, user_role)
 
             if modules:
                 formatted_modules = []

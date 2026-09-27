@@ -127,7 +127,7 @@ def register_web_routes(app):
     async def favicon():
         return FileResponse(os.path.join(STATIC_DIR, FAVICON_FILE))
     @app.get("/api/health")
-    async def health_check():
+    def health_check():
         """Whether this instance is up and reaches its database -- and nothing more.
 
         The answer is public: the deployment proxies it to the world. It used to carry
@@ -166,7 +166,7 @@ def register_web_routes(app):
         """Which versions of the API this server speaks; public, read by agents at start."""
         return describe()
     @app.get("/api/admin/health")
-    async def admin_health_check(admin: dict = Depends(get_current_admin)):
+    def admin_health_check(admin: dict = Depends(get_current_admin)):
         """The full picture for an administrator: database, its version and settings."""
         try:
             db_status = DatabaseManagerV2.test_connection()

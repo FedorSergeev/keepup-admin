@@ -8,6 +8,7 @@ handlers and through the panel gate in ``keepup.auth.dependencies``.
 """
 
 import inspect
+import asyncio
 import logging
 import os
 import re
@@ -269,9 +270,9 @@ async def refresh_access_token(current_user: dict, request: Request = None,
     # Carried forward, not restarted: the window counts from the login, and the
     # session stays the one a logout will revoke. A token from before sessions
     # were recorded gets one here.
-    issued = issue_session_token(current_user["id"], current_user["username"],
-                                 sid=current_user.get("session_id"),
-                                 session_started_at=session_started_at)
+    issued = await asyncio.to_thread(
+        issue_session_token, current_user["id"], current_user["username"],
+        sid=current_user.get("session_id"), session_started_at=session_started_at)
     if request is not None and response is not None and _authenticated_by_cookie(request):
         panel_session.set_cookies(response, request, issued["access_token"], issued["expires_in"])
 
@@ -379,7 +380,7 @@ def register_auth_routes(app, manager):
         # Guessing a password had no cost: every attempt was answered as fast as the
         # first. The count is per name and lives in the database, because the next
         # attempt may well be served by another replica.
-        locked_until = login_throttle.locked_until(login_data.username)
+        locked_until = await asyncio.to_thread(login_throttle.locked_until, login_data.username)
         if locked_until:
             # Deliberately says nothing about whether the name exists or the password
             # was right -- answering that here would turn the lockout into an oracle.
@@ -390,14 +391,14 @@ def register_auth_routes(app, manager):
 
         user = await get_user_by_username_async(login_data.username)
         if not user or not await authenticate(login_data.username, login_data.password):
-            login_throttle.record_failure(login_data.username)
+            await asyncio.to_thread(login_throttle.record_failure, login_data.username)
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
                 headers={"WWW-Authenticate": "Bearer"},
             )
 
-        login_throttle.record_success(login_data.username)
+        await asyncio.to_thread(login_throttle.record_success, login_data.username)
 
         if user["status"] != "active":
             raise HTTPException(
@@ -405,7 +406,7 @@ def register_auth_routes(app, manager):
                 detail="User account is blocked. Please contact administrator.",
             )
 
-        issued = issue_session_token(user["id"], user["username"])
+        issued = await asyncio.to_thread(issue_session_token, user["id"], user["username"])
         access_token = issued["access_token"]
         # The panel keeps the session in a cookie its scripts cannot read; the token
         # in the body stays for the host agent and scripts, which send it as Bearer.
@@ -445,13 +446,14 @@ def register_auth_routes(app, manager):
                 payload = jwt.decode(token, resolve_signing_key(), algorithms=[ALGORITHM])
                 sid = payload.get(panel_session.SESSION_CLAIM)
                 if sid:
-                    revoked = panel_session.revoke(sid, panel_session.REASON_LOGOUT) > 0
+                    revoked = await asyncio.to_thread(
+                        panel_session.revoke, sid, panel_session.REASON_LOGOUT) > 0
             except JWTError:
                 pass
         panel_session.clear_cookies(response)
         return {"success": True, "revoked": revoked}
     @app.post("/api/auth/session")
-    async def exchange_token_for_session(request: Request, response: Response,
+    def exchange_token_for_session(request: Request, response: Response,
                                          current_user: dict = Depends(get_current_user)):
         """Move a session the page holds as a token into the cookie.
 
@@ -478,7 +480,7 @@ def register_auth_routes(app, manager):
             }
         }
     @app.put("/api/auth/profile", response_model=dict)
-    async def update_profile(
+    def update_profile(
         profile_data: UserProfileUpdate,
         current_user: dict = Depends(get_current_user)
     ):
@@ -516,7 +518,7 @@ def register_auth_routes(app, manager):
             "documents_pending": _documents_pending(current_user),
         }
     @app.put("/api/admin/users/{user_id}/password", response_model=dict)
-    async def admin_change_user_password(
+    def admin_change_user_password(
             user_id: int,
             password_data: UserPasswordUpdate,
             admin: dict = Depends(get_current_admin)
@@ -578,11 +580,11 @@ def register_auth_routes(app, manager):
                 detail="Error changing password"
             )
     @app.get("/api/admin/users", response_model=List[UserResponse])
-    async def get_all_users_endpoint(admin: dict = Depends(get_current_admin)):
+    def get_all_users_endpoint(admin: dict = Depends(get_current_admin)):
         users = get_all_users()
         return users
     @app.get("/api/admin/users/{user_id}", response_model=UserResponse)
-    async def get_user_endpoint(user_id: int, admin: dict = Depends(get_current_admin)):
+    def get_user_endpoint(user_id: int, admin: dict = Depends(get_current_admin)):
         user = get_user_by_id(user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
@@ -593,13 +595,14 @@ def register_auth_routes(app, manager):
             user_data: UserUpdateRequest,
             admin: dict = Depends(get_current_admin)
     ):
-        user = get_user_by_id(user_id)
+        user = await asyncio.to_thread(get_user_by_id, user_id)
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         if user_data.status and user_data.status != "active" and int(admin["id"]) == int(user_id):
             raise HTTPException(status_code=400, detail="An administrator cannot block their own account")
 
-        update_user(
+        await asyncio.to_thread(
+            update_user,
             user_id,
             user_data.status,
             user_data.role,
@@ -614,7 +617,8 @@ def register_auth_routes(app, manager):
             # status is read on every one -- but a WebSocket authenticates once
             # at the handshake and then runs, so a blocked account kept whatever
             # socket it already had open (task keepup-14).
-            panel_session.revoke_all(int(user_id), panel_session.REASON_ACCOUNT_BLOCKED)
+            await asyncio.to_thread(
+                panel_session.revoke_all, int(user_id), panel_session.REASON_ACCOUNT_BLOCKED)
             await notify_account_blocked(manager, int(user_id), admin)
 
         return {"success": True, "message": "User updated successfully"}

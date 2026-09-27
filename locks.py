@@ -46,7 +46,7 @@ class DatabaseLock:
         """Take the lock, clearing stale holders first."""
         try:
             await self._cleanup_stale_locks()
-            result = DatabaseManagerV2.execute_commit('''
+            result = await DatabaseManagerV2.execute_commit_async('''
             INSERT INTO distributed_locks (lock_name, acquired_at, instance_id)
             VALUES (:lock_name, CURRENT_TIMESTAMP, :instance_id)
             ''', {"lock_name": self.lock_name, "instance_id": self.instance_id})
@@ -78,7 +78,7 @@ class DatabaseLock:
                 "cutoff_time": cutoff_time
             }
 
-            deleted_count = DatabaseManagerV2.execute_commit(cleanup_query, params)
+            deleted_count = await DatabaseManagerV2.execute_commit_async(cleanup_query, params)
 
             if deleted_count > 0:
                 logger.warning(f"Cleaned up {deleted_count} stale lock(s) for '{self.lock_name}' "
@@ -90,7 +90,7 @@ class DatabaseLock:
     async def _try_acquire_existing(self) -> bool:
         """Take over an existing lock when it has expired."""
         try:
-            lock = DatabaseManagerV2.execute_one(
+            lock = await DatabaseManagerV2.execute_one_async(
                 "SELECT * FROM distributed_locks WHERE lock_name = :lock_name",
                 {"lock_name": self.lock_name}
             )
@@ -109,7 +109,7 @@ class DatabaseLock:
                 logger.warning(f"Lock '{self.lock_name}' expired (held for {time_diff:.1f}s, "
                                f"max: {self.max_lock_time}s), attempting to acquire...")
 
-                DatabaseManagerV2.execute_commit(
+                await DatabaseManagerV2.execute_commit_async(
                     "DELETE FROM distributed_locks WHERE lock_name = :lock_name",
                     {"lock_name": self.lock_name}
                 )
@@ -136,7 +136,7 @@ class DatabaseLock:
         if not self.acquired:
             return False
         try:
-            moved = DatabaseManagerV2.execute_commit(
+            moved = await DatabaseManagerV2.execute_commit_async(
                 "UPDATE distributed_locks SET acquired_at = :now "
                 "WHERE lock_name = :name AND instance_id = :instance",
                 {"now": datetime.utcnow(), "name": self.lock_name,
@@ -158,7 +158,7 @@ class DatabaseLock:
             return
 
         try:
-            DatabaseManagerV2.execute_commit(
+            await DatabaseManagerV2.execute_commit_async(
                 "DELETE FROM distributed_locks WHERE lock_name = :lock_name AND instance_id = :instance_id",
                 {"lock_name": self.lock_name, "instance_id": self.instance_id}
             )
@@ -205,13 +205,20 @@ async def distributed_lock(lock_name: str, timeout: int = 300, max_lock_time: in
         renewal = asyncio.create_task(keep_saying_still_here())
         yield lock
     finally:
-        if renewal is not None:
-            renewal.cancel()
-            try:
-                await renewal
-            except asyncio.CancelledError:
-                pass
-        await lock.release()
+        try:
+            if renewal is not None:
+                renewal.cancel()
+                try:
+                    await renewal
+                except asyncio.CancelledError:
+                    # The renewal's own cancellation is expected. This task's is
+                    # not ours to swallow: a holder cancelled while it waited here
+                    # used to go on as if nothing happened -- a background loop
+                    # back to its sleep, and a shutdown waiting for it forever.
+                    if asyncio.current_task().cancelling():
+                        raise
+        finally:
+            await lock.release()
 
 
 def with_distributed_lock(lock_key: str, timeout: int = 300, max_lock_time: int = None):
@@ -291,7 +298,7 @@ def register_lock_routes(app):
     """Register the administrative lock endpoints on the application."""
 
     @app.get("/api/admin/locks")
-    async def get_active_locks(admin: dict = Depends(get_current_admin)):
+    def get_active_locks(admin: dict = Depends(get_current_admin)):
         """Return the active locks (administrators only)."""
         try:
             if admin["role"] != ROLE_ADMIN:
@@ -317,7 +324,7 @@ def register_lock_routes(app):
 
 
     @app.delete("/api/admin/locks/{lock_name}")
-    async def force_release_lock(
+    def force_release_lock(
             lock_name: str,
             admin: dict = Depends(get_current_admin),
             confirm: bool = Query(False, description="Confirm force release")
@@ -400,7 +407,7 @@ def register_lock_routes(app):
 
 
     @app.get("/api/admin/locks/stats")
-    async def get_locks_stats(admin: dict = Depends(get_current_admin)):
+    def get_locks_stats(admin: dict = Depends(get_current_admin)):
         """Return lock statistics (administrators only)."""
         try:
             if admin["role"] != ROLE_ADMIN:

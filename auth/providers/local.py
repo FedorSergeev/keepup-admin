@@ -104,6 +104,12 @@ class LocalAuthProvider(AuthProvider):
             return False
 
     async def authenticate(self, username: str, password: str) -> Optional[Dict[str, Any]]:
+        # A read and a bcrypt check -- a quarter of a second of CPU by design --
+        # neither of which belongs on the event loop.
+        return await asyncio.to_thread(self._authenticate, username, password)
+
+    @staticmethod
+    def _authenticate(username: str, password: str) -> Optional[Dict[str, Any]]:
         user = get_user_by_username(username)
         if not user:
             return None
@@ -122,11 +128,11 @@ class LocalAuthProvider(AuthProvider):
         return await asyncio.to_thread(get_user_by_username, username)
 
     async def get_user_permissions(self, username: str) -> Dict[str, bool]:
-        user = get_user_by_username(username)
+        user = await asyncio.to_thread(get_user_by_username, username)
         if not user:
             return {}
 
-        permissions = DatabaseManagerV2.execute('''
+        permissions = await DatabaseManagerV2.execute_async('''
             SELECT permission_name, granted 
             FROM user_permissions 
             WHERE user_id = :id

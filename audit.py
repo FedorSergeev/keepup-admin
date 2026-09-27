@@ -233,6 +233,10 @@ class IncomingRequestLogger:
         written -- nothing will finish afterwards.
         """
         now = now or datetime.utcnow()
+        # The buffer lock is taken by the start and the end of every request, so
+        # it is held only to pick the rows and take them out -- never across the
+        # write, which runs in a worker thread and may take as long as the
+        # database does (keepup-44).
         async with incoming_requests_lock:
             chosen = {
                 request_id: req for request_id, req in incoming_requests_buffer.items()
@@ -240,48 +244,52 @@ class IncomingRequestLogger:
                 or (now - _as_datetime(req['request_start_at'])).total_seconds()
                 >= IN_FLIGHT_STALE_SECONDS
             }
-            if not chosen:
-                return 0
-
-            rows = [{
-                'instance_id': req['instance_id'],
-                'method': req['method'],
-                'endpoint': req['endpoint'],
-                'host': req['host'],
-                'request_data': json.dumps(req['request_data']) if req['request_data'] else None,
-                'request_start_at': req['request_start_at'],
-                'request_end_at': req.get('request_end_at'),
-                'duration_ms': req.get('duration_ms'),
-                'http_status': req.get('http_status'),
-                'response_data': (json.dumps(req.get('response_data'))
-                                  if req.get('response_data') else None),
-                'error_message': req.get('error_message'),
-                'created_at': req['created_at'],
-            } for req in chosen.values()]
-            columns = ("instance_id, method, endpoint, host, request_data, request_start_at, "
-                       "request_end_at, duration_ms, http_status, response_data, error_message, "
-                       "created_at")
-            placeholders = ", ".join(":" + c.strip() for c in columns.split(","))
-            if db_config.is_postgres():
-                query = (f"INSERT INTO incoming_requests ({columns}) VALUES ({placeholders}) "
-                         f"ON CONFLICT (instance_id, method, endpoint, request_start_at) DO NOTHING")
-            else:
-                query = f"INSERT OR IGNORE INTO incoming_requests ({columns}) VALUES ({placeholders})"
-
-            try:
-                inserted_count = DatabaseManagerV2.execute_many(query, rows)
-            except Exception as e:
-                # Kept in the buffer: the next flush tries again.
-                logger.error(f"Error flushing incoming requests buffer: {str(e)}")
-                return 0
-
-            # Every chosen request is dropped, written or ignored as a duplicate
-            # alike: an ignored one is already in the table.
             for request_id in chosen:
                 incoming_requests_buffer.pop(request_id, None)
-            if inserted_count:
-                logger.info(f"Flushed {inserted_count} incoming requests to database")
-            return inserted_count
+        if not chosen:
+            return 0
+
+        rows = [{
+            'instance_id': req['instance_id'],
+            'method': req['method'],
+            'endpoint': req['endpoint'],
+            'host': req['host'],
+            'request_data': json.dumps(req['request_data']) if req['request_data'] else None,
+            'request_start_at': req['request_start_at'],
+            'request_end_at': req.get('request_end_at'),
+            'duration_ms': req.get('duration_ms'),
+            'http_status': req.get('http_status'),
+            'response_data': (json.dumps(req.get('response_data'))
+                              if req.get('response_data') else None),
+            'error_message': req.get('error_message'),
+            'created_at': req['created_at'],
+        } for req in chosen.values()]
+        columns = ("instance_id, method, endpoint, host, request_data, request_start_at, "
+                   "request_end_at, duration_ms, http_status, response_data, error_message, "
+                   "created_at")
+        placeholders = ", ".join(":" + c.strip() for c in columns.split(","))
+        if db_config.is_postgres():
+            query = (f"INSERT INTO incoming_requests ({columns}) VALUES ({placeholders}) "
+                     f"ON CONFLICT (instance_id, method, endpoint, request_start_at) DO NOTHING")
+        else:
+            query = f"INSERT OR IGNORE INTO incoming_requests ({columns}) VALUES ({placeholders})"
+
+        try:
+            inserted_count = await DatabaseManagerV2.execute_many_async(query, rows)
+        except Exception as e:
+            # Back into the buffer: the next flush tries again. A request that
+            # somehow reappeared meanwhile keeps its newer entry.
+            logger.error(f"Error flushing incoming requests buffer: {str(e)}")
+            async with incoming_requests_lock:
+                for request_id, req in chosen.items():
+                    incoming_requests_buffer.setdefault(request_id, req)
+            return 0
+
+        # Every chosen request is gone from the buffer, written or ignored as a
+        # duplicate alike: an ignored one is already in the table.
+        if inserted_count:
+            logger.info(f"Flushed {inserted_count} incoming requests to database")
+        return inserted_count
 
 
 #: What PostgreSQL enforces with named constraints, SQLite held as a unique

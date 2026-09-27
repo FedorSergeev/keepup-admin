@@ -12,6 +12,7 @@ directory of the started application, which is how two applications on one
 framework keep separate databases. SQLite exists for development only.
 """
 
+import asyncio
 import os
 from contextlib import contextmanager
 from typing import Optional, List, Dict, Any
@@ -187,6 +188,36 @@ class DatabaseManagerV2:
             raise e
         finally:
             session.close()
+
+    # --- the same calls, awaitable ------------------------------------------
+    #
+    # Every query here blocks its thread until the database answers, and in a
+    # coroutine that thread is the event loop's: while it waits, the process
+    # serves nobody. These run the synchronous call in a worker thread
+    # (asyncio.to_thread) and await it, so async code never calls the database
+    # on the loop. They call the synchronous methods by name, so whatever
+    # replaces one of those (a test's stand-in, a recorder) is used here too.
+
+    @classmethod
+    async def execute_async(cls, query: str, params: Optional[dict] = None) -> List[Dict]:
+        return await asyncio.to_thread(cls.execute, query, params)
+
+    @classmethod
+    async def execute_one_async(cls, query: str, params: Optional[dict] = None) -> Optional[Dict]:
+        return await asyncio.to_thread(cls.execute_one, query, params)
+
+    @classmethod
+    async def execute_commit_async(cls, query: str, params: Optional[dict] = None) -> int:
+        return await asyncio.to_thread(cls.execute_commit, query, params)
+
+    @classmethod
+    async def execute_many_async(cls, query: str, params_list: List[dict]) -> int:
+        return await asyncio.to_thread(cls.execute_many, query, params_list)
+
+    @classmethod
+    async def execute_commit_returning_async(cls, query: str, params: Optional[dict] = None,
+                                             returning: str = "id") -> Optional[Dict]:
+        return await asyncio.to_thread(cls.execute_commit_returning, query, params, returning)
 
     @classmethod
     def test_connection(cls) -> Dict[str, Any]:

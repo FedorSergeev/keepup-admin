@@ -556,7 +556,7 @@ async def update_metrics_background(collector: Optional[SystemMetricsCollector] 
     while True:
         try:
             metrics = await collector.collect_metrics()
-            collector.save_metrics_to_db(metrics)
+            await asyncio.to_thread(collector.save_metrics_to_db, metrics)
             collector.update_prometheus_metrics()
             collector.forget_cpu_load()
             await asyncio.sleep(collector.collection_interval)
@@ -711,7 +711,7 @@ def register_metrics_routes(app, public=False):
                 media_type=CONTENT_TYPE_LATEST
             )
     @app.get("/api/admin/metrics/system", response_model=SystemMetricsResponse)
-    async def get_system_metrics(admin: dict = Depends(get_current_admin)):
+    def get_system_metrics(admin: dict = Depends(get_current_admin)):
         """Return the current system metrics of every instance."""
         try:
             since = fresh_since()
@@ -756,7 +756,7 @@ def register_metrics_routes(app, public=False):
             logger.error(f"Error getting system metrics: {str(e)}")
             raise HTTPException(status_code=500, detail="Error retrieving system metrics")
     @app.get("/api/admin/metrics/history")
-    async def get_historical_metrics_endpoint(
+    def get_historical_metrics_endpoint(
             cpu_hours: int = Query(24, description="Hours of CPU metrics"),
             ram_hours: int = Query(24, description="Hours of RAM metrics"),
             admin: dict = Depends(get_current_admin)
@@ -771,7 +771,7 @@ def register_metrics_routes(app, public=False):
             logger.error(f"Error getting historical metrics: {str(e)}")
             raise HTTPException(status_code=500, detail="Error retrieving historical metrics")
     @app.get("/api/admin/instances/{instance_id}")
-    async def get_instance_details(instance_id: str, admin: dict = Depends(get_current_admin)):
+    def get_instance_details(instance_id: str, admin: dict = Depends(get_current_admin)):
         """Return the details of one instance."""
         try:
             instance_info = {
@@ -804,7 +804,7 @@ def register_metrics_routes(app, public=False):
             logger.error(f"Error getting instance details: {str(e)}")
             raise HTTPException(status_code=500, detail="Error retrieving instance details")
     @app.post("/api/admin/instances/{instance_id}/restart")
-    async def restart_instance(instance_id: str, admin: dict = Depends(get_current_admin)):
+    def restart_instance(instance_id: str, admin: dict = Depends(get_current_admin)):
         """TODO: restart an instance -- not actually implemented."""
         logger.info(f"Restart requested for instance: {instance_id} by admin: {admin['username']}")
 

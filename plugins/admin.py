@@ -13,6 +13,7 @@ exactly the same from outside: the routes are absent and the server is
 healthy. The difference is kept by the manager and published here.
 """
 
+import asyncio
 import json
 import logging
 import os
@@ -158,7 +159,7 @@ async def get_plugins_status(manager, current_user=None):
         # running, and the one computed now carries the panel's latest
         # decisions. Where they differ, the row awaits a restart.
         desired = enablement.resolve(
-            config, os.environ, overrides=read_plugin_overrides())
+            config, os.environ, overrides=await asyncio.to_thread(read_plugin_overrides))
         return {"plugins": enablement.status_report(
             config, manager.resolution, manager,
             desired=desired, environ=os.environ)}
@@ -178,7 +179,8 @@ async def set_plugin_enabled(plugin_id: str, request: Dict[str, Any], admin: dic
     if not isinstance(enabled, bool):
         raise HTTPException(status_code=400, detail="Field 'enabled' must be true or false")
     try:
-        write_plugin_override(plugin_id, enabled, changed_by=admin.get("id"))
+        await asyncio.to_thread(write_plugin_override, plugin_id, enabled,
+                                changed_by=admin.get("id"))
     except Exception as e:
         logger.error(f"Could not store the plugin override for {plugin_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
@@ -190,7 +192,7 @@ async def clear_plugin_enabled(plugin_id: str, admin: dict = None):
     """Give the decision about this plugin back to the file and the environment."""
     _refuse_if_the_deployment_decides(plugin_id)
     try:
-        clear_plugin_override(plugin_id)
+        await asyncio.to_thread(clear_plugin_override, plugin_id)
     except Exception as e:
         logger.error(f"Could not clear the plugin override for {plugin_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")

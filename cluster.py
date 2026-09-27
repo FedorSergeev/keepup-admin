@@ -436,12 +436,22 @@ class ReplicaController:
         async with self._lock:
             picture = await self._plugins()
             now = self._clock()
-            publish_member(self.as_member(picture, now))
-            expire_commands(now)
-            for command in pending_commands_for(self.instance_id):
-                if claim_command(command["id"], now):
+            # The registry is the database, and this runs on every replica every
+            # few seconds: the queries go to a worker thread, while a claimed
+            # command is carried out here, on the loop, since it acts on the
+            # scheduler and the server (keepup-44).
+            pending = await asyncio.to_thread(
+                self._publish_and_read, self.as_member(picture, now), now)
+            for command in pending:
+                if await asyncio.to_thread(claim_command, command["id"], now):
                     self.execute(command)
-            prune_members(now)
+            await asyncio.to_thread(prune_members, now)
+
+    def _publish_and_read(self, member: Dict[str, Any], now: datetime) -> List[Dict[str, Any]]:
+        """This replica's row written, expired commands closed, its own read."""
+        publish_member(member)
+        expire_commands(now)
+        return pending_commands_for(self.instance_id)
 
     def as_member(self, picture: PluginPicture, now: datetime) -> Dict[str, Any]:
         return {
@@ -580,8 +590,7 @@ def _member_view(member: Dict[str, Any], now: datetime,
 async def cluster_overview(now: Optional[datetime] = None) -> Dict[str, Any]:
     """The registry as the panel shows it."""
     now = now or utcnow()
-    members = read_members()
-    commands = recent_commands()
+    members, commands = await asyncio.to_thread(lambda: (read_members(), recent_commands()))
     latest: Dict[str, Dict[str, Any]] = {}
     for command in commands:
         latest.setdefault(command["instance_id"], command)
@@ -601,16 +610,16 @@ async def give_command(instance_id: str, request: Dict[str, Any], admin: Dict[st
     request = request or {}
     action = request.get("action")
     force = request.get("force") is True
-    members = read_members()
+    members = await asyncio.to_thread(read_members)
     target = next((m for m in members if m["instance_id"] == instance_id), None)
+    open_command = await asyncio.to_thread(open_command_for, instance_id) if target else None
     try:
-        check_command(action, target, members,
-                      open_command_for(instance_id) if target else None, force, now)
+        check_command(action, target, members, open_command, force, now)
     except CommandRefused as refusal:
         raise HTTPException(status_code=refusal.status_code, detail=refusal.reason)
 
-    command_id = record_command(instance_id, action, force, admin.get("id"),
-                                admin.get("username"), now)
+    command_id = await asyncio.to_thread(record_command, instance_id, action, force,
+                                         admin.get("id"), admin.get("username"), now)
     logger.warning(f"Cluster: {admin.get('username')} ordered {action} of {instance_id}"
                    f"{' (forced)' if force else ''}")
     controller = get_controller()
