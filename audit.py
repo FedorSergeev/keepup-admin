@@ -17,7 +17,6 @@ recorded says so by name -- ``configure(redaction=keep_as_is)``.
 import asyncio
 import json
 import logging
-import os
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
@@ -26,7 +25,7 @@ from typing import Any, Dict, Optional
 from sqlalchemy import CheckConstraint, Column, DateTime, Index, Integer, Text, UniqueConstraint
 from sqlalchemy.dialects import postgresql
 
-from keepup import tables
+from keepup import retention, tables
 from keepup.db import DatabaseManagerV2, db_config
 from keepup.instance import get_instance_id
 
@@ -296,10 +295,10 @@ class IncomingRequestLogger:
 #: index of the same name and no checks at all; each dialect keeps what it had.
 # --- how long a row lives ----------------------------------------------------
 
-#: How many days an audit row is kept. The table used to have no sweep at all,
-#: while metric snapshots and application events both had one: it grew for as
-#: long as the deployment ran, and every row in it was a second place a value
-#: from a query string lived.
+#: How many days an audit row is kept. The table used to have no sweep at all:
+#: it grew for as long as the deployment ran, and every row in it was a second
+#: place a value from a query string lived. The event log is swept the same way
+#: (keepup/retention.py).
 DEFAULT_AUDIT_RETENTION_DAYS = 30
 #: How often the sweep runs.
 AUDIT_SWEEP_INTERVAL_SECONDS = 3600
@@ -316,35 +315,12 @@ AUDIT_RETENTION_LOCK = "incoming_requests_retention"
 
 
 def retention_days():
-    """How many days rows are kept, from the environment or the default.
-
-    Returns:
-        A positive number of days; rubbish in the variable means the default
-        and a line in the log, because a sweep that switched itself off
-        silently would be worse than one that swept too much.
-    """
-    raw = os.getenv("AUDIT_RETENTION_DAYS")
-    if raw in (None, ""):
-        return DEFAULT_AUDIT_RETENTION_DAYS
-    try:
-        value = int(raw)
-    except (TypeError, ValueError):
-        logger.warning("AUDIT_RETENTION_DAYS=%r is not a number, using %s",
-                       raw, DEFAULT_AUDIT_RETENTION_DAYS)
-        return DEFAULT_AUDIT_RETENTION_DAYS
-    if value <= 0:
-        logger.warning("AUDIT_RETENTION_DAYS=%s must be positive, using %s",
-                       value, DEFAULT_AUDIT_RETENTION_DAYS)
-        return DEFAULT_AUDIT_RETENTION_DAYS
-    return value
+    """How many days audit rows are kept (``AUDIT_RETENTION_DAYS``, 30 by default)."""
+    return retention.retention_days("AUDIT_RETENTION_DAYS", DEFAULT_AUDIT_RETENTION_DAYS)
 
 
 def purge_old_requests(days=None, now=None):
-    """Delete audit rows older than the retention period.
-
-    The boundary is computed here rather than in the statement: the interval
-    syntax differs between the engines, and a query written for one does not
-    run on the other.
+    """Delete audit rows older than the retention period, in chunks.
 
     Args:
         days: how many days to keep; read from the environment when omitted.
@@ -353,27 +329,10 @@ def purge_old_requests(days=None, now=None):
     Returns:
         How many rows were deleted.
     """
-    from datetime import timedelta
-
-    keep_days = days if days is not None else retention_days()
-    cutoff = (now or datetime.utcnow()) - timedelta(days=keep_days)
-
-    removed = 0
-    for _ in range(AUDIT_MAX_CHUNKS_PER_PASS):
-        rows = DatabaseManagerV2.execute(
-            "SELECT id FROM incoming_requests WHERE created_at < :cutoff "
-            "ORDER BY created_at ASC LIMIT :limit",
-            {"cutoff": cutoff, "limit": AUDIT_DELETE_CHUNK_ROWS})
-        if not rows:
-            break
-        ids = {f"i{index}": row["id"] for index, row in enumerate(rows)}
-        placeholders = ", ".join(f":{key}" for key in ids)
-        DatabaseManagerV2.execute_commit(
-            f"DELETE FROM incoming_requests WHERE id IN ({placeholders})", ids)
-        removed += len(rows)
-        if len(rows) < AUDIT_DELETE_CHUNK_ROWS:
-            break
-    return removed
+    return retention.purge_older_than(
+        "incoming_requests", "created_at",
+        days if days is not None else retention_days(),
+        AUDIT_DELETE_CHUNK_ROWS, AUDIT_MAX_CHUNKS_PER_PASS, now=now)
 
 
 async def audit_retention_background():

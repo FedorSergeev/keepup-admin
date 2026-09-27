@@ -20,7 +20,7 @@ from pydantic import BaseModel, Field
 from sqlalchemy import Column, DateTime, Index, String, Text
 from sqlalchemy.dialects import postgresql
 
-from keepup import tables
+from keepup import retention, tables
 from keepup.db import DatabaseManagerV2
 from keepup.instance import get_instance_id, get_instance_name
 from keepup.auth.dependencies import get_current_admin
@@ -28,7 +28,9 @@ from keepup.auth.dependencies import get_current_admin
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
 __all__ = [
+    "DEFAULT_EVENTS_RETENTION_DAYS",
     "emit_event",
+    "events_retention_background",
     "init_event_manager",
     "register_event_api_routes",
 ]
@@ -377,6 +379,60 @@ class EventManager:
 
 
 event_manager = EventManager()
+
+
+# --- how long an event lives --------------------------------------------------
+
+#: How many days an event is kept (``EVENTS_RETENTION_DAYS``). The log was never
+#: swept on its own -- only a manual route deleted old events -- so it grew for as
+#: long as the deployment ran. Longer than the request audit: an event is the
+#: product's own record of what happened (a sign-in, a blocked account), read
+#: back by an administrator weeks later.
+DEFAULT_EVENTS_RETENTION_DAYS = 90
+#: How often the sweep runs, and how much one pass may delete.
+EVENTS_SWEEP_INTERVAL_SECONDS = 3600
+EVENTS_DELETE_CHUNK_ROWS = 5000
+EVENTS_MAX_CHUNKS_PER_PASS = 20
+#: How long to wait after a failed pass.
+EVENTS_ERROR_BACKOFF_SECONDS = 60
+
+EVENTS_RETENTION_LOCK = "app_events_retention"
+
+
+def events_retention_days() -> int:
+    """How many days events are kept (``EVENTS_RETENTION_DAYS``, 90 by default)."""
+    return retention.retention_days("EVENTS_RETENTION_DAYS", DEFAULT_EVENTS_RETENTION_DAYS)
+
+
+def purge_old_events(days: Optional[int] = None, now: Optional[datetime] = None) -> int:
+    """Delete events older than the retention period, in chunks; how many went."""
+    return retention.purge_older_than(
+        "app_events", "created_at",
+        days if days is not None else events_retention_days(),
+        EVENTS_DELETE_CHUNK_ROWS, EVENTS_MAX_CHUNKS_PER_PASS, now=now)
+
+
+async def events_retention_background():
+    """Sweep the event log once per interval, under a distributed lock.
+
+    Locked because the work is the deployment's, not the replica's. A failed pass
+    costs nothing: writing events runs on its own path.
+    """
+    from keepup.locks import distributed_lock
+
+    while True:
+        try:
+            async with distributed_lock(EVENTS_RETENTION_LOCK, timeout=5,
+                                        max_lock_time=EVENTS_SWEEP_INTERVAL_SECONDS):
+                removed = await asyncio.to_thread(purge_old_events)
+            if removed:
+                logger.info("Events expired: %s", removed)
+            await asyncio.sleep(EVENTS_SWEEP_INTERVAL_SECONDS)
+        except asyncio.CancelledError:
+            raise
+        except Exception as error:
+            logger.error("Error in the event log retention sweep: %s", error)
+            await asyncio.sleep(EVENTS_ERROR_BACKOFF_SECONDS)
 
 async def emit_event(
         event_type: str,

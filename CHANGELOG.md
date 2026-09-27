@@ -66,6 +66,11 @@ Notable changes to `keepup-admin`.
 
 ### Changed
 
+- **The event log sweeps itself.** Only a manual route ever deleted old events,
+  so the table grew for as long as the deployment ran. Events older than
+  `EVENTS_RETENTION_DAYS` (90 by default) are deleted hourly, in chunks, under a
+  distributed lock; the request audit and the event log share one chunked
+  delete (`keepup/retention.py`).
 - **Scheduler jobs coalesce missed runs, never run beside themselves, and may
   start up to a minute late** (`coalesce`, `max_instances = 1`,
   `misfire_grace_time = 60`). APScheduler's defaults ran every missed slot

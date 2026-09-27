@@ -35,7 +35,8 @@ from keepup.audit import (audit_retention_background, background_buffer_flusher,
 from keepup.auth import dependencies as auth_dependencies
 from keepup.auth import routes as auth_routes
 from keepup.auth.oidc_routes import register_oidc_routes
-from keepup.events import init_event_manager, register_event_api_routes
+from keepup.events import (events_retention_background, init_event_manager,
+                           register_event_api_routes)
 from keepup.instance import get_instance_id
 from keepup.locks import register_lock_routes
 from keepup.logging_setup import init_remote_logging
@@ -219,6 +220,8 @@ def _build_lifespan(settings: KeepupSettings):
         # The audit table had no sweep at all while snapshots and events both
         # had one, so it grew for as long as the deployment ran (keepup-11).
         audit_retention_task = asyncio.create_task(audit_retention_background())
+        # The event log had only a manual cleanup route (keepup-47).
+        events_retention_task = asyncio.create_task(events_retention_background())
 
         event_manager = init_event_manager()
         if event_manager:
@@ -285,7 +288,9 @@ def _build_lifespan(settings: KeepupSettings):
         metrics_task.cancel()
         retention_task.cancel()
         audit_retention_task.cancel()
-        for task in (flusher_task, metrics_task, retention_task, audit_retention_task):
+        events_retention_task.cancel()
+        for task in (flusher_task, metrics_task, retention_task, audit_retention_task,
+                     events_retention_task):
             try:
                 await task
             except asyncio.CancelledError:
