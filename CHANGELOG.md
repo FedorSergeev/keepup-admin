@@ -120,6 +120,12 @@ Notable changes to `keepup-admin`.
   change: 401 for a bad token, a revoked session or a removed account, 403 for
   a blocked one.
 
+- **Shipping logs to a collector is a module of its own.** `keepup.logging_setup`
+  is the console and rotated files; `keepup.log_shipping` is the queue, the
+  thread, the retries and the collector registration, and an application that
+  names no collector never loads it. `logging_setup.configure()` remains the
+  one entry for logging values and hands the collector's on. The shipping
+  names still answer from `keepup.logging_setup`, with a `DeprecationWarning`.
 - **The event log and its HTTP routes are separate modules.** `keepup.events`
   is the journal (table, `emit_event`, reading, retention) and loads no web
   framework; `keepup.events_api` holds the routes and their models, and looks

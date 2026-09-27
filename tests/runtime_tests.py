@@ -10,7 +10,7 @@ import logging
 
 import pytest
 
-from keepup import audit, logging_setup
+from keepup import audit, log_shipping, logging_setup
 from keepup.db import DatabaseManagerV2
 from keepup.instance import get_instance_id, get_instance_name
 from keepup.locks import DatabaseLock, distributed_lock, with_distributed_lock
@@ -164,17 +164,17 @@ async def test_a_request_is_buffered_rather_than_written_per_call(empty_buffer):
 
 def test_without_a_collector_nothing_is_shipped(monkeypatch):
     """A framework with no deployment has nowhere to send logs, and invents none."""
-    monkeypatch.setattr(logging_setup, "REMOTE_LOG_URL", None)
-    assert logging_setup.init_remote_logging() is None
+    monkeypatch.setattr(log_shipping, "REMOTE_LOG_URL", None)
+    assert log_shipping.init_remote_logging() is None
 
 
 def test_the_application_names_the_collector_and_itself():
-    previous = (logging_setup.PROJECT_NAME, logging_setup.REMOTE_LOG_URL)
+    previous = (log_shipping.PROJECT_NAME, log_shipping.REMOTE_LOG_URL)
     try:
         logging_setup.configure(project_name="second-product",
                                 remote_url="http://collector.invalid/logs")
-        assert logging_setup.PROJECT_NAME == "second-product"
-        assert logging_setup.REMOTE_LOG_URL == "http://collector.invalid/logs"
+        assert log_shipping.PROJECT_NAME == "second-product"
+        assert log_shipping.REMOTE_LOG_URL == "http://collector.invalid/logs"
     finally:
         logging_setup.configure(project_name=previous[0], remote_url=previous[1])
 
@@ -186,14 +186,14 @@ def test_a_wrapper_without_an_address_ships_nothing(monkeypatch):
     was written on. On any other machine that is a closed port, and shipping
     into it looks exactly like shipping.
     """
-    monkeypatch.setattr(logging_setup, "REMOTE_LOG_URL", None)
-    monkeypatch.setattr(logging_setup, "REMOTE_LOG_TOKEN", "any-token")
+    monkeypatch.setattr(log_shipping, "REMOTE_LOG_URL", None)
+    monkeypatch.setattr(log_shipping, "REMOTE_LOG_TOKEN", "any-token")
 
     posted = []
-    monkeypatch.setattr(logging_setup.requests, "post",
+    monkeypatch.setattr(log_shipping.requests, "post",
                         lambda *a, **kw: posted.append(a) or None)
 
-    wrapper = logging_setup.RemoteLoggerWrapper()
+    wrapper = log_shipping.RemoteLoggerWrapper()
     assert wrapper.remote_url is None
     assert wrapper.flush_thread is None
 
@@ -204,21 +204,21 @@ def test_a_wrapper_without_an_address_ships_nothing(monkeypatch):
 
 def test_the_collector_credential_comes_from_the_application(monkeypatch):
     """The framework carries no token of its own."""
-    monkeypatch.setattr(logging_setup, "REMOTE_LOG_URL", None)
-    monkeypatch.setattr(logging_setup, "REMOTE_LOG_TOKEN", None)
-    assert logging_setup.RemoteLoggerWrapper().token is None
+    monkeypatch.setattr(log_shipping, "REMOTE_LOG_URL", None)
+    monkeypatch.setattr(log_shipping, "REMOTE_LOG_TOKEN", None)
+    assert log_shipping.RemoteLoggerWrapper().token is None
 
     logging_setup.configure(remote_token="the-application-s-token")
-    assert logging_setup.RemoteLoggerWrapper().token == "the-application-s-token"
+    assert log_shipping.RemoteLoggerWrapper().token == "the-application-s-token"
 
 
 def test_registering_with_the_collector_needs_an_address(monkeypatch):
-    monkeypatch.setattr(logging_setup, "REMOTE_LOG_URL", None)
+    monkeypatch.setattr(log_shipping, "REMOTE_LOG_URL", None)
     posted = []
-    monkeypatch.setattr(logging_setup.requests, "post",
+    monkeypatch.setattr(log_shipping.requests, "post",
                         lambda *a, **kw: posted.append(a) or None)
 
-    assert logging_setup.create_logger_token("admin-token") is None
+    assert log_shipping.create_logger_token("admin-token") is None
     assert posted == []
 
 
@@ -228,7 +228,7 @@ def test_the_application_says_what_it_is_called_and_what_it_is(monkeypatch):
     The framework used to register every deployment as "Main KeepUP Tracker
     application".
     """
-    monkeypatch.setattr(logging_setup, "REMOTE_LOG_URL", "http://collector.invalid/logs")
+    monkeypatch.setattr(log_shipping, "REMOTE_LOG_URL", "http://collector.invalid/logs")
 
     class Refused:
         status_code = 403
@@ -241,9 +241,9 @@ def test_the_application_says_what_it_is_called_and_what_it_is(monkeypatch):
         sent["json"] = json
         return Refused()
 
-    monkeypatch.setattr(logging_setup.requests, "post", capture)
+    monkeypatch.setattr(log_shipping.requests, "post", capture)
 
-    logging_setup.create_logger_token("admin-token", app_name="second-product",
+    log_shipping.create_logger_token("admin-token", app_name="second-product",
                                       description="A second application")
 
     assert sent["url"] == "http://collector.invalid/admin/applications/register"

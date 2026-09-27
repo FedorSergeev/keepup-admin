@@ -39,7 +39,6 @@ from keepup.events import events_retention_background, init_event_manager
 from keepup.events_api import register_event_api_routes
 from keepup.instance import get_instance_id
 from keepup.locks import register_lock_routes
-from keepup.logging_setup import init_remote_logging
 from keepup.metrics import update_metrics_background
 from keepup.metrics_api import register_metrics_routes
 from keepup.metrics_retention import metrics_retention_background
@@ -209,7 +208,12 @@ def _build_lifespan(settings: KeepupSettings):
     async def lifespan(app: FastAPI):
         require_signing_key()
 
-        remote_handler = init_remote_logging()
+        # Shipping is loaded only for an application that names a collector
+        # (keepup/log_shipping.py, keepup-24).
+        remote_handler = None
+        if settings.remote_log_url:
+            from keepup.log_shipping import init_remote_logging
+            remote_handler = init_remote_logging()
         metrics_task = asyncio.create_task(update_metrics_background())
         # Snapshots are written every fifteen seconds and without this sweep
         # grow without bound. The sweep runs under a distributed lock: the work
