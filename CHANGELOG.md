@@ -2,7 +2,19 @@
 
 Notable changes to `keepup-admin`.
 
-## Unreleased
+## 0.2.0 — 2026-09-27
+
+A release about carrying load on several replicas: one way into the database,
+no query on the event loop, caches for what every page asks for, sweeps for
+the journals, and correct counting and publishing across replicas.
+
+**Upgrading from 0.1.1.** `keepup.db.DatabaseManager` is gone — move its calls
+to `DatabaseManagerV2` (see *Removed*). Names that moved to their own modules
+(`keepup.metrics_api`, `keepup.events_api`, `keepup.log_shipping`) still answer
+from the old ones with a `DeprecationWarning`. `max_upload_bytes` is enforced
+now: a route that takes large bodies through the framework's JSON reading
+should declare `max_body_bytes`; routes that read their own body
+(`is_upload`, `raw_request`) are not limited unless they declare one.
 
 ### Fixed
 

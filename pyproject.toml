@@ -17,7 +17,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "keepup-admin"
-version = "0.1.1"
+version = "0.2.0"
 description = "An admin framework over FastAPI: plugins, panel, users, replicas"
 readme = "README.md"
 requires-python = ">=3.11"
