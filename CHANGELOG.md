@@ -24,6 +24,9 @@ Notable changes to `keepup-admin`.
 - A media type with a `+json` suffix is still not read — a route declares what
   it accepts — but it is named in the log instead of vanishing quietly.
 
+- Event statistics (`/api/events/stats`) read rows by position, which a
+  PostgreSQL row does not have; they are read by column name now.
+
 ### Added
 
 - A project page: `docs/index.html`, one static page for GitHub Pages to serve
@@ -33,6 +36,23 @@ Notable changes to `keepup-admin`.
   all. What the page repeats after the metadata is checked against it, not kept
   in step by hand. `[project.urls]` names four places instead of two, so a
   reader who arrives from the index has somewhere to go.
+- `DatabaseManagerV2.raw_connection()` — a driver connection out of the pool,
+  for code written against a cursor (the application's table hook receives one
+  such cursor); `close()` hands it back.
+- `DatabaseManagerV2.test_connection()` — the health check's answer (whether
+  the database responds, which one, its version), which never raises.
+
+### Removed
+
+- **`keepup.db.DatabaseManager`, the legacy database layer.** It opened a new
+  driver connection on every call, outside the pool, took positional `?`
+  parameters and rewrote them for PostgreSQL by string replacement — and a
+  batch write of it left its connection open. Every part of the framework now
+  goes through the pooled `DatabaseManagerV2`, with named parameters. An
+  application still calling the old class moves its statements to
+  `DatabaseManagerV2` (`execute`, `execute_one`, `execute_commit`,
+  `execute_commit_returning`, `execute_many`); code written against a cursor
+  takes one from the pool with `raw_connection()`.
 
 ## 0.1.1 — 2026-09-24
 

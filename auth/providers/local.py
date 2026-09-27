@@ -22,7 +22,7 @@ from starlette import status
 
 from keepup.roles import ROLE_CLIENT
 from keepup.auth.config import auth_config
-from keepup.db import DatabaseManager, db_config
+from keepup.db import DatabaseManagerV2
 from keepup.auth.signing_key import resolve_signing_key
 from .base import AuthProvider, ALGORITHM
 
@@ -30,19 +30,14 @@ logger = logging.getLogger()
 
 def get_user_by_username(username: str):
     """Return a user by name, including the extra fields."""
-    return DatabaseManager.execute_sql_one('''
+    return DatabaseManagerV2.execute_one('''
     SELECT id, username, email, phone, full_name, agree_terms, password_hash, status, role, created_at, updated_at 
-    FROM users WHERE username = ?
-    ''', (username,))
+    FROM users WHERE username = :username
+    ''', {"username": username})
 
 def get_user_by_id(user_id: int):
     """Return a user by id, for any configured auth provider."""
-    result = DatabaseManager.execute_query(
-        "SELECT * FROM users WHERE id = ?",
-        (user_id,),
-        fetch_one=True
-    )
-    return result
+    return DatabaseManagerV2.execute_one("SELECT * FROM users WHERE id = :id", {"id": user_id})
 
 def verify_password(plain_password: str, hashed_password: str):
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
@@ -125,11 +120,11 @@ class LocalAuthProvider(AuthProvider):
         if not user:
             return {}
 
-        permissions = DatabaseManager.execute_sql('''
+        permissions = DatabaseManagerV2.execute('''
             SELECT permission_name, granted 
             FROM user_permissions 
-            WHERE user_id = ?
-        ''', (user["id"],))
+            WHERE user_id = :id
+        ''', {"id": user["id"]})
 
         return {p["permission_name"]: p["granted"] for p in permissions}
 
@@ -154,17 +149,16 @@ class LocalAuthProvider(AuthProvider):
 
         query = """
         INSERT INTO users (username, password_hash, email, phone, full_name, agree_terms, status, role) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (:username, :password_hash, :email, :phone, :full_name, :agree_terms, :status, :role)
         """
 
-        if db_config.is_postgres():
-            query += " RETURNING id"
-
         try:
-            user_id = DatabaseManager.execute_commit(
-                query,
-                (username, password_hash, email, phone, full_name, agree_terms, "blocked", ROLE_CLIENT)
-            )
+            row = DatabaseManagerV2.execute_commit_returning(query, {
+                "username": username, "password_hash": password_hash, "email": email,
+                "phone": phone, "full_name": full_name, "agree_terms": agree_terms,
+                "status": "blocked", "role": ROLE_CLIENT,
+            })
+            user_id = row["id"] if row else None
             logger.info(f"New user registered: {username} (agree_terms: {agree_terms})")
 
             return user_id

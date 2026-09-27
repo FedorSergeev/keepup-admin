@@ -21,7 +21,7 @@ from starlette import status
 from keepup.auth.signing_key import resolve_signing_key
 from keepup.roles import ROLE_CLIENT
 from keepup.auth.config import auth_config
-from keepup.db import DatabaseManager, db_config
+from keepup.db import DatabaseManagerV2
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -142,17 +142,16 @@ class AuthProvider(ABC):
 
         query = """
         INSERT INTO users (username, password_hash, email, phone, full_name, agree_terms, status, role, auth_source) 
-        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
+        VALUES (:username, :password_hash, :email, :phone, :full_name, :agree_terms, :status, :role, :auth_source)
         """
 
-        if db_config.is_postgres():
-            query += " RETURNING id"
-
         try:
-            user_id = DatabaseManager.execute_commit(
-                query,
-                (username, password_hash, email, phone, full_name, agree_terms, "blocked", ROLE_CLIENT, self.type)
-            )
+            row = DatabaseManagerV2.execute_commit_returning(query, {
+                "username": username, "password_hash": password_hash, "email": email,
+                "phone": phone, "full_name": full_name, "agree_terms": agree_terms,
+                "status": "blocked", "role": ROLE_CLIENT, "auth_source": self.type,
+            })
+            user_id = row["id"] if row else None
 
             logger.info(f"New user registered: {username} (agree_terms: {agree_terms})")
 

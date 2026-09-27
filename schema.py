@@ -20,7 +20,7 @@ from keepup.audit import init_incoming_requests_table
 from keepup.auth import panel_session
 from keepup.auth.factory import AuthProviderFactory
 from keepup.auth.login_throttle import init_login_attempts_table
-from keepup.db import DatabaseManager, db_config
+from keepup.db import DatabaseManagerV2, db_config
 from keepup.modules import sync_framework_sections, sync_new_modules_from_json
 from keepup.roles import ROLE_ADMIN
 
@@ -249,31 +249,32 @@ def init_db(app_tables=None, extra_setup=None, plugins_dir=None):
     # connection holding a write would lock out the one the declarations use.
     tables.ensure_tables(*CORE_TABLES)
 
-    conn = DatabaseManager.get_connection()
+    conn = DatabaseManagerV2.raw_connection()
     cursor = conn.cursor()
+    try:
+        if app_tables is not None:
+            # The application's own tables reference users, which exists by now.
+            app_tables(cursor, _hook_types(), db_config)
 
-    if app_tables is not None:
-        # The application's own tables reference users, which exists by now.
-        app_tables(cursor, _hook_types(), db_config)
+        conn.commit()
 
-    conn.commit()
+        init_incoming_requests_table()
 
-    init_incoming_requests_table()
+        # One place creates the first-start accounts: three implementations in a
+        # row had drifted apart in password, role and status -- see
+        # keepup/auth/seed_accounts.py.
+        from keepup.auth import seed_accounts
 
-    # One place creates the first-start accounts: three implementations in a
-    # row had drifted apart in password, role and status -- see
-    # keepup/auth/seed_accounts.py.
-    from keepup.auth import seed_accounts
+        auth_source = AuthProviderFactory.get_provider().type
+        seed_accounts.ensure_admin(cursor, role=ROLE_ADMIN, auth_source=auth_source,
+                                   is_postgres=db_config.is_postgres())
+        seed_accounts.ensure_system_user(cursor, role=ROLE_ADMIN, auth_source=auth_source,
+                                         is_postgres=db_config.is_postgres())
 
-    auth_source = AuthProviderFactory.get_provider().type
-    seed_accounts.ensure_admin(cursor, role=ROLE_ADMIN, auth_source=auth_source,
-                               is_postgres=db_config.is_postgres())
-    seed_accounts.ensure_system_user(cursor, role=ROLE_ADMIN, auth_source=auth_source,
-                                     is_postgres=db_config.is_postgres())
-
-    conn.commit()
-    cursor.close()
-    conn.close()
+        conn.commit()
+    finally:
+        cursor.close()
+        conn.close()
 
     # Sections added to config/modules.json since the last start reach the panel
     # without a manual import; what an administrator changed is left alone.

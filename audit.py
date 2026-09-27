@@ -27,7 +27,7 @@ from sqlalchemy import CheckConstraint, Column, DateTime, Index, Integer, Text, 
 from sqlalchemy.dialects import postgresql
 
 from keepup import tables
-from keepup.db import DatabaseManager, DatabaseManagerV2, db_config
+from keepup.db import DatabaseManagerV2, db_config
 from keepup.instance import get_instance_id
 
 #: What an application may import from this module. Everything else is

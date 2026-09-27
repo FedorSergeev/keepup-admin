@@ -15,7 +15,7 @@ from pathlib import Path
 import pytest
 
 from keepup import tables
-from keepup.db import DatabaseManager, DatabaseManagerV2
+from keepup.db import DatabaseManagerV2
 from keepup.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
@@ -31,9 +31,9 @@ def framework_tables():
 
 @pytest.fixture(autouse=True)
 def no_locks_left_over():
-    DatabaseManager.execute_commit_only("DELETE FROM distributed_locks", ())
+    DatabaseManagerV2.execute_commit("DELETE FROM distributed_locks")
     yield
-    DatabaseManager.execute_commit_only("DELETE FROM distributed_locks", ())
+    DatabaseManagerV2.execute_commit("DELETE FROM distributed_locks")
 
 
 def test_the_legacy_connection_helper_is_gone():
@@ -57,7 +57,8 @@ def test_the_interval_is_not_built_out_of_a_string_literal():
                            if not line.lstrip().startswith("#"))
     assert "INTERVAL '%s" not in statements
     assert "datetime('now', '-' ||" not in statements
-    assert "WHERE created_at < %s" in statements
+    # A bound parameter, named since the legacy manager left (0.2.0).
+    assert "WHERE created_at < :cutoff" in statements
 
 
 # --- names reaching the DDL ---------------------------------------------------

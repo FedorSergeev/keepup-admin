@@ -17,7 +17,7 @@ from datetime import datetime
 from typing import Dict, Optional
 
 
-from keepup.db import DatabaseManager
+from keepup.db import DatabaseManagerV2
 from keepup.auth.dependencies import get_user_by_id, get_user_by_username
 
 logger = logging.getLogger(__name__)
@@ -52,21 +52,17 @@ class IntegrationLogger:
             if response_body_str and len(response_body_str) > 10000:
                 response_body_str = response_body_str[:10000] + "... [truncated]"
 
-            DatabaseManager.execute_commit_only('''
+            DatabaseManagerV2.execute_commit('''
             INSERT INTO integration_logs 
             (user_id, username, host, endpoint, method, request_body, response_body, status_code, duration_ms)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-            ''', (
-                user_id,
-                username,
-                host,
-                endpoint,
-                method.upper(),
-                request_body_str,
-                response_body_str,
-                status_code,
-                duration_ms
-            ))
+            VALUES (:user_id, :username, :host, :endpoint, :method, :request_body,
+                    :response_body, :status_code, :duration_ms)
+            ''', {
+                "user_id": user_id, "username": username, "host": host,
+                "endpoint": endpoint, "method": method.upper(),
+                "request_body": request_body_str, "response_body": response_body_str,
+                "status_code": status_code, "duration_ms": duration_ms,
+            })
 
         except Exception as e:
             logger.error(f"Could not log the outgoing request: {str(e)}")
@@ -82,36 +78,11 @@ class IntegrationLogger:
             offset: int = 0
     ):
         """Return log entries matching the given filters."""
-        query = """
-        SELECT * FROM integration_logs 
-        WHERE 1=1
-        """
-        params = []
-
-        if user_id:
-            query += " AND user_id = ?"
-            params.append(user_id)
-
-        if username:
-            query += " AND username = ?"
-            params.append(username)
-
-        if host:
-            query += " AND host = ?"
-            params.append(host)
-
-        if start_date:
-            query += " AND created_at >= ?"
-            params.append(start_date)
-
-        if end_date:
-            query += " AND created_at <= ?"
-            params.append(end_date)
-
-        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
-        params.extend([limit, offset])
-
-        return DatabaseManager.execute_sql(query, tuple(params))
+        where, params = IntegrationLogger._filters(user_id, username, host, start_date, end_date)
+        return DatabaseManagerV2.execute(
+            f"SELECT * FROM integration_logs WHERE {where} "
+            f"ORDER BY created_at DESC LIMIT :limit OFFSET :offset",
+            {**params, "limit": limit, "offset": offset})
 
     @staticmethod
     def get_logs_count(
@@ -122,34 +93,25 @@ class IntegrationLogger:
             end_date: Optional[datetime] = None
     ):
         """Return the number of log entries matching the given filters."""
-        query = """
-        SELECT COUNT(*) as count FROM integration_logs 
-        WHERE 1=1
-        """
-        params = []
-
-        if user_id:
-            query += " AND user_id = ?"
-            params.append(user_id)
-
-        if username:
-            query += " AND username = ?"
-            params.append(username)
-
-        if host:
-            query += " AND host = ?"
-            params.append(host)
-
-        if start_date:
-            query += " AND created_at >= ?"
-            params.append(start_date)
-
-        if end_date:
-            query += " AND created_at <= ?"
-            params.append(end_date)
-
-        result = DatabaseManager.execute_sql_one(query, tuple(params))
+        where, params = IntegrationLogger._filters(user_id, username, host, start_date, end_date)
+        result = DatabaseManagerV2.execute_one(
+            f"SELECT COUNT(*) as count FROM integration_logs WHERE {where}", params)
         return result['count'] if result else 0
+
+    @staticmethod
+    def _filters(user_id, username, host, start_date, end_date):
+        """The WHERE clause of both reads and its parameters; an empty filter is not applied."""
+        conditions, params = ["1=1"], {}
+        for column, operator, name, value in (
+                ("user_id", "=", "user_id", user_id),
+                ("username", "=", "username", username),
+                ("host", "=", "host", host),
+                ("created_at", ">=", "start_date", start_date),
+                ("created_at", "<=", "end_date", end_date)):
+            if value:
+                conditions.append(f"{column} {operator} :{name}")
+                params[name] = value
+        return " AND ".join(conditions), params
 
 
 from functools import wraps
@@ -188,17 +150,18 @@ def log_external_request(host: str, endpoint: str):
                     else:
                         username = user.get('username', 'unknown')
 
-                    DatabaseManager.execute_commit_only('''
+                    DatabaseManagerV2.execute_commit('''
                     INSERT INTO integration_logs 
                     (user_id, username, host, endpoint, method, request_body, response_body, status_code, duration_ms)
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
-                    ''', (
-                        user_id, username, host, endpoint, func.__name__,
-                        str(kwargs.get('data', ''))[:1000],
-                        response_body,
-                        status_code,
-                        int((time.time() - start_time) * 1000)
-                    ))
+                    VALUES (:user_id, :username, :host, :endpoint, :method, :request_body,
+                            :response_body, :status_code, :duration_ms)
+                    ''', {
+                        "user_id": user_id, "username": username, "host": host,
+                        "endpoint": endpoint, "method": func.__name__,
+                        "request_body": str(kwargs.get('data', ''))[:1000],
+                        "response_body": response_body, "status_code": status_code,
+                        "duration_ms": int((time.time() - start_time) * 1000),
+                    })
 
                 except Exception as log_error:
                     logger.error(f"Could not log the outgoing request: {log_error}")

@@ -37,7 +37,7 @@ from keepup.auth.dependencies import (
 from keepup.auth.dto.token import Token
 from keepup.auth.providers.base import ALGORITHM
 from keepup.auth.signing_key import resolve_signing_key
-from keepup.db import DatabaseManager, db_config
+from keepup.db import DatabaseManagerV2
 from keepup.instance import get_instance_id
 
 #: What an application may import from this module. Everything else is
@@ -186,9 +186,9 @@ def get_user_from_database_by_username(username: str):
             created_at, updated_at,
             external_id, auth_source, last_external_sync
         FROM users 
-        WHERE username = ?
+        WHERE username = :username
         '''
-        return DatabaseManager.execute_sql_one(query, (username,))
+        return DatabaseManagerV2.execute_one(query, {"username": username})
     except Exception as e:
         logger.error(f"Error getting user from database by username {username}: {str(e)}")
         return None
@@ -211,33 +211,18 @@ class UserProfileUpdate(BaseModel):
         return v
 def update_user_profile(user_id: int, email: str = None, phone: str = None, full_name: str = None):
     """Update a user's profile."""
-    update_fields = []
-    params = []
-
-    if email is not None:
-        update_fields.append("email = ?")
-        params.append(email)
-
-    if phone is not None:
-        update_fields.append("phone = ?")
-        params.append(phone)
-
-    if full_name is not None:
-        update_fields.append("full_name = ?")
-        params.append(full_name)
-
-    if not update_fields:
+    changes = {"email": email, "phone": phone, "full_name": full_name}
+    changes = {column: value for column, value in changes.items() if value is not None}
+    if not changes:
         return False
 
-    update_fields.append("updated_at = CURRENT_TIMESTAMP")
-    params.append(user_id)
-    query = f"UPDATE users SET {', '.join(update_fields)} WHERE id = ?"
-
-    if db_config.is_postgres():
-        query = query.replace('?', '%s')
+    # The column names come from the fixed set above, never from the caller.
+    assignments = ", ".join(f"{column} = :{column}" for column in changes)
+    query = f"UPDATE users SET {assignments}, updated_at = CURRENT_TIMESTAMP WHERE id = :id"
+    params = {**changes, "id": user_id}
 
     try:
-        result = DatabaseManager.execute_commit_only(query, params)
+        result = DatabaseManagerV2.execute_commit(query, params)
         return result > 0
     except Exception as e:
         logger.error(f"Error updating user profile: {str(e)}")
@@ -561,49 +546,29 @@ def register_auth_routes(app, manager):
                 bcrypt.gensalt()
             ).decode('utf-8')
 
-            query = '''
-            UPDATE users 
-            SET password_hash = ?
-            WHERE id = ?
-            '''
+            DatabaseManagerV2.execute_commit(
+                "UPDATE users SET password_hash = :password_hash WHERE id = :id",
+                {"password_hash": new_password_hash, "id": user_id})
+            # A new password that leaves the old sessions working changes nothing
+            # for whoever took the old one.
+            sessions_revoked = panel_session.revoke_all(user_id, panel_session.REASON_PASSWORD_CHANGED)
+            logger.info(
+                f"Administrator {admin['username']} changed the password of "
+                f"{user['username']} (ID: {user_id})"
+            )
 
-            if db_config.is_postgres():
-                query = query.replace('?', '%s')
+            DatabaseManagerV2.execute_commit('''
+            INSERT INTO system_metrics (metric_name, metric_value, app_instance, tags)
+            VALUES (:metric_name, :metric_value, :app_instance, :tags)
+            ''', {"metric_name": "admin_password_change", "metric_value": 1,
+                "app_instance": get_instance_id(),
+                "tags": f"admin:{admin['username']},target_user:{user['username']},user_id:{user_id}"})
 
-            conn = DatabaseManager.get_connection()
-            cursor = conn.cursor()
-
-            try:
-                cursor.execute(query, (new_password_hash, user_id))
-                conn.commit()
-                # A new password that leaves the old sessions working changes nothing
-                # for whoever took the old one.
-                sessions_revoked = panel_session.revoke_all(user_id, panel_session.REASON_PASSWORD_CHANGED)
-                logger.info(
-                    f"Administrator {admin['username']} changed the password of "
-                    f"{user['username']} (ID: {user_id})"
-                )
-
-                DatabaseManager.execute_commit_only('''
-                INSERT INTO system_metrics (metric_name, metric_value, app_instance, tags)
-                VALUES (?, ?, ?, ?)
-                ''', (
-                    "admin_password_change",
-                    1,
-                    get_instance_id(),
-                    f"admin:{admin['username']},target_user:{user['username']},user_id:{user_id}"
-                ))
-
-                return {
-                    "success": True,
-                    "message": f"Password for user {user['username']} changed successfully",
-                    "sessions_revoked": sessions_revoked,
-                }
-
-            finally:
-                cursor.close()
-                conn.close()
-
+            return {
+                "success": True,
+                "message": f"Password for user {user['username']} changed successfully",
+                "sessions_revoked": sessions_revoked,
+            }
         except HTTPException:
             raise
         except Exception as e:

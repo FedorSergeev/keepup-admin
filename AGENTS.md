@@ -148,8 +148,9 @@ def ensure_schema():
 - Foreign keys: `tables.foreign_key(...)`. A column on a table another module
   owns: `tables.ensure_columns(...)` -- never a second declaration of the table.
 - Queries: `keepup.db.DatabaseManagerV2` with **named** parameters
-  (`:id`) and `get_session()` for transactions. The legacy `DatabaseManager`
-  (positional `?`) is kept for old code only.
+  (`:id`) and `get_session()` for transactions; `raw_connection()` when code
+  needs a driver cursor. There is no other way in: the legacy
+  `DatabaseManager` was removed in 0.2.0.
 
 ## Panel sections and themes
 

@@ -1,10 +1,10 @@
-"""Access to the database: configuration and two managers.
+"""Access to the database: configuration and the pooled manager.
 
-`DatabaseManagerV2` is the one to use -- a SQLAlchemy engine with a pool and a
-session context manager, named parameters only. `DatabaseManager` is the legacy
-layer over raw drivers with positional parameters, kept because the plugins
-that still use it are converted one at a time, not because two ways of reaching
-the database are wanted.
+`DatabaseManagerV2` is the one way in -- a SQLAlchemy engine with a pool and a
+session context manager, named parameters only. The legacy `DatabaseManager`,
+a layer over raw drivers with positional parameters that opened a connection
+per call, is gone (0.2.0); code written against a cursor takes one from the
+pool with `DatabaseManagerV2.raw_connection()`.
 
 Where the database is comes from the environment when `DB_TYPE` is set and from
 `config/postgres.properties` otherwise. Both paths are read from the working
@@ -13,12 +13,9 @@ framework keep separate databases. SQLite exists for development only.
 """
 
 import os
-import sqlite3
 from contextlib import contextmanager
 from typing import Optional, List, Dict, Any
 
-import psycopg2
-from psycopg2.extras import RealDictCursor
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
@@ -26,7 +23,6 @@ from sqlalchemy.orm import sessionmaker, Session
 #: internal and may change without notice -- see doc/keepup.md.
 __all__ = [
     "DatabaseConfig",
-    "DatabaseManager",
     "DatabaseManagerV2",
     "db_config",
 ]
@@ -160,10 +156,7 @@ db_config = DatabaseConfig()
 
 
 class DatabaseManagerV2:
-    """Database access through SQLAlchemy with a connection pool.
-
-    Preferred over the legacy DatabaseManager below.
-    """
+    """Database access through SQLAlchemy with a connection pool."""
 
     _engine = None
     _session_factory = None
@@ -194,6 +187,38 @@ class DatabaseManagerV2:
             raise e
         finally:
             session.close()
+
+    @classmethod
+    def test_connection(cls) -> Dict[str, Any]:
+        """Whether the database answers, and which one it is; never raises."""
+        try:
+            if db_config.is_postgres():
+                version = cls.execute_one("SELECT version() AS version")
+                db_type = "PostgreSQL"
+            else:
+                version = cls.execute_one("SELECT sqlite_version() AS version")
+                db_type = "SQLite"
+            return {
+                "success": True,
+                "database_type": db_type,
+                "version": (version or {}).get("version", "Unknown"),
+                "config": str(db_config),
+            }
+        except Exception as e:
+            return {"success": False, "error": str(e), "config": str(db_config)}
+
+    @classmethod
+    def raw_connection(cls):
+        """A driver connection out of the pool, for code written against a cursor.
+
+        The application's table hook and the first-start accounts take a
+        cursor; the statements run on it are the driver's own (``?`` on
+        SQLite, ``%s`` on PostgreSQL) and rows come back as the driver makes
+        them. ``close()`` hands the connection back to the pool.
+        """
+        if cls._engine is None:
+            cls.initialize()
+        return cls._engine.raw_connection()
 
     @classmethod
     def execute(cls, query: str, params: Optional[dict] = None) -> List[Dict]:
@@ -392,292 +417,6 @@ class DatabaseManagerV2:
             else:
                 result = session.execute(text(query), params or {})
             return result.rowcount
-
-
-class DatabaseManager:
-    """Legacy database manager covering both SQLite and PostgreSQL."""
-
-    @staticmethod
-    def initialize(config: Optional[DatabaseConfig] = None):
-        """Initialise the manager (kept for backwards compatibility)."""
-        global db_config
-        if config:
-            db_config = config
-
-    @staticmethod
-    def get_connection():
-        """Return a database connection."""
-        if db_config.is_postgres():
-            return DatabaseManager._get_postgres_connection()
-        else:
-            return DatabaseManager._get_sqlite_connection()
-
-    @staticmethod
-    def _get_sqlite_connection():
-        """Return a SQLite connection."""
-        conn = sqlite3.connect(db_config.db_path)
-        conn.row_factory = sqlite3.Row
-        conn.execute('PRAGMA foreign_keys = ON')
-        return conn
-
-    @staticmethod
-    def _get_postgres_connection():
-        """Return a PostgreSQL connection."""
-        try:
-            conn = psycopg2.connect(
-                host=db_config.db_host,
-                port=int(db_config.db_port),
-                database=db_config.db_name,
-                user=db_config.db_user,
-                password=db_config.db_password,
-                cursor_factory=RealDictCursor,
-                connect_timeout=10
-            )
-            conn.autocommit = False
-            return conn
-        except psycopg2.Error as e:
-            raise ConnectionError(f"Failed to connect to PostgreSQL: {str(e)}")
-
-    @staticmethod
-    def _adapt_query(query: str, params: tuple = None):
-        """Adapt a query and its parameters to the configured engine."""
-        if db_config.is_postgres():
-            adapted_query = query.replace('?', '%s')
-            return adapted_query, params
-        else:
-            return query, params
-
-    @staticmethod
-    def execute_query(query: str, params: tuple = None, fetch_one: bool = False):
-        """Run a SQL query."""
-        conn = DatabaseManager.get_connection()
-        cursor = conn.cursor()
-
-        try:
-            adapted_query, adapted_params = DatabaseManager._adapt_query(query, params)
-            cursor.execute(adapted_query, adapted_params or ())
-
-            if fetch_one:
-                result = cursor.fetchone()
-            else:
-                result = cursor.fetchall()
-
-            conn.commit()
-
-            if result is None:
-                return None
-
-            if fetch_one:
-                return DatabaseManager._row_to_dict(result)
-            else:
-                return [DatabaseManager._row_to_dict(row) for row in result]
-
-        except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            cursor.close()
-            conn.close()
-
-    @staticmethod
-    def execute_commit(query: str, params: tuple = None):
-        """Run a query, commit, and return lastrowid."""
-        conn = DatabaseManager.get_connection()
-        cursor = conn.cursor()
-
-        try:
-            adapted_query, adapted_params = DatabaseManager._adapt_query(query, params)
-
-            cursor.execute(adapted_query, adapted_params or ())
-            conn.commit()
-
-            if db_config.is_postgres():
-                if "RETURNING id" in query.upper():
-                    result = cursor.fetchone()
-                    return result['id'] if result else None
-                else:
-                    cursor.execute("SELECT LASTVAL()")
-                    result = cursor.fetchone()
-                    return result['lastval'] if result else None
-            else:
-                return cursor.lastrowid
-
-        except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            cursor.close()
-            conn.close()
-
-    @staticmethod
-    def execute_sql(query: str, params: tuple = None):
-        """Run a SQL query and return every row."""
-        conn = DatabaseManager.get_connection()
-        cursor = conn.cursor()
-
-        try:
-            if db_config.is_postgres():
-                query = query.replace('?', '%s')
-
-            cursor.execute(query, params or ())
-            result = cursor.fetchall()
-            conn.commit()
-
-            return [DatabaseManager._row_to_dict(row) for row in result]
-
-        except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            cursor.close()
-            conn.close()
-
-    @staticmethod
-    def execute_sql_one(query: str, params: tuple = None):
-        """Run a SQL query and return a single row."""
-        conn = DatabaseManager.get_connection()
-        cursor = conn.cursor()
-
-        try:
-            if db_config.is_postgres():
-                query = query.replace('?', '%s')
-
-            cursor.execute(query, params or ())
-            result = cursor.fetchone()
-            conn.commit()
-
-            if result:
-                return DatabaseManager._row_to_dict(result)
-            return None
-
-        except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            cursor.close()
-            conn.close()
-
-    @staticmethod
-    def execute_commit_only(query: str, params: tuple = None) -> int:
-        """Run a SQL query, commit, and return the number of affected rows."""
-        conn = DatabaseManager.get_connection()
-        cursor = conn.cursor()
-
-        try:
-            if db_config.is_postgres():
-                query = query.replace('?', '%s')
-
-            cursor.execute(query, params or ())
-            conn.commit()
-            return cursor.rowcount
-
-        except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            cursor.close()
-            conn.close()
-
-    @staticmethod
-    def executemany_commit(query: str, params_list: list):
-        """Run a query for many parameter sets and commit."""
-        # The connection is closed on every path (keepup-42): it was opened and
-        # left open, success or failure, and on PostgreSQL every call held one
-        # more server connection until the server's limit ran out.
-        conn = None
-        try:
-            adapted_query, adapted_params = DatabaseManager._adapt_query(query, None)
-            conn = DatabaseManager.get_connection()
-            cursor = conn.cursor()
-            try:
-                cursor.executemany(adapted_query, params_list)
-                conn.commit()
-            finally:
-                cursor.close()
-            return True
-        except Exception as e:
-            import logging
-            logging.error(f"Error in executemany_commit: {str(e)}")
-            if conn is not None:
-                try:
-                    conn.rollback()
-                except Exception:
-                    pass
-            return False
-        finally:
-            if conn is not None:
-                conn.close()
-
-    @staticmethod
-    def _row_to_dict(row):
-        """Convert a result row to a dict."""
-        if row is None:
-            return None
-
-        if hasattr(row, '_asdict'):  # namedtuple
-            return dict(row)
-        elif hasattr(row, 'keys'):  # psycopg2 RealDictRow or sqlite3.Row
-            return {key: row[key] for key in row.keys()}
-        elif isinstance(row, tuple):
-            # Unnamed tuples: fall back to positional column names.
-            return {f'col_{i}': value for i, value in enumerate(row)}
-        else:
-            return dict(row)
-
-    @staticmethod
-    def test_connection():
-        """Check that the database is reachable."""
-        try:
-            conn = DatabaseManager.get_connection()
-            cursor = conn.cursor()
-
-            if db_config.is_postgres():
-                cursor.execute("SELECT version();")
-                result = cursor.fetchone()
-                db_version = result['version'] if result else "Unknown"
-                db_type = "PostgreSQL"
-            else:
-                cursor.execute("SELECT sqlite_version();")
-                result = cursor.fetchone()
-                db_version = result[0] if result else "Unknown"
-                db_type = "SQLite"
-
-            cursor.close()
-            conn.close()
-
-            return {
-                "success": True,
-                "database_type": db_type,
-                "version": db_version,
-                "config": str(db_config)
-            }
-        except Exception as e:
-            return {
-                "success": False,
-                "error": str(e),
-                "config": str(db_config)
-            }
-
-    @staticmethod
-    def execute_in_transaction(queries: list):
-        """Run a list of queries inside one transaction."""
-        conn = DatabaseManager.get_connection()
-        cursor = conn.cursor()
-
-        try:
-            for query, params in queries:
-                if db_config.is_postgres():
-                    query = query.replace('?', '%s')
-                cursor.execute(query, params or ())
-
-            conn.commit()
-            return True
-        except Exception as e:
-            conn.rollback()
-            raise e
-        finally:
-            cursor.close()
-            conn.close()
 
 
 db_config = DatabaseConfig()

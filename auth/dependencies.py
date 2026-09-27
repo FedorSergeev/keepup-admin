@@ -27,7 +27,7 @@ from keepup.auth.factory import AuthProviderFactory
 from keepup.auth.providers.base import AuthProvider, ALGORITHM, oauth2_scheme
 from keepup.auth.signing_key import resolve_signing_key
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
-from keepup.db import DatabaseManager, db_config
+from keepup.db import DatabaseManagerV2
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -114,12 +114,7 @@ def get_user_by_id(user_id: int):
     """Return a user by id, for any configured auth provider."""
     # TODO: auth_provider needs a lookup by id as well; without it this only
     # works against the local database.
-    result = DatabaseManager.execute_query(
-        "SELECT * FROM users WHERE id = ?",
-        (user_id,),
-        fetch_one=True
-    )
-    return result
+    return DatabaseManagerV2.execute_one("SELECT * FROM users WHERE id = :id", {"id": user_id})
 
 
 def get_system_user_id():
@@ -147,7 +142,7 @@ def get_system_user_id():
 
 def get_all_users():
     """Return every user, for any configured auth provider."""
-    return DatabaseManager.execute_query(
+    return DatabaseManagerV2.execute(
         "SELECT id, username, status, role, created_at FROM users ORDER BY created_at DESC"
     )
 
@@ -158,18 +153,15 @@ def save_user_to_db(username: str, password: str):
 
     query = """
     INSERT INTO users (username, password_hash, status, role) 
-    VALUES (?, ?, ?, ?)
+    VALUES (:username, :password_hash, :status, :role)
     """
 
-    if db_config.is_postgres():
-        query += " RETURNING id"
-
     try:
-        user_id = DatabaseManager.execute_commit(
+        row = DatabaseManagerV2.execute_commit_returning(
             query,
-            (username, password_hash, "blocked", ROLE_CLIENT)
-        )
-        return user_id
+            {"username": username, "password_hash": password_hash, "status": "blocked",
+             "role": ROLE_CLIENT})
+        return row["id"] if row else None
 
     except Exception as e:
         if "unique constraint" in str(e).lower() or "duplicate" in str(e).lower():
@@ -202,47 +194,17 @@ async def create_user(
 def update_user(user_id: int, status: Optional[str] = None, role: Optional[str] = None,
                 email: Optional[str] = None, phone: Optional[str] = None, full_name: Optional[str] = None):
     """Update a user, including the extra fields."""
-    conn = DatabaseManager.get_connection()
-    cursor = conn.cursor()
-
-    update_fields = []
-    params = []
-
-    if status is not None:
-        update_fields.append("status = ?")
-        params.append(status)
-
-    if role is not None:
-        update_fields.append("role = ?")
-        params.append(role)
-
-    if email is not None:
-        update_fields.append("email = ?")
-        params.append(email)
-
-    if phone is not None:
-        update_fields.append("phone = ?")
-        params.append(phone)
-
-    if full_name is not None:
-        update_fields.append("full_name = ?")
-        params.append(full_name)
-
-    if not update_fields:
+    changes = {"status": status, "role": role, "email": email, "phone": phone,
+               "full_name": full_name}
+    changes = {column: value for column, value in changes.items() if value is not None}
+    if not changes:
         return
 
-    update_fields.append("updated_at = CURRENT_TIMESTAMP")
-    params.append(user_id)
-
-    query = f"UPDATE users SET {', '.join(update_fields)} WHERE id = ?"
-
-    if db_config.is_postgres():
-        query = query.replace('?', '%s')
-
-    cursor.execute(query, params)
-    conn.commit()
-    cursor.close()
-    conn.close()
+    # The column names come from the fixed set above, never from the caller.
+    assignments = ", ".join(f"{column} = :{column}" for column in changes)
+    DatabaseManagerV2.execute_commit(
+        f"UPDATE users SET {assignments}, updated_at = CURRENT_TIMESTAMP WHERE id = :id",
+        {**changes, "id": user_id})
 
 
 async def authenticate(username: str, password: str):

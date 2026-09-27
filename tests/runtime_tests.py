@@ -11,7 +11,7 @@ import logging
 import pytest
 
 from keepup import audit, logging_setup
-from keepup.db import DatabaseManager
+from keepup.db import DatabaseManagerV2
 from keepup.instance import get_instance_id, get_instance_name
 from keepup.locks import DatabaseLock, distributed_lock, with_distributed_lock
 from keepup.schema import init_db
@@ -26,9 +26,9 @@ def tables():
 
 @pytest.fixture(autouse=True)
 def no_locks_left_over():
-    DatabaseManager.execute_commit_only("DELETE FROM distributed_locks", ())
+    DatabaseManagerV2.execute_commit("DELETE FROM distributed_locks")
     yield
-    DatabaseManager.execute_commit_only("DELETE FROM distributed_locks", ())
+    DatabaseManagerV2.execute_commit("DELETE FROM distributed_locks")
 
 
 # --- who this replica is ------------------------------------------------------
@@ -55,13 +55,13 @@ async def test_a_lock_is_taken_and_given_back():
     lock = DatabaseLock("one-job")
 
     assert await lock.acquire() is True
-    held = DatabaseManager.execute_sql(
-        "SELECT * FROM distributed_locks WHERE lock_name = ?", ("one-job",))
+    held = DatabaseManagerV2.execute(
+        "SELECT * FROM distributed_locks WHERE lock_name = :name", {"name": "one-job"})
     assert len(held) == 1
 
     await lock.release()
-    assert DatabaseManager.execute_sql(
-        "SELECT * FROM distributed_locks WHERE lock_name = ?", ("one-job",)) == []
+    assert DatabaseManagerV2.execute(
+        "SELECT * FROM distributed_locks WHERE lock_name = :name", {"name": "one-job"}) == []
 
 
 async def test_a_second_replica_does_not_get_the_same_lock():
@@ -101,8 +101,8 @@ async def test_the_context_manager_releases_even_when_the_body_raises():
         async with distributed_lock("fragile"):
             raise ValueError("the job failed")
 
-    assert DatabaseManager.execute_sql(
-        "SELECT * FROM distributed_locks WHERE lock_name = ?", ("fragile",)) == []
+    assert DatabaseManagerV2.execute(
+        "SELECT * FROM distributed_locks WHERE lock_name = :name", {"name": "fragile"}) == []
 
 
 # --- the audit of incoming requests -------------------------------------------

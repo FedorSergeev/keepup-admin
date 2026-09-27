@@ -20,8 +20,7 @@ from sqlalchemy import Column, DateTime, Index, String, Text
 from sqlalchemy.dialects import postgresql
 
 from keepup import tables
-from keepup.db import DatabaseManager
-from keepup.db import db_config
+from keepup.db import DatabaseManagerV2
 from keepup.instance import get_instance_id, get_instance_name
 from keepup.auth.dependencies import get_current_admin
 
@@ -130,38 +129,14 @@ class EventManager:
 
             event_data_json = json.dumps(event_data, ensure_ascii=False) if event_data else None
 
-            if db_config.is_postgres():
-                query = '''
-                INSERT INTO app_events (event_type, event_text, event_data, instance_id, instance_name)
-                VALUES (%s, %s, %s, %s, %s)
-                RETURNING id
-                '''
-                params = (event_type, event_text, event_data_json, event_instance_id, event_instance_name)
-            else:
-                query = '''
-                INSERT INTO app_events (event_type, event_text, event_data, instance_id, instance_name)
-                VALUES (?, ?, ?, ?, ?)
-                '''
-                params = (event_type, event_text, event_data_json, event_instance_id, event_instance_name)
-
-            conn = DatabaseManager.get_connection()
-            cursor = conn.cursor()
-
-            try:
-                cursor.execute(query, params)
-                conn.commit()
-
-                if db_config.is_postgres():
-                    event_id = cursor.fetchone()["id"]
-                else:
-                    event_id = cursor.lastrowid
-
-                logger.debug(f"Event created: {event_type} - {event_text[:50]} (instance: {event_instance_name})")
-                return event_id
-
-            finally:
-                cursor.close()
-                conn.close()
+            row = DatabaseManagerV2.execute_commit_returning('''
+            INSERT INTO app_events (event_type, event_text, event_data, instance_id, instance_name)
+            VALUES (:event_type, :event_text, :event_data, :instance_id, :instance_name)
+            ''', {"event_type": event_type, "event_text": event_text,
+                  "event_data": event_data_json, "instance_id": event_instance_id,
+                  "instance_name": event_instance_name}, "id")
+            logger.debug(f"Event created: {event_type} - {event_text[:50]} (instance: {event_instance_name})")
+            return row["id"] if row else None
 
         except Exception as e:
             logger.error(f"Error creating event: {str(e)}")
@@ -195,103 +170,64 @@ class EventManager:
             self.init_table()
 
         try:
-            conditions = []
-            params = []
-
-            if event_type:
-                conditions.append("event_type = ?" if not db_config.is_postgres() else "event_type = %s")
-                params.append(event_type)
-
-            if instance_id:
-                conditions.append("instance_id = ?" if not db_config.is_postgres() else "instance_id = %s")
-                params.append(instance_id)
-
-            if instance_name:
-                conditions.append("instance_name = ?" if not db_config.is_postgres() else "instance_name = %s")
-                params.append(instance_name)
-
-            if start_date:
-                conditions.append("created_at >= ?" if not db_config.is_postgres() else "created_at >= %s")
-                params.append(start_date)
-
-            if end_date:
-                conditions.append("created_at <= ?" if not db_config.is_postgres() else "created_at <= %s")
-                params.append(end_date)
+            conditions, params = [], {}
+            for column, operator, name, value in (
+                    ("event_type", "=", "event_type", event_type),
+                    ("instance_id", "=", "instance_id", instance_id),
+                    ("instance_name", "=", "instance_name", instance_name),
+                    ("created_at", ">=", "start_date", start_date),
+                    ("created_at", "<=", "end_date", end_date)):
+                if value:
+                    conditions.append(f"{column} {operator} :{name}")
+                    params[name] = value
 
             where_clause = f"WHERE {' AND '.join(conditions)}" if conditions else ""
 
-            count_query = f"SELECT COUNT(*) as total FROM app_events {where_clause}"
+            total_result = DatabaseManagerV2.execute_one(
+                f"SELECT COUNT(*) as total FROM app_events {where_clause}", params)
+            total = total_result['total'] if total_result else 0
 
-            if db_config.is_postgres():
-                count_query = count_query.replace('?', '%s')
+            offset = (page - 1) * page_size
+            rows = DatabaseManagerV2.execute(f'''
+            SELECT id, event_type, event_text, event_data, instance_id, instance_name, created_at
+            FROM app_events
+            {where_clause}
+            ORDER BY created_at DESC
+            LIMIT :limit OFFSET :offset
+            ''', {**params, "limit": page_size, "offset": offset})
 
-            conn = DatabaseManager.get_connection()
-            cursor = conn.cursor()
-
-            try:
-                cursor.execute(count_query, params)
-                total_result = cursor.fetchone()
-                total = total_result['total'] if total_result else 0
-
-                offset = (page - 1) * page_size
-
-                select_query = f'''
-                SELECT id, event_type, event_text, event_data, instance_id, instance_name, created_at
-                FROM app_events
-                {where_clause}
-                ORDER BY created_at DESC
-                LIMIT ? OFFSET ?
-                ''' if not db_config.is_postgres() else f'''
-                SELECT id, event_type, event_text, event_data, instance_id, instance_name, created_at
-                FROM app_events
-                {where_clause}
-                ORDER BY created_at DESC
-                LIMIT %s OFFSET %s
-                '''
-
-                query_params = params + [page_size, offset]
-                if db_config.is_postgres():
-                    select_query = select_query.replace('?', '%s')
-
-                cursor.execute(select_query, query_params)
-                rows = cursor.fetchall()
-
-                events = []
-                for row in rows:
-                    event = {
-                        'id': row['id'],
-                        'event_type': row['event_type'],
-                        'event_text': row['event_text'],
-                        'instance_id': row['instance_id'],
-                        'instance_name': row['instance_name'] if len(row) > 5 else None,
-                        'created_at': row['created_at'].isoformat() if len(row) > 6 and hasattr(row['created_at'], 'isoformat') else str(
-                            row['created_at']) if len(row) > 6 else None
-                    }
-
-                    if len(row) > 3 and row['event_text']:
-                        try:
-                            if isinstance(row['event_text'], str):
-                                event['event_data'] = json.loads(row['event_text'])
-                            else:
-                                event['event_data'] = row['event_text']
-                        except:
-                            event['event_data'] = row['event_text']
-
-                    events.append(event)
-
-                total_pages = (total + page_size - 1) // page_size
-
-                return {
-                    'events': events,
-                    'total': total,
-                    'page': page,
-                    'page_size': page_size,
-                    'total_pages': total_pages
+            events = []
+            for row in rows:
+                event = {
+                    'id': row['id'],
+                    'event_type': row['event_type'],
+                    'event_text': row['event_text'],
+                    'instance_id': row['instance_id'],
+                    'instance_name': row['instance_name'] if len(row) > 5 else None,
+                    'created_at': row['created_at'].isoformat() if len(row) > 6 and hasattr(row['created_at'], 'isoformat') else str(
+                        row['created_at']) if len(row) > 6 else None
                 }
 
-            finally:
-                cursor.close()
-                conn.close()
+                if len(row) > 3 and row['event_text']:
+                    try:
+                        if isinstance(row['event_text'], str):
+                            event['event_data'] = json.loads(row['event_text'])
+                        else:
+                            event['event_data'] = row['event_text']
+                    except:
+                        event['event_data'] = row['event_text']
+
+                events.append(event)
+
+            total_pages = (total + page_size - 1) // page_size
+
+            return {
+                'events': events,
+                'total': total,
+                'page': page,
+                'page_size': page_size,
+                'total_pages': total_pages
+            }
 
         except Exception as e:
             logger.error(f"Error getting events: {str(e)}")
@@ -307,25 +243,9 @@ class EventManager:
             self.init_table()
 
         try:
-            query = '''
-            SELECT DISTINCT event_type 
-            FROM app_events 
-            ORDER BY event_type
-            '''
-
-            if db_config.is_postgres():
-                query = query.replace('?', '%s')
-
-            conn = DatabaseManager.get_connection()
-            cursor = conn.cursor()
-
-            try:
-                cursor.execute(query)
-                rows = cursor.fetchall()
-                return [row['event_type'] for row in rows]
-            finally:
-                cursor.close()
-                conn.close()
+            rows = DatabaseManagerV2.execute(
+                "SELECT DISTINCT event_type FROM app_events ORDER BY event_type")
+            return [row['event_type'] for row in rows]
 
         except Exception as e:
             logger.error(f"Error getting event types: {str(e)}")
@@ -341,32 +261,14 @@ class EventManager:
             self.init_table()
 
         try:
-            query = '''
+            rows = DatabaseManagerV2.execute('''
             SELECT DISTINCT instance_id, instance_name 
             FROM app_events 
             WHERE instance_name IS NOT NULL
             ORDER BY instance_name
-            '''
-
-            if db_config.is_postgres():
-                query = query.replace('?', '%s')
-
-            conn = DatabaseManager.get_connection()
-            cursor = conn.cursor()
-
-            try:
-                cursor.execute(query)
-                rows = cursor.fetchall()
-                return [
-                    {
-                        'instance_id': row['instance_id'],
-                        'instance_name': row['instance_name']
-                    }
-                    for row in rows
-                ]
-            finally:
-                cursor.close()
-                conn.close()
+            ''')
+            return [{'instance_id': row['instance_id'], 'instance_name': row['instance_name']}
+                    for row in rows]
 
         except Exception as e:
             logger.error(f"Error getting instances: {str(e)}")
@@ -392,40 +294,11 @@ class EventManager:
             # exploited it only because the one caller passes an int from a
             # bounded query parameter, and this is a public method (keepup-15).
             cutoff = datetime.utcnow() - timedelta(days=int(days))
-            if db_config.is_postgres():
-                query = '''
-                DELETE FROM app_events
-                WHERE created_at < %s
-                RETURNING id
-                '''
-                params = (cutoff,)
-            else:
-                query = '''
-                DELETE FROM app_events
-                WHERE created_at < ?
-                '''
-                params = (cutoff,)
-
-            conn = DatabaseManager.get_connection()
-            cursor = conn.cursor()
-
-            try:
-                cursor.execute(query, params)
-                conn.commit()
-
-                if db_config.is_postgres():
-                    deleted_count = cursor.rowcount
-                else:
-                    deleted_count = cursor.rowcount
-
-                if deleted_count > 0:
-                    logger.info(f"Deleted {deleted_count} old events (older than {days} days)")
-
-                return deleted_count
-
-            finally:
-                cursor.close()
-                conn.close()
+            deleted_count = DatabaseManagerV2.execute_commit(
+                "DELETE FROM app_events WHERE created_at < :cutoff", {"cutoff": cutoff})
+            if deleted_count > 0:
+                logger.info(f"Deleted {deleted_count} old events (older than {days} days)")
+            return deleted_count
 
         except Exception as e:
             logger.error(f"Error deleting old events: {str(e)}")
@@ -441,99 +314,51 @@ class EventManager:
             self.init_table()
 
         try:
-            if db_config.is_postgres():
-                type_stats_query = '''
-                SELECT 
-                    event_type,
-                    COUNT(*) as count,
-                    MIN(created_at) as first_event,
-                    MAX(created_at) as last_event
-                FROM app_events
-                GROUP BY event_type
-                ORDER BY count DESC
-                '''
+            # One statement for both dialects; rows are read by column name,
+            # which is what a PostgreSQL row is (it has no positions).
+            type_rows = DatabaseManagerV2.execute('''
+            SELECT event_type, COUNT(*) as count,
+                   MIN(created_at) as first_event, MAX(created_at) as last_event
+            FROM app_events
+            GROUP BY event_type
+            ORDER BY count DESC
+            ''')
+            instance_rows = DatabaseManagerV2.execute('''
+            SELECT instance_id, instance_name, COUNT(*) as event_count,
+                   MIN(created_at) as first_event, MAX(created_at) as last_event
+            FROM app_events
+            GROUP BY instance_id, instance_name
+            ORDER BY event_count DESC
+            ''')
 
-                instance_stats_query = '''
-                SELECT 
-                    instance_id,
-                    instance_name,
-                    COUNT(*) as event_count,
-                    MIN(created_at) as first_event,
-                    MAX(created_at) as last_event
-                FROM app_events
-                GROUP BY instance_id, instance_name
-                ORDER BY event_count DESC
-                '''
-            else:
-                type_stats_query = '''
-                SELECT 
-                    event_type,
-                    COUNT(*) as count,
-                    MIN(created_at) as first_event,
-                    MAX(created_at) as last_event
-                FROM app_events
-                GROUP BY event_type
-                ORDER BY count DESC
-                '''
+            def moment(value):
+                return value.isoformat() if hasattr(value, 'isoformat') else str(value)
 
-                instance_stats_query = '''
-                SELECT 
-                    instance_id,
-                    instance_name,
-                    COUNT(*) as event_count,
-                    MIN(created_at) as first_event,
-                    MAX(created_at) as last_event
-                FROM app_events
-                GROUP BY instance_id, instance_name
-                ORDER BY event_count DESC
-                '''
+            type_stats = [{
+                'event_type': row['event_type'],
+                'count': row['count'],
+                'first_event': moment(row['first_event']),
+                'last_event': moment(row['last_event']),
+            } for row in type_rows]
+            instance_stats = [{
+                'instance_id': row['instance_id'],
+                'instance_name': row['instance_name'],
+                'event_count': row['event_count'],
+                'first_event': moment(row['first_event']),
+                'last_event': moment(row['last_event']),
+            } for row in instance_rows]
 
-            conn = DatabaseManager.get_connection()
-            cursor = conn.cursor()
-
-            try:
-                cursor.execute(type_stats_query)
-                type_rows = cursor.fetchall()
-
-                type_stats = []
-                for row in type_rows:
-                    type_stats.append({
-                        'event_type': row[0],
-                        'count': row[1],
-                        'first_event': row[2].isoformat() if hasattr(row[2], 'isoformat') else str(row[2]),
-                        'last_event': row[3].isoformat() if hasattr(row[3], 'isoformat') else str(row[3])
-                    })
-
-                cursor.execute(instance_stats_query)
-                instance_rows = cursor.fetchall()
-
-                instance_stats = []
-                for row in instance_rows:
-                    instance_stats.append({
-                        'instance_id': row[0],
-                        'instance_name': row[1],
-                        'event_count': row[2],
-                        'first_event': row[3].isoformat() if hasattr(row[3], 'isoformat') else str(row[3]),
-                        'last_event': row[4].isoformat() if hasattr(row[4], 'isoformat') else str(row[4])
-                    })
-
-                total_count = sum(stat['count'] for stat in type_stats)
-
-                return {
-                    "total_events": total_count,
-                    "unique_event_types": len(type_stats),
-                    "unique_instances": len(instance_stats),
-                    "event_types": type_stats,
-                    "instances": instance_stats,
-                    "current_instance": {
-                        "id": self.instance_id,
-                        "name": self.instance_name
-                    }
+            return {
+                "total_events": sum(stat['count'] for stat in type_stats),
+                "unique_event_types": len(type_stats),
+                "unique_instances": len(instance_stats),
+                "event_types": type_stats,
+                "instances": instance_stats,
+                "current_instance": {
+                    "id": self.instance_id,
+                    "name": self.instance_name
                 }
-
-            finally:
-                cursor.close()
-                conn.close()
+            }
 
         except Exception as e:
             logger.error(f"Error getting events stats: {str(e)}")

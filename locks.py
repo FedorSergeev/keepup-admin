@@ -17,7 +17,7 @@ from datetime import datetime, timedelta
 from fastapi import Depends, HTTPException, Query, status
 
 from keepup.auth.dependencies import get_current_admin
-from keepup.db import DatabaseManager, DatabaseManagerV2
+from keepup.db import DatabaseManagerV2
 from keepup.instance import get_instance_id
 from keepup.roles import ROLE_ADMIN
 
@@ -46,10 +46,10 @@ class DatabaseLock:
         """Take the lock, clearing stale holders first."""
         try:
             await self._cleanup_stale_locks()
-            result = DatabaseManager.execute_commit_only('''
+            result = DatabaseManagerV2.execute_commit('''
             INSERT INTO distributed_locks (lock_name, acquired_at, instance_id)
-            VALUES (?, CURRENT_TIMESTAMP, ?)
-            ''', (self.lock_name, self.instance_id))
+            VALUES (:lock_name, CURRENT_TIMESTAMP, :instance_id)
+            ''', {"lock_name": self.lock_name, "instance_id": self.instance_id})
 
             if result:
                 self.acquired = True
@@ -90,9 +90,9 @@ class DatabaseLock:
     async def _try_acquire_existing(self) -> bool:
         """Take over an existing lock when it has expired."""
         try:
-            lock = DatabaseManager.execute_sql_one(
-                "SELECT * FROM distributed_locks WHERE lock_name = ?",
-                (self.lock_name,)
+            lock = DatabaseManagerV2.execute_one(
+                "SELECT * FROM distributed_locks WHERE lock_name = :lock_name",
+                {"lock_name": self.lock_name}
             )
 
             if not lock:
@@ -109,9 +109,9 @@ class DatabaseLock:
                 logger.warning(f"Lock '{self.lock_name}' expired (held for {time_diff:.1f}s, "
                                f"max: {self.max_lock_time}s), attempting to acquire...")
 
-                DatabaseManager.execute_commit_only(
-                    "DELETE FROM distributed_locks WHERE lock_name = ?",
-                    (self.lock_name,)
+                DatabaseManagerV2.execute_commit(
+                    "DELETE FROM distributed_locks WHERE lock_name = :lock_name",
+                    {"lock_name": self.lock_name}
                 )
 
                 return await self.acquire()
@@ -158,9 +158,9 @@ class DatabaseLock:
             return
 
         try:
-            DatabaseManager.execute_commit_only(
-                "DELETE FROM distributed_locks WHERE lock_name = ? AND instance_id = ?",
-                (self.lock_name, self.instance_id)
+            DatabaseManagerV2.execute_commit(
+                "DELETE FROM distributed_locks WHERE lock_name = :lock_name AND instance_id = :instance_id",
+                {"lock_name": self.lock_name, "instance_id": self.instance_id}
             )
             self.acquired = False
             logger.info(f"Lock '{self.lock_name}' released by {self.instance_id}")
@@ -301,7 +301,7 @@ def register_lock_routes(app):
                     detail="Admin access required"
                 )
 
-            locks = DatabaseManager.execute_sql(
+            locks = DatabaseManagerV2.execute(
                 "SELECT * FROM distributed_locks ORDER BY acquired_at DESC"
             )
 
@@ -331,9 +331,9 @@ def register_lock_routes(app):
                     detail="Admin access required"
                 )
 
-            existing_lock = DatabaseManager.execute_sql_one(
-                "SELECT * FROM distributed_locks WHERE lock_name = ?",
-                (lock_name,)
+            existing_lock = DatabaseManagerV2.execute_one(
+                "SELECT * FROM distributed_locks WHERE lock_name = :lock_name",
+                {"lock_name": lock_name}
             )
 
             if not existing_lock:
@@ -354,9 +354,9 @@ def register_lock_routes(app):
                     }
                 }
 
-            result = DatabaseManager.execute_commit_only(
-                "DELETE FROM distributed_locks WHERE lock_name = ?",
-                (lock_name,)
+            result = DatabaseManagerV2.execute_commit(
+                "DELETE FROM distributed_locks WHERE lock_name = :lock_name",
+                {"lock_name": lock_name}
             )
 
             if result:
@@ -367,15 +367,12 @@ def register_lock_routes(app):
                 )
 
                 try:
-                    DatabaseManager.execute_commit_only('''
+                    DatabaseManagerV2.execute_commit('''
                     INSERT INTO system_metrics (metric_name, metric_value, app_instance, tags)
-                    VALUES (?, ?, ?, ?)
-                    ''', (
-                        "lock_force_released",
-                        1,
-                        get_instance_id(),
-                        f"lock_name:{lock_name},admin:{admin['username']}"
-                    ))
+                    VALUES (:metric_name, :metric_value, :app_instance, :tags)
+                    ''', {"metric_name": "lock_force_released", "metric_value": 1,
+                        "app_instance": get_instance_id(),
+                        "tags": f"lock_name:{lock_name},admin:{admin['username']}"})
                 except Exception as metrics_error:
                     logger.error(f"Failed to log lock release metric: {metrics_error}")
 

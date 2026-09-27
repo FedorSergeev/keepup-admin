@@ -15,7 +15,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from keepup import audit
-from keepup.db import DatabaseManager, DatabaseManagerV2
+from keepup.db import DatabaseManagerV2
 from keepup.schema import init_db
 
 
@@ -107,7 +107,7 @@ async def test_the_wrapper_itself_records_the_outcome(empty_buffer):
 # --- how long it is kept ------------------------------------------------------
 
 def test_rows_past_the_retention_period_are_deleted():
-    DatabaseManager.execute_commit_only("DELETE FROM incoming_requests", ())
+    DatabaseManagerV2.execute_commit("DELETE FROM incoming_requests")
     old = datetime.utcnow() - timedelta(days=90)
     fresh = datetime.utcnow()
 

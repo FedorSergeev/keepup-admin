@@ -17,7 +17,7 @@ from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
 from keepup.auth.dependencies import get_current_admin, get_current_user
-from keepup.db import DatabaseManager, db_config
+from keepup.db import DatabaseManagerV2, db_config
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -74,7 +74,7 @@ class RoleModulesUpdate(BaseModel):
 
 def get_all_modules_from_db():
     """Return every module from the database."""
-    return DatabaseManager.execute_sql('''
+    return DatabaseManagerV2.execute('''
     SELECT * FROM frontend_modules 
     WHERE is_active = TRUE 
     ORDER BY name
@@ -83,23 +83,23 @@ def get_all_modules_from_db():
 
 def get_module_by_id(module_id: str):
     """Return a module by id."""
-    return DatabaseManager.execute_sql_one('''
+    return DatabaseManagerV2.execute_one('''
     SELECT * FROM frontend_modules 
-    WHERE module_id = ? AND is_active = TRUE
-    ''', (module_id,))
+    WHERE module_id = :module_id AND is_active = TRUE
+    ''', {"module_id": module_id})
 
 
 def get_modules_for_role(role_name: str):
     """Return the modules granted to a role."""
-    return DatabaseManager.execute_sql('''
+    return DatabaseManagerV2.execute('''
     SELECT fm.* 
     FROM frontend_modules fm
     JOIN role_modules rm ON fm.module_id = rm.module_id
-    WHERE rm.role_name = ? 
+    WHERE rm.role_name = :role_name 
     AND rm.is_active = TRUE 
     AND fm.is_active = TRUE
     ORDER BY fm.name
-    ''', (role_name,))
+    ''', {"role_name": role_name})
 
 
 def create_or_update_module(module_data: Dict[str, Any]):
@@ -125,56 +125,29 @@ def create_or_update_module(module_data: Dict[str, Any]):
         existing = get_module_by_id(module_id)
         logger.info(f"Module exists: {existing is not None}")
 
+        params = {"module_id": module_id, "name": name, "description": description,
+                  "js_path": js_path, "css_path": css_path, "init_function": init_function,
+                  "version": version, "config": config}
         if existing:
             logger.info(f"UPDATE path for module: {module_id}")
-            if db_config.is_postgres():
-                query = '''
-                UPDATE frontend_modules 
-                SET name = %s, description = %s, js_path = %s, css_path = %s, 
-                    init_function = %s, version = %s, config = %s, updated_at = CURRENT_TIMESTAMP
-                WHERE module_id = %s
-                '''
-            else:
-                query = '''
-                UPDATE frontend_modules 
-                SET name = ?, description = ?, js_path = ?, css_path = ?, 
-                    init_function = ?, version = ?, config = ?, updated_at = CURRENT_TIMESTAMP
-                WHERE module_id = ?
-                '''
-            params = (name, description, js_path, css_path, init_function, version, config, module_id)
+            query = '''
+            UPDATE frontend_modules 
+            SET name = :name, description = :description, js_path = :js_path,
+                css_path = :css_path, init_function = :init_function, version = :version,
+                config = :config, updated_at = CURRENT_TIMESTAMP
+            WHERE module_id = :module_id
+            '''
         else:
             logger.info(f"INSERT path for module: {module_id}")
-            if db_config.is_postgres():
-                query = '''
-                INSERT INTO frontend_modules 
-                (module_id, name, description, js_path, css_path, init_function, version, config)
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
-                '''
-            else:
-                query = '''
-                INSERT INTO frontend_modules 
-                (module_id, name, description, js_path, css_path, init_function, version, config)
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
-                '''
-            params = (module_id, name, description, js_path, css_path, init_function, version, config)
+            query = '''
+            INSERT INTO frontend_modules 
+            (module_id, name, description, js_path, css_path, init_function, version, config)
+            VALUES (:module_id, :name, :description, :js_path, :css_path, :init_function,
+                    :version, :config)
+            '''
 
-        logger.info(f"Final query: {query}")
-        logger.info(f"Params count: {len(params)}")
-        logger.info(f"Params: {params}")
-
-        logger.info("Testing database connection...")
-        test_conn = DatabaseManager.get_connection()
-        if test_conn:
-            logger.info("Database connection OK")
-            test_conn.close()
-        else:
-            logger.error("Database connection FAILED")
-            return False
-
-        logger.info("Executing SQL query...")
         start_time = time.time()
-
-        result = DatabaseManager.execute_commit_only(query, params)
+        result = DatabaseManagerV2.execute_commit(query, params)
 
         execution_time = time.time() - start_time
         logger.info(f"Query executed in {execution_time:.2f} seconds")
@@ -193,34 +166,34 @@ def create_or_update_module(module_data: Dict[str, Any]):
 
 def update_role_modules(role_name: str, module_ids: List[str]):
     """Update the modules granted to a role."""
-    DatabaseManager.execute_commit_only('''
+    DatabaseManagerV2.execute_commit('''
     UPDATE role_modules 
     SET is_active = FALSE 
-    WHERE role_name = ?
-    ''', (role_name,))
+    WHERE role_name = :role_name
+    ''', {"role_name": role_name})
 
     for module_id in module_ids:
         if db_config.is_postgres():
-            DatabaseManager.execute_commit_only('''
+            DatabaseManagerV2.execute_commit('''
             INSERT INTO role_modules (role_name, module_id, is_active)
-            VALUES (%s, %s, TRUE)
+            VALUES (:role_name, :module_id, TRUE)
             ON CONFLICT (role_name, module_id) 
             DO UPDATE SET is_active = TRUE
-            ''', (role_name, module_id))
+            ''', {"role_name": role_name, "module_id": module_id})
         else:
-            DatabaseManager.execute_commit_only('''
+            DatabaseManagerV2.execute_commit('''
             INSERT OR REPLACE INTO role_modules (role_name, module_id, is_active)
-            VALUES (?, ?, TRUE)
-            ''', (role_name, module_id))
+            VALUES (:role_name, :module_id, TRUE)
+            ''', {"role_name": role_name, "module_id": module_id})
 
 
 def delete_module(module_id: str):
     """Delete a module (soft delete)."""
-    DatabaseManager.execute_commit_only('''
+    DatabaseManagerV2.execute_commit('''
     UPDATE frontend_modules 
     SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
-    WHERE module_id = ?
-    ''', (module_id,))
+    WHERE module_id = :module_id
+    ''', {"module_id": module_id})
 
 
 def import_modules_from_json():
@@ -248,6 +221,26 @@ def import_modules_from_json():
 #: the panel shell: it is data of the package, and the process may have been
 #: started anywhere.
 FRAMEWORK_SECTIONS = str(Path(__file__).resolve().parent / "sections.json")
+
+
+_INSERT_SECTION_IF_NEW = (
+    "INSERT INTO frontend_modules (module_id, name, description, js_path, css_path, "
+    "init_function, version, config) "
+    "VALUES (:id, :name, :description, :js, :css, :init, :version, :config) "
+    "ON CONFLICT (module_id) DO NOTHING")
+
+_INSERT_GRANT_IF_NEW = (
+    "INSERT INTO role_modules (role_name, module_id, is_active) "
+    "VALUES (:role, :module_id, TRUE) ON CONFLICT (role_name, module_id) DO NOTHING")
+
+
+def _section_row(section: Dict[str, Any]) -> Dict[str, Any]:
+    """A catalogue entry as the parameters of _INSERT_SECTION_IF_NEW."""
+    return {"id": section["id"], "name": section["name"],
+            "description": section.get("description"), "js": section.get("js"),
+            "css": section.get("css"), "init": section.get("initFunction"),
+            "version": section.get("version", "1.0.0"),
+            "config": json.dumps(section.get("config", {}))}
 
 
 def sync_framework_sections(path: str = FRAMEWORK_SECTIONS) -> Dict[str, int]:
@@ -293,23 +286,19 @@ def sync_framework_sections(path: str = FRAMEWORK_SECTIONS) -> Dict[str, int]:
 
     for section in declared.get("modules", []):
         try:
-            counted["modules"] += max(0, DatabaseManager.execute_commit_only(
-                "INSERT INTO frontend_modules (module_id, name, description, js_path, "
-                "css_path, init_function, version, config) "
-                "VALUES (?, ?, ?, ?, ?, ?, ?, ?) ON CONFLICT (module_id) DO NOTHING",
-                (section["id"], section["name"], section.get("description"),
-                 section.get("js"), section.get("css"), section.get("initFunction"),
-                 section.get("version", "1.0.0"), json.dumps(section.get("config", {})))))
+            counted["modules"] += max(0, DatabaseManagerV2.execute_commit(
+                _INSERT_SECTION_IF_NEW, _section_row(section)))
 
-            counted["repointed"] += max(0, DatabaseManager.execute_commit_only(
-                "UPDATE frontend_modules SET js_path = ?, css_path = ?, init_function = ? "
-                "WHERE module_id = ? AND (js_path IS DISTINCT FROM ? "
-                "OR css_path IS DISTINCT FROM ?)"
+            counted["repointed"] += max(0, DatabaseManagerV2.execute_commit(
+                "UPDATE frontend_modules SET js_path = :js, css_path = :css, "
+                "init_function = :init WHERE module_id = :id "
+                "AND (js_path IS DISTINCT FROM :js OR css_path IS DISTINCT FROM :css)"
                 if db_config.is_postgres() else
-                "UPDATE frontend_modules SET js_path = ?, css_path = ?, init_function = ? "
-                "WHERE module_id = ? AND (js_path IS NOT ? OR css_path IS NOT ?)",
-                (section.get("js"), section.get("css"), section.get("initFunction"),
-                 section["id"], section.get("js"), section.get("css"))))
+                "UPDATE frontend_modules SET js_path = :js, css_path = :css, "
+                "init_function = :init WHERE module_id = :id "
+                "AND (js_path IS NOT :js OR css_path IS NOT :css)",
+                {"js": section.get("js"), "css": section.get("css"),
+                 "init": section.get("initFunction"), "id": section["id"]}))
         except Exception as error:
             logger.warning("Framework section %s not synchronised: %s",
                            section.get("id"), error)
@@ -317,10 +306,8 @@ def sync_framework_sections(path: str = FRAMEWORK_SECTIONS) -> Dict[str, int]:
     for role in declared.get("roles", []):
         for module_id in role.get("modules", []):
             try:
-                counted["grants"] += max(0, DatabaseManager.execute_commit_only(
-                    "INSERT INTO role_modules (role_name, module_id, is_active) "
-                    "VALUES (?, ?, TRUE) ON CONFLICT (role_name, module_id) DO NOTHING",
-                    (role.get("name"), module_id)))
+                counted["grants"] += max(0, DatabaseManagerV2.execute_commit(
+                    _INSERT_GRANT_IF_NEW, {"role": role.get("name"), "module_id": module_id}))
             except Exception as error:
                 logger.warning("Framework grant %s/%s not added: %s",
                                role.get("name"), module_id, error)
@@ -354,23 +341,16 @@ def sync_new_modules_from_json(path: str = MODULES_CONFIG_PATH) -> Dict[str, int
 
     for module in config.get('modules', []):
         try:
-            added["modules"] += max(0, DatabaseManager.execute_commit_only(
-                "INSERT INTO frontend_modules (module_id, name, description, js_path, css_path, "
-                "init_function, version, config) VALUES (?, ?, ?, ?, ?, ?, ?, ?) "
-                "ON CONFLICT (module_id) DO NOTHING",
-                (module['id'], module['name'], module.get('description'), module.get('js'),
-                 module.get('css'), module.get('initFunction'), module.get('version', '1.0.0'),
-                 json.dumps(module.get('config', {})))))
+            added["modules"] += max(0, DatabaseManagerV2.execute_commit(
+                _INSERT_SECTION_IF_NEW, _section_row(module)))
         except Exception as e:
             logger.warning(f"Panel section {module.get('id')} not added: {e}")
 
     for role in config.get('roles', []):
         for module_id in role.get('modules', []):
             try:
-                added["grants"] += max(0, DatabaseManager.execute_commit_only(
-                    "INSERT INTO role_modules (role_name, module_id, is_active) VALUES (?, ?, TRUE) "
-                    "ON CONFLICT (role_name, module_id) DO NOTHING",
-                    (role.get('name'), module_id)))
+                added["grants"] += max(0, DatabaseManagerV2.execute_commit(
+                    _INSERT_GRANT_IF_NEW, {"role": role.get('name'), "module_id": module_id}))
             except Exception as e:
                 logger.warning(f"Panel section {module_id} not granted to {role.get('name')}: {e}")
 
@@ -468,7 +448,7 @@ def register_module_routes(app):
     async def get_role_modules(admin: dict = Depends(get_current_admin)):
         """Return the modules granted to each role."""
         roles_modules = {}
-        roles = DatabaseManager.execute_sql('''
+        roles = DatabaseManagerV2.execute('''
         SELECT DISTINCT role_name FROM role_modules WHERE is_active = TRUE
         ''')
 
@@ -502,7 +482,7 @@ def register_module_routes(app):
         try:
             modules = get_all_modules_from_db()
             roles_modules = {}
-            roles = DatabaseManager.execute_sql('SELECT DISTINCT role_name FROM role_modules WHERE is_active = TRUE')
+            roles = DatabaseManagerV2.execute('SELECT DISTINCT role_name FROM role_modules WHERE is_active = TRUE')
 
             for role in roles:
                 role_modules = get_modules_for_role(role['role_name'])

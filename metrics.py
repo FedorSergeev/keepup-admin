@@ -24,7 +24,7 @@ from prometheus_client import CONTENT_TYPE_LATEST, Counter, Gauge, Histogram, RE
 from pydantic import BaseModel
 
 from keepup.auth.dependencies import get_current_admin
-from keepup.db import DatabaseManager, DatabaseManagerV2
+from keepup.db import DatabaseManagerV2
 from keepup.instance import get_instance_id
 
 #: What an application may import from this module. Everything else is
@@ -808,14 +808,11 @@ def register_metrics_routes(app, public=False):
         """TODO: restart an instance -- not actually implemented."""
         logger.info(f"Restart requested for instance: {instance_id} by admin: {admin['username']}")
 
-        DatabaseManager.execute_commit_only('''
+        DatabaseManagerV2.execute_commit('''
         INSERT INTO system_metrics (metric_name, metric_value, app_instance, tags)
-        VALUES (?, ?, ?, ?)
-        ''', (
-            "instance_restart",
-            1,
-            get_instance_id(),
-            f"target:{instance_id},admin:{admin['username']}"
-        ))
+        VALUES (:metric_name, :metric_value, :app_instance, :tags)
+        ''', {"metric_name": "instance_restart", "metric_value": 1,
+            "app_instance": get_instance_id(),
+            "tags": f"target:{instance_id},admin:{admin['username']}"})
 
         return {"success": True, "message": f"Restart command sent for instance {instance_id}"}
