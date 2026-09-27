@@ -39,8 +39,22 @@ Notable changes to `keepup-admin`.
 - `DatabaseManagerV2.raw_connection()` — a driver connection out of the pool,
   for code written against a cursor (the application's table hook receives one
   such cursor); `close()` hands it back.
+- `AuthProvider.lookup_user(username)` — the synchronous read of an account,
+  for callers that cannot await; the local provider reads its table. The
+  default keeps a provider that only has `get_user_info()` working.
 - `DatabaseManagerV2.test_connection()` — the health check's answer (whether
   the database responds, which one, its version), which never raises.
+
+### Changed
+
+- **The user check on every signed-in request reads the account once, off the
+  event loop.** It read the account twice, and each read started a thread with
+  an event loop of its own that the request waited for with a blocking join —
+  holding the loop every request needs. The session check and the account read
+  now run together in one `asyncio.to_thread` hop, on pooled connections; a
+  revoked session ends the check before the account is read. Answers do not
+  change: 401 for a bad token, a revoked session or a removed account, 403 for
+  a blocked one.
 
 ### Removed
 

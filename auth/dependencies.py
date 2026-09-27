@@ -56,58 +56,14 @@ async def get_user_by_username_async(username: str):
 
 
 def get_user_by_username(username: str):
-    """Return a user by name, including the extra fields."""
-    try:
-        loop = asyncio.get_event_loop()
-    except RuntimeError:
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
+    """Return a user by name, including the extra fields.
 
-    if loop.is_running():
-        import asyncio as async_module
-        import threading
-
-        result = None
-        event = threading.Event()
-
-        def run_in_thread():
-            nonlocal result
-            new_loop = async_module.new_event_loop()
-            try:
-                async_module.set_event_loop(new_loop)
-                result = new_loop.run_until_complete(
-                    auth_provider.get_user_info(username)
-                )
-            except Exception as e:
-                logger.error(f"Error in thread: {e}")
-            finally:
-                # Closed on every path, including the failing one: a loop holds
-                # an epoll descriptor and a self-pipe, and this runs once per
-                # authenticated call. Left open, a long-lived process reaches its
-                # descriptor limit and then cannot open anything at all -- which
-                # surfaces as "database connection failed", not as a leak.
-                try:
-                    new_loop.close()
-                except Exception as e:
-                    logger.warning(f"Could not close the worker event loop: {e}")
-                async_module.set_event_loop(None)
-                event.set()
-
-        thread = threading.Thread(target=run_in_thread)
-        thread.start()
-        thread.join(timeout=10)
-
-        if event.is_set() and result is not None:
-            return result
-        else:
-            logger.warning(f"Async call failed, falling back to DB for user {username}")
-            return None
-
-    user_info = loop.run_until_complete(
-        auth_provider.get_user_info(username)
-    )
-
-    return user_info
+    Synchronous, for plugins and background jobs that cannot await. It used to
+    wrap the provider's coroutine -- and, called from a running loop, ran it on a
+    loop of its own in a thread that the caller waited for, holding the loop.
+    The provider answers synchronously itself now.
+    """
+    return auth_provider.lookup_user(username)
 
 
 def get_user_by_id(user_id: int):
@@ -296,6 +252,13 @@ def _session_is_live(payload: dict) -> bool:
         return False
 
 
+def _session_and_user(payload: dict, username: str):
+    """Whether the token's session is live and, only if it is, whose account it is."""
+    if not _session_is_live(payload):
+        return False, None
+    return True, auth_provider.lookup_user(username)
+
+
 async def get_current_user(token: str = Depends(request_token)):
     """Return the current user of this token.
 
@@ -349,15 +312,15 @@ async def _get_local_user(token: Optional[str], ignore_empty_user: bool = False)
             return None
         raise credentials_exception
 
-    if not _session_is_live(payload):
+    # Both reads are blocking queries, so they leave the loop together: one hop
+    # to a worker thread per request, and the account is read once -- it used
+    # to be read twice, each time on a new event loop in a thread the request
+    # waited for while holding the loop (keepup-43).
+    live, user = await asyncio.to_thread(_session_and_user, payload, token_data.username)
+    if not live or user is None:
         raise credentials_exception
 
-    user = get_user_by_username(token_data.username)
-    if user is None:
-        raise credentials_exception
-
-    fresh_user = get_user_by_username(token_data.username)
-    if fresh_user["status"] != "active":
+    if user["status"] != "active":
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="User account is blocked",
@@ -367,12 +330,12 @@ async def _get_local_user(token: Optional[str], ignore_empty_user: bool = False)
     # the token is decoded is the only place that knows -- and a handler that
     # needs to warn about the end (or record it alongside a websocket key)
     # cannot decode the token itself: it never sees it.
-    fresh_user = dict(fresh_user)
-    fresh_user["token_expires_at"] = _token_expiry(payload)
-    fresh_user["session_started_at"] = _session_start(payload)
-    fresh_user["session_id"] = payload.get(panel_session.SESSION_CLAIM)
+    user = dict(user)
+    user["token_expires_at"] = _token_expiry(payload)
+    user["session_started_at"] = _session_start(payload)
+    user["session_id"] = payload.get(panel_session.SESSION_CLAIM)
 
-    return fresh_user
+    return user
 
 
 async def get_optional_user(token: Optional[str]):

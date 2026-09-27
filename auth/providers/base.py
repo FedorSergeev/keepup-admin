@@ -7,7 +7,9 @@ else. Token issuing is shared here rather than reimplemented per provider --
 two implementations of signing are two places to get the signature wrong.
 """
 
+import asyncio
 import logging
+import threading
 from abc import ABC, abstractmethod
 from typing import Optional, Dict, Any
 
@@ -61,6 +63,39 @@ class AuthProvider(ABC):
     async def get_user_info(self, username: str) -> Optional[Dict[str, Any]]:
         """Return information about a user."""
         pass
+
+    def lookup_user(self, username: str) -> Optional[Dict[str, Any]]:
+        """The user, read synchronously -- for callers that cannot await.
+
+        A provider whose accounts are a local read overrides this with the read
+        itself (the local provider does). This default serves a provider that
+        only has the asynchronous get_user_info(): called from a running loop it
+        has to run that coroutine on a loop of its own in a worker thread, which
+        is exactly what the framework's own path no longer does -- it is kept so
+        that such a provider goes on working, not as a way to be used.
+        """
+        try:
+            asyncio.get_running_loop()
+        except RuntimeError:
+            return asyncio.run(self.get_user_info(username))
+
+        result: Dict[str, Any] = {}
+
+        def run_in_thread():
+            loop = asyncio.new_event_loop()
+            try:
+                result["user"] = loop.run_until_complete(self.get_user_info(username))
+            except Exception as e:
+                logger.error(f"Could not look up user {username}: {e}")
+            finally:
+                # Closed on every path: a loop holds an epoll descriptor and a
+                # self-pipe, and a long-lived process would run out of them.
+                loop.close()
+
+        thread = threading.Thread(target=run_in_thread)
+        thread.start()
+        thread.join(timeout=10)
+        return result.get("user")
 
     @abstractmethod
     async def get_user_permissions(self, username: str) -> Dict[str, bool]:

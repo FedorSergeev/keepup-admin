@@ -6,6 +6,7 @@ application already has, which is what makes a deployment need no directory
 service to stand up.
 """
 
+import asyncio
 import logging
 from typing import Optional, Dict, Any
 
@@ -112,8 +113,13 @@ class LocalAuthProvider(AuthProvider):
 
         return user
 
-    async def get_user_info(self, username: str) -> Optional[Dict[str, Any]]:
+    def lookup_user(self, username: str) -> Optional[Dict[str, Any]]:
+        """The account, read from this application's table."""
         return get_user_by_username(username)
+
+    async def get_user_info(self, username: str) -> Optional[Dict[str, Any]]:
+        # The read is a blocking query; outside the loop it holds nobody up.
+        return await asyncio.to_thread(get_user_by_username, username)
 
     async def get_user_permissions(self, username: str) -> Dict[str, bool]:
         user = get_user_by_username(username)
