@@ -250,6 +250,43 @@ def with_distributed_lock(lock_key: str, timeout: int = 300, max_lock_time: int 
     return decorator
 
 
+#: How many of the longest-held locks the statistics name.
+OLDEST_LOCKS_SHOWN = 10
+
+
+def _seconds_since(moment, now: datetime) -> float:
+    """Seconds from a stored time to now, whatever form the driver returned it in."""
+    if isinstance(moment, str):
+        moment = datetime.fromisoformat(moment.replace("Z", "+00:00"))
+    if getattr(moment, "tzinfo", None) is not None:
+        moment = moment.replace(tzinfo=None)
+    return round((now - moment).total_seconds(), 3)
+
+
+def lock_stats(now: datetime = None) -> dict:
+    """What the administrator's lock statistics show.
+
+    The age of a lock is worked out here rather than in SQL: the query used a
+    date function only SQLite has, and on PostgreSQL -- every real deployment --
+    the route failed (keepup-40).
+    """
+    now = now or datetime.utcnow()
+    total = DatabaseManagerV2.execute_one("SELECT COUNT(*) AS count FROM distributed_locks")
+    by_instance = DatabaseManagerV2.execute(
+        "SELECT instance_id, COUNT(*) AS lock_count FROM distributed_locks "
+        "GROUP BY instance_id ORDER BY lock_count DESC")
+    oldest = DatabaseManagerV2.execute(
+        "SELECT lock_name, instance_id, acquired_at FROM distributed_locks "
+        "ORDER BY acquired_at ASC LIMIT :limit", {"limit": OLDEST_LOCKS_SHOWN})
+    return {
+        "total_active_locks": int(total["count"]) if total else 0,
+        "locks_by_instance": [dict(row) for row in by_instance],
+        "oldest_locks": [{**dict(row), "seconds_held": _seconds_since(row["acquired_at"], now)}
+                         for row in oldest],
+        "current_instance": get_instance_id(),
+    }
+
+
 def register_lock_routes(app):
     """Register the administrative lock endpoints on the application."""
 
@@ -375,31 +412,7 @@ def register_lock_routes(app):
                     detail="Admin access required"
                 )
 
-            total_locks = DatabaseManager.execute_sql_one(
-                "SELECT COUNT(*) as count FROM distributed_locks"
-            )
-
-            locks_by_instance = DatabaseManager.execute_sql('''
-                SELECT instance_id, COUNT(*) as lock_count 
-                FROM distributed_locks 
-                GROUP BY instance_id 
-                ORDER BY lock_count DESC
-            ''')
-
-            oldest_locks = DatabaseManager.execute_sql('''
-                SELECT lock_name, instance_id, acquired_at,
-                       (JULIANDAY('now') - JULIANDAY(acquired_at)) * 24 * 60 * 60 as seconds_held
-                FROM distributed_locks 
-                ORDER BY acquired_at ASC 
-                LIMIT 10
-            ''')
-
-            stats = {
-                "total_active_locks": total_locks["count"] if total_locks else 0,
-                "locks_by_instance": locks_by_instance,
-                "oldest_locks": oldest_locks,
-                "current_instance": get_instance_id()
-            }
+            stats = lock_stats()
 
             logger.info(f"Admin {admin['username']} viewed locks statistics")
             return stats
