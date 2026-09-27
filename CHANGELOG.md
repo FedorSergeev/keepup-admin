@@ -120,6 +120,12 @@ Notable changes to `keepup-admin`.
   change: 401 for a bad token, a revoked session or a removed account, 403 for
   a blocked one.
 
+- **Collecting metrics and handing them out are separate modules.**
+  `keepup.metrics` collects and writes; `keepup.metrics_api` serves `/metrics`
+  and the panel's summary. The names that moved — `register_metrics_routes`,
+  `PANEL_METRICS`, `fresh_since` and the rest — still answer from
+  `keepup.metrics`, with a `DeprecationWarning` naming the new place.
+
 ### Removed
 
 - **`keepup.db.DatabaseManager`, the legacy database layer.** It opened a new

@@ -23,7 +23,8 @@ from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
 from keepup.db import DatabaseManagerV2
-from keepup.metrics import PANEL_HISTORY_HOURS, SNAPSHOT_METRIC_NAMES
+from keepup.metrics import SNAPSHOT_METRIC_NAMES
+from keepup.metrics_api import PANEL_HISTORY_HOURS
 
 logger = logging.getLogger(__name__)
 

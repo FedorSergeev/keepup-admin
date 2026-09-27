@@ -40,7 +40,8 @@ from keepup.events import (events_retention_background, init_event_manager,
 from keepup.instance import get_instance_id
 from keepup.locks import register_lock_routes
 from keepup.logging_setup import init_remote_logging
-from keepup.metrics import register_metrics_routes, update_metrics_background
+from keepup.metrics import update_metrics_background
+from keepup.metrics_api import register_metrics_routes
 from keepup.metrics_retention import metrics_retention_background
 from keepup.modules import register_module_routes
 from keepup.plugins.registry import (

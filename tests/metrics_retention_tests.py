@@ -16,7 +16,7 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from keepup import metrics, metrics_retention as retention, schema
+from keepup import metrics, metrics_api, metrics_retention as retention, schema
 from keepup.db import DatabaseManagerV2, db_config
 
 NOW = datetime(2026, 9, 18, 12, 0, 0)
@@ -92,13 +92,13 @@ def test_excluding_a_group_in_one_collector_does_not_reach_the_shared_list():
 
 def test_the_detailed_window_is_wider_than_what_the_panel_shows():
     """Two quantities compared, not two numbers: editing one would part them."""
-    assert retention.DEFAULT_DETAILED_HOURS > metrics.PANEL_HISTORY_HOURS
+    assert retention.DEFAULT_DETAILED_HOURS > metrics_api.PANEL_HISTORY_HOURS
 
 
 def test_a_window_narrower_than_the_panel_is_raised_not_obeyed():
     narrow = retention.RetentionPolicy(detailed_hours=1)
 
-    assert narrow.detailed_hours == metrics.PANEL_HISTORY_HOURS
+    assert narrow.detailed_hours == metrics_api.PANEL_HISTORY_HOURS
 
 
 @pytest.mark.parametrize("given", ["", "not a number", "0", "-5"])
@@ -263,9 +263,9 @@ def test_the_history_the_panel_shows_survives_the_sweep(fresh_database, policy):
     series(CPU, moment - timedelta(hours=20), 240)
     series(CPU, moment - timedelta(days=3), 240)
 
-    before = metrics.get_historical_metrics(CPU, metrics.PANEL_HISTORY_HOURS)
+    before = metrics_api.get_historical_metrics(CPU, metrics_api.PANEL_HISTORY_HOURS)
     retention.run_sweep(policy, now=moment)
-    after = metrics.get_historical_metrics(CPU, metrics.PANEL_HISTORY_HOURS)
+    after = metrics_api.get_historical_metrics(CPU, metrics_api.PANEL_HISTORY_HOURS)
 
     assert before and after == before
 
