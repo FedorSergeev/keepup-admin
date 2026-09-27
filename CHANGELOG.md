@@ -66,6 +66,11 @@ Notable changes to `keepup-admin`.
 
 ### Changed
 
+- **Failed sign-ins arriving at once are all counted.** The count was read,
+  incremented and written back, so failures landing together on several
+  replicas counted as one and the lockout came later than
+  `LOGIN_MAX_ATTEMPTS` said. It is one upsert statement now, the same on
+  PostgreSQL and SQLite, window reset included.
 - **The event log sweeps itself.** Only a manual route ever deleted old events,
   so the table grew for as long as the deployment ran. Events older than
   `EVENTS_RETENTION_DAYS` (90 by default) are deleted hourly, in chunks, under a

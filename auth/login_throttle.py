@@ -106,34 +106,35 @@ def locked_until(username: str, now: Optional[datetime] = None) -> Optional[date
     return until if until > now else None
 
 
+#: One statement, the same on both dialects (PostgreSQL 9.5+, SQLite 3.24+), so
+#: the count is kept by the database rather than read, incremented here and
+#: written back. The read-modify-write lost attempts: failures arriving at once
+#: on several replicas read the same number and each wrote it plus one, and two
+#: first failures both tried to insert, the loser's error swallowed -- so the
+#: lockout came later than the setting said, which is the one thing a throttle
+#: against guessing must not do (keepup-48). A name whose window has passed
+#: starts its count again, so old failures do not add up to a lockout weeks later.
+_RECORD_FAILURE = (
+    "INSERT INTO login_attempts (username, failures, last_failure_at) "
+    "VALUES (:username, 1, :now) "
+    "ON CONFLICT (username) DO UPDATE SET "
+    "failures = CASE WHEN login_attempts.last_failure_at IS NOT NULL "
+    "AND login_attempts.last_failure_at <= :window_start "
+    "THEN 1 ELSE login_attempts.failures + 1 END, "
+    "last_failure_at = :now"
+)
+
+
 def record_failure(username: str, now: Optional[datetime] = None) -> None:
-    """Count one failed attempt against this name."""
+    """Count one failed attempt against this name, atomically."""
     if not username:
         return
 
     now = now or datetime.utcnow()
     try:
-        row = _row(username)
-        if row is None:
-            DatabaseManagerV2.execute_commit(
-                "INSERT INTO login_attempts (username, failures, last_failure_at) "
-                "VALUES (:username, 1, :now)",
-                {"username": username, "now": now}
-            )
-            return
-
-        # A name whose window has already passed starts its count again, so old
-        # failures do not add up to a lockout weeks later.
-        failures = (row.get("failures") or 0)
-        last_failure = _as_datetime(row.get("last_failure_at"))
-        if last_failure is not None and last_failure + lockout_window() <= now:
-            failures = 0
-
         DatabaseManagerV2.execute_commit(
-            "UPDATE login_attempts SET failures = :failures, last_failure_at = :now "
-            "WHERE username = :username",
-            {"failures": failures + 1, "now": now, "username": username}
-        )
+            _RECORD_FAILURE,
+            {"username": username, "now": now, "window_start": now - lockout_window()})
     except Exception as error:
         logger.warning(f"Could not record a failed login of {username}: {error}")
 
