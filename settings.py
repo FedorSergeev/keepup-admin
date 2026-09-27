@@ -19,6 +19,7 @@ from typing import Any, Callable, Dict, Optional, Sequence
 __all__ = [
     "KeepupSettings",
     "OidcSettings",
+    "PerformanceSettings",
     "StaticMount",
 ]
 
@@ -73,6 +74,29 @@ class OidcSettings:
 
 
 @dataclass
+class PerformanceSettings:
+    """What decides how much load one replica carries (keepup-38).
+
+    Every field defaults to None: "as the deployment says" -- the environment or
+    the database properties file -- so an application that sets nothing behaves
+    as before, except that those values are now actually applied.
+    """
+
+    #: Connections the pool keeps open, and how many more it may open under load.
+    db_pool_size: Optional[int] = None
+    db_pool_max_overflow: Optional[int] = None
+    #: Seconds a request waits for a free connection before failing.
+    db_pool_timeout: Optional[int] = None
+    #: Seconds after which a connection is replaced (servers and proxies drop idle ones).
+    db_pool_recycle: Optional[int] = None
+    #: How often, in seconds, and at how many rows the request audit is written.
+    audit_flush_interval: Optional[int] = None
+    audit_buffer_size: Optional[int] = None
+    #: Seconds between two collections of this replica's system metrics.
+    metrics_interval: Optional[int] = None
+
+
+@dataclass
 class KeepupSettings:
     """The application's half of the contract with the framework."""
 
@@ -98,6 +122,8 @@ class KeepupSettings:
     #: The largest body an upload route accepts, in bytes. None removes the
     #: limit, which is a thing an application may want and should have to say.
     max_upload_bytes: Optional[int] = 256 * 1024 * 1024
+    #: Pool, audit buffer and metrics interval, in one place (keepup-38).
+    performance: PerformanceSettings = field(default_factory=PerformanceSettings)
 
     # --- plugins --------------------------------------------------------
     #: The manager the application built; it knows where its plugins live.

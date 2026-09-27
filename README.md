@@ -45,7 +45,7 @@ so the import name is free.
 | **Panel** | the shell, visual themes, and the catalogue of sections with role grants |
 | **Users** | local accounts, roles, panel sessions, sign-in through an external provider |
 | **Database** | a SQLAlchemy layer with a pool, table declarations for two dialects |
-| **Replicas** | distributed locks, leader election, a message bus, a cluster registry |
+| **Replicas** | distributed locks, a message bus, a cluster registry, performance settings in one place |
 | **Observability** | audit of incoming requests, an event log, metrics, log shipping |
 
 ## What it does not decide for you

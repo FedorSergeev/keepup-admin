@@ -112,7 +112,11 @@ class SystemMetricsCollector:
                  collection_interval: int = DEFAULT_INTERVAL_SECONDS,
                  excluded_metrics: Optional[List[str]] = None):
         self.collection_interval = collection_interval
-        self.app_instance = os.getenv('APP_INSTANCE', 'main')
+        # The replica's own name when APP_INSTANCE is not set (keepup-38): with a
+        # shared "main" every replica's series merged into one, and a graph showed
+        # now one machine, now another.
+        from keepup.instance import get_instance_name
+        self.app_instance = os.getenv('APP_INSTANCE') or get_instance_name()
         self.excluded_metrics: Set[str] = set(excluded_metrics or [])
 
         # Its own copy of the list: excluding a metric edits these lists, and

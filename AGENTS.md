@@ -64,7 +64,8 @@ Settings worth knowing: `cors_origins`, `security_headers`, `metrics_public`,
 `max_upload_bytes`, `static_dir`, `static_mounts`, `client_page` (the page at
 `/`), `built_in_themes`, `gated_pages`, `audit_redaction`, `password_rule`,
 `oidc`, `public_config`, `notification_channel`, `on_startup`, `on_shutdown`,
-`extra_setup`, `remote_log_url`, `disable_http_server`. Each is documented in
+`extra_setup`, `remote_log_url`, `disable_http_server`, and `performance` --
+the database pool, the audit buffer and the metrics interval in one object. Each is documented in
 `keepup/settings.py`; a value you would have to edit inside keepup belongs in a
 setting instead.
 
@@ -178,6 +179,7 @@ The framework is built to run as several processes over one database:
 `keepup.notification_bus` passes messages between replicas, and
 `keepup.scheduler` holds the one scheduler. Anything a plugin keeps in process
 memory is per replica: use the database or the bus for what all replicas must see.
+There is no leader election: a scheduled job that must run once takes a lock.
 
 ## Checking your work
 

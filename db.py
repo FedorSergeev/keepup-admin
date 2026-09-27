@@ -43,11 +43,24 @@ class DatabaseConfig:
         self.db_user = 'postgres'
         self.db_password = ''
         self.db_path = 'data/keepup_app.db'
-        self._load_config()
+        # The defaults come first and the configuration over them: the other way
+        # round, DB_POOL_SIZE and db.pool.size were read and then written over
+        # with these very numbers, and never applied (keepup-38).
         self.pool_size = 5
         self.pool_max_overflow = 10
         self.pool_timeout = 30
         self.pool_recycle = 3600
+        self._load_config()
+
+    def apply_pool(self, size=None, max_overflow=None, timeout=None, recycle=None) -> bool:
+        """Take the application's pool values over the deployment's; True if any changed."""
+        changed = False
+        for field_name, value in (("pool_size", size), ("pool_max_overflow", max_overflow),
+                                  ("pool_timeout", timeout), ("pool_recycle", recycle)):
+            if value is not None and getattr(self, field_name) != int(value):
+                setattr(self, field_name, int(value))
+                changed = True
+        return changed
 
     def _load_config(self):
         self.db_type = os.getenv('DB_TYPE', '').lower()

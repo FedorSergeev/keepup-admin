@@ -106,6 +106,22 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         return response
 
 
+def apply_performance(performance) -> None:
+    """The pool and the metrics interval from ``KeepupSettings.performance`` (keepup-38).
+
+    The pool may already exist: applications touch the database before
+    create_app (their init_db). It is closed then, and the next query opens one
+    with the application's values -- safe at start-up, before any request.
+    """
+    from keepup.db import DatabaseManagerV2, db_config
+    if db_config.apply_pool(performance.db_pool_size, performance.db_pool_max_overflow,
+                            performance.db_pool_timeout, performance.db_pool_recycle):
+        DatabaseManagerV2.dispose()
+    if performance.metrics_interval is not None:
+        from keepup.metrics import metrics_collector
+        metrics_collector.collection_interval = int(performance.metrics_interval)
+
+
 def apply_settings(settings: KeepupSettings) -> None:
     """Hand each part of the framework the application's values.
 
@@ -119,7 +135,11 @@ def apply_settings(settings: KeepupSettings) -> None:
         flush_interval=settings.remote_log_flush_interval,
         batch_size=settings.remote_log_batch_size,
     )
-    audit.configure(redaction=settings.audit_redaction)
+    performance = settings.performance
+    audit.configure(redaction=settings.audit_redaction,
+                    flush_interval=performance.audit_flush_interval,
+                    max_size=performance.audit_buffer_size)
+    apply_performance(performance)
     web.configure(
         static_dir=settings.static_dir,
         client_page=settings.client_page,
