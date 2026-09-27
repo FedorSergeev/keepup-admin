@@ -7,7 +7,6 @@ now worked out in Python from the stored time, whatever form the driver returns.
     python3 -m pytest keepup/tests/lock_stats_tests.py -v
 """
 
-import re
 from datetime import datetime, timezone
 from pathlib import Path
 
