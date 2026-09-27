@@ -37,7 +37,7 @@ import json
 import logging
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from keepup.db import db_config
+from keepup.db import DatabaseManagerV2, db_config
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -141,11 +141,21 @@ class NotificationBus:
         self._connection = None
         self._listener_task: Optional[asyncio.Task] = None
         self._stopping = False
+        self._started = False
 
     @property
     def is_running(self) -> bool:
         """Whether envelopes from other replicas are currently arriving."""
         return self._connection is not None
+
+    @property
+    def can_publish(self) -> bool:
+        """Whether envelopes can be sent to the other replicas.
+
+        Not the same as is_running: pg_notify needs no LISTEN, so sending works
+        from any pooled connection while the listener is reconnecting.
+        """
+        return self._started
 
     @property
     def instance_id(self) -> str:
@@ -184,7 +194,7 @@ class NotificationBus:
         envelope = dict(envelope)
         envelope[ORIGIN_FIELD] = self._instance_id
 
-        if not self.is_running:
+        if not self._started:
             return False
 
         try:
@@ -193,10 +203,16 @@ class NotificationBus:
             logger.error(str(e))
             return False
 
+        # From the pool, never on the listening connection (keepup-50). asyncpg
+        # runs one operation at a time on a connection: two envelopes published
+        # at once there made the second fail with "another operation is in
+        # progress", returned False and were lost without a trace, and every
+        # publish held up the listener's reading. pg_notify needs no LISTEN on
+        # the connection that sends it.
         try:
-            await self._connection.execute(
-                "SELECT pg_notify($1, $2)", self._channel, payload
-            )
+            await DatabaseManagerV2.execute_commit_async(
+                "SELECT pg_notify(:channel, :payload)",
+                {"channel": self._channel, "payload": payload})
             return True
         except Exception as e:
             logger.error(f"Could not publish a notification: {e}")
@@ -217,12 +233,14 @@ class NotificationBus:
             return False
 
         self._stopping = False
+        self._started = True
         self._listener_task = asyncio.create_task(self._listen_forever())
         return True
 
     async def stop(self) -> None:
         """Close the listening connection and stop reconnecting."""
         self._stopping = True
+        self._started = False
 
         if self._listener_task:
             self._listener_task.cancel()
@@ -281,8 +299,16 @@ class NotificationBus:
 
         while not self._stopping:
             try:
-                self._connection = await self._connect()
-                await self._connection.add_listener(self._channel, self._on_notify)
+                # Published only once it listens: is_running answers "envelopes
+                # from other replicas are arriving", and a connection still
+                # attaching its listener does not deliver yet.
+                connection = await self._connect()
+                try:
+                    await connection.add_listener(self._channel, self._on_notify)
+                except BaseException:
+                    await connection.close()
+                    raise
+                self._connection = connection
                 logger.info(f"Notification bus listening on '{self._channel}'")
                 delay = RECONNECT_DELAY_INITIAL
 

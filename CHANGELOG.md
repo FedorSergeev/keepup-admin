@@ -24,6 +24,13 @@ Notable changes to `keepup-admin`.
 - A media type with a `+json` suffix is still not read — a route declares what
   it accepts — but it is named in the log instead of vanishing quietly.
 
+- **The notification bus no longer loses envelopes published at once.** It
+  published on the connection it listens on, and asyncpg runs one operation at
+  a time there: the second of two simultaneous envelopes failed with "another
+  operation is in progress" and was dropped without a trace. It publishes
+  through the pool now — `pg_notify` needs no `LISTEN` — so publishing also
+  works while the listener reconnects (`can_publish`), and `is_running` turns
+  true only once the listener is attached.
 - **A task holding a `distributed_lock` could not be cancelled while the lock
   was winding down its renewal.** The exit awaited the renewal task under
   `except CancelledError: pass`, which swallowed the holder's own cancellation

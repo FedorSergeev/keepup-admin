@@ -134,7 +134,7 @@ def invalidate_everywhere(name: str) -> None:
     get_cache(name).invalidate()
     from keepup import notification_bus
     bus = notification_bus.get_notification_bus()
-    if bus is None or not bus.is_running:
+    if bus is None or not getattr(bus, "can_publish", bus.is_running):
         return
     envelope = {"kind": ENVELOPE_KIND, "cache": name}
     loop = _loop
