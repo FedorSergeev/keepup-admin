@@ -39,6 +39,17 @@ OUTCOME_FAILED = "failed"
 class BasePlugin(ABC):
     """Base class for every plugin."""
 
+    #: Whether post_construct runs on one replica of a set that starts together
+    #: rather than on each (keepup-46). Off by default: a self-check that looks
+    #: at this replica's own state -- a port it opened, a flag it keeps -- has
+    #: to run everywhere. On for one whose work is the deployment's: a check
+    #: that writes to the shared database would otherwise write once per replica.
+    post_construct_once_per_cluster = False
+    #: How long, in seconds, the replica that ran it keeps the others from
+    #: running it again: replicas of one rollout start within this window, and a
+    #: replica started later -- a new rollout -- runs it anew.
+    post_construct_quiet_seconds = 600
+
     def __init__(self, plugin_id: str, name: str, config: Dict = None):
         self.plugin_id = plugin_id
         self.name = name
@@ -63,7 +74,8 @@ class BasePlugin(ABC):
     async def post_construct(self):
         """Called once the application is fully initialised and all endpoints registered.
 
-        Use it for self-checks that need a running server.
+        Use it for self-checks that need a running server. It runs on every
+        replica unless post_construct_once_per_cluster is set.
         """
         pass
 

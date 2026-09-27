@@ -238,10 +238,13 @@ def _build_lifespan(settings: KeepupSettings):
         if settings.on_startup is not None:
             await settings.on_startup(app)
 
+        # Created before the plugins, so that one registering its jobs while
+        # initialising finds it; started after them (keepup-46).
+        scheduler = init_scheduler(settings.scheduler_job_defaults)
+
         if manager is not None:
             await initialize_plugins(app, manager, config_path=settings.plugins_config_path)
 
-        scheduler = init_scheduler()
         scheduler.start()
 
         logger.info("Scheduler started with tasks:")

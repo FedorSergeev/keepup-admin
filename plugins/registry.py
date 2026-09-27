@@ -152,6 +152,25 @@ async def run_post_construct_processors(manager):
         logger.error(f"Error running post-construct processors: {str(e)}")
 
 
+async def _post_construct(plugin_id: str, plugin):
+    """The plugin's post_construct, on this replica or on one replica of the set.
+
+    Once per set: the replica that takes the lock runs it and leaves the lock in
+    place -- it expires after post_construct_quiet_seconds -- so a replica of the
+    same rollout that starts a minute later finds it taken and skips. Released,
+    the lock would only stop replicas that start at the very same moment.
+    """
+    if not getattr(plugin, "post_construct_once_per_cluster", False):
+        return await plugin.post_construct()
+    from keepup.locks import DatabaseLock
+    lock = DatabaseLock(f"post_construct_{plugin_id}", timeout=5,
+                        max_lock_time=int(plugin.post_construct_quiet_seconds))
+    if not await lock.acquire():
+        logger.info(f"Post-construct of {plugin_id} ran on another replica; skipped here")
+        return None
+    return await plugin.post_construct()
+
+
 def _run_plugin_post_construct_sync(plugin_id: str, plugin):
     """Synchronous wrapper running post_construct in its own thread."""
     try:
@@ -160,7 +179,7 @@ def _run_plugin_post_construct_sync(plugin_id: str, plugin):
         asyncio.set_event_loop(loop)
 
         try:
-            result = loop.run_until_complete(plugin.post_construct())
+            result = loop.run_until_complete(_post_construct(plugin_id, plugin))
             logger.info(f"Post-construct completed for plugin: {plugin_id}")
             return result
         finally:

@@ -48,6 +48,12 @@ Notable changes to `keepup-admin`.
 - `AuthProvider.lookup_user(username)` — the synchronous read of an account,
   for callers that cannot await; the local provider reads its table. The
   default keeps a provider that only has `get_user_info()` working.
+- `keepup.scheduler.new_scheduler()` and `JOB_DEFAULTS`, and
+  `KeepupSettings.scheduler_job_defaults` to override them.
+- `BasePlugin.post_construct_once_per_cluster` and
+  `post_construct_quiet_seconds`: a plugin whose post_construct is the
+  deployment's work rather than the replica's runs it on one replica of a
+  rollout.
 - `keepup.cache` — per-replica caches with a lifetime, dropped locally at once
   and on the other replicas over the notification bus; and
   `PerformanceSettings.catalogue_cache_seconds`.
@@ -60,6 +66,12 @@ Notable changes to `keepup-admin`.
 
 ### Changed
 
+- **Scheduler jobs coalesce missed runs, never run beside themselves, and may
+  start up to a minute late** (`coalesce`, `max_instances = 1`,
+  `misfire_grace_time = 60`). APScheduler's defaults ran every missed slot
+  separately and dropped a run that was a second late. The framework's
+  scheduler is created before the plugins initialise, so one that registers
+  jobs then finds it; it is still started after them.
 - **The active theme and the panel's section catalogue are no longer read on
   every request.** Each replica keeps them for `catalogue_cache_seconds` (30 by
   default); the replica that changes them drops its copy at once and tells the

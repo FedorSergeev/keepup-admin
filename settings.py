@@ -209,6 +209,12 @@ class KeepupSettings:
     #: on_shutdown(app) -- awaited after the plugins are cleaned up.
     on_shutdown: Optional[Callable] = None
 
+    # --- scheduling -----------------------------------------------------
+    #: Overrides of the framework scheduler's job defaults
+    #: (keepup/scheduler.py JOB_DEFAULTS: coalesce, max_instances,
+    #: misfire_grace_time). None keeps them.
+    scheduler_job_defaults: Optional[Dict[str, Any]] = None
+
     # --- deployment -----------------------------------------------------
     #: The stripped application: /metrics and a raw-request log, nothing else.
     disable_http_server: bool = False
