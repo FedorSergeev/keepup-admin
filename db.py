@@ -581,17 +581,32 @@ class DatabaseManager:
     @staticmethod
     def executemany_commit(query: str, params_list: list):
         """Run a query for many parameter sets and commit."""
+        # The connection is closed on every path (keepup-42): it was opened and
+        # left open, success or failure, and on PostgreSQL every call held one
+        # more server connection until the server's limit ran out.
+        conn = None
         try:
             adapted_query, adapted_params = DatabaseManager._adapt_query(query, None)
             conn = DatabaseManager.get_connection()
             cursor = conn.cursor()
-            cursor.executemany(adapted_query, params_list)
-            conn.commit()
+            try:
+                cursor.executemany(adapted_query, params_list)
+                conn.commit()
+            finally:
+                cursor.close()
             return True
         except Exception as e:
             import logging
             logging.error(f"Error in executemany_commit: {str(e)}")
+            if conn is not None:
+                try:
+                    conn.rollback()
+                except Exception:
+                    pass
             return False
+        finally:
+            if conn is not None:
+                conn.close()
 
     @staticmethod
     def _row_to_dict(row):
