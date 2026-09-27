@@ -8,7 +8,7 @@ from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 
 from keepup.auth.dependencies import get_current_admin
 
-from keepup import tables
+from keepup import cache, tables
 from keepup.db import DatabaseManagerV2
 
 #: What an application may import from this module. Everything else is
@@ -22,6 +22,10 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 THEMES_TABLE = "visual_themes"
+
+#: The replica cache that holds the active theme (keepup/cache.py): every page
+#: load asks for it, and it changes when an administrator changes it.
+ACTIVE_THEME_CACHE = "active_theme"
 
 VISUAL_THEMES = tables.table(
     THEMES_TABLE,
@@ -106,7 +110,6 @@ class ConfigService:
         """
         self._initialized = False
         self._initializing = False
-        self._current_theme_cache = None
 
     def initialize(self):
         """Create the themes table and make the declared themes exist.
@@ -125,6 +128,9 @@ class ConfigService:
             DatabaseManagerV2.initialize()
             self._ensure_themes_table()
             self._ensure_default_theme()
+            # Bringing the service up writes the declared themes: what anyone
+            # cached before that is no longer the answer.
+            cache.invalidate_everywhere(ACTIVE_THEME_CACHE)
             self._initialized = True
             logger.info("ConfigService initialized successfully")
 
@@ -244,24 +250,30 @@ class ConfigService:
     def get_active_theme(self) -> Optional[Dict[str, Any]]:
         """Return the currently active theme.
 
+        Every page load asks, so the answer is kept in this replica for the
+        cache's lifetime (keepup/cache.py) and dropped when a theme changes.
+
         Returns:
             Dict with theme_name, main_page_file, brand_name, logo_url and
             is_active, or None when no theme is active.
         """
         self._ensure_ready()
         try:
-            result = DatabaseManagerV2.execute_one(self.GET_ACTIVE_THEME_SQL)
-            if result and 'is_active' in result:
-                from keepup.db import db_config
-                if db_config.is_sqlite():
-                    result['is_active'] = bool(result['is_active'])
-
-            self._current_theme_cache = result
-            return result
-
+            theme = cache.get_cache(ACTIVE_THEME_CACHE).get("active", self._read_active_theme)
         except Exception as e:
+            # Not kept: the next page asks the database again.
             logger.error(f"Error getting active theme: {str(e)}")
             return None
+        # A copy: a caller that edits what it got must not edit the cache.
+        return dict(theme) if theme else theme
+
+    def _read_active_theme(self) -> Optional[Dict[str, Any]]:
+        result = DatabaseManagerV2.execute_one(self.GET_ACTIVE_THEME_SQL)
+        if result and 'is_active' in result:
+            from keepup.db import db_config
+            if db_config.is_sqlite():
+                result['is_active'] = bool(result['is_active'])
+        return result
 
     def get_active_theme_brand(self) -> Dict[str, Any]:
         """Return the branding of the active theme.
@@ -324,7 +336,7 @@ class ConfigService:
                 self.SET_THEME_ACTIVE_SQL,
                 {"theme_id": theme_id}
             )
-            self._current_theme_cache = None
+            cache.invalidate_everywhere(ACTIVE_THEME_CACHE)
             logger.info(f"Theme {theme_id} set as active")
             return True
 
@@ -385,6 +397,10 @@ class ConfigService:
                     "SELECT last_insert_rowid() as id"
                 )
                 theme_id = result['id'] if result else None
+
+            # An upsert: a theme of the same name may be the active one, with a
+            # new page or branding now.
+            cache.invalidate_everywhere(ACTIVE_THEME_CACHE)
 
             if theme_id and is_active:
                 self.set_active_theme(theme_id)

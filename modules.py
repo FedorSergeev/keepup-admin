@@ -18,6 +18,7 @@ from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
 from keepup.auth.dependencies import get_current_admin, get_current_user
+from keepup import cache
 from keepup.db import DatabaseManagerV2, db_config
 
 #: What an application may import from this module. Everything else is
@@ -90,8 +91,28 @@ def get_module_by_id(module_id: str):
     ''', {"module_id": module_id})
 
 
+#: The replica cache of each role's sections (keepup/cache.py): every page of
+#: the panel asks for its role's list, and the catalogue changes only when an
+#: administrator changes it.
+SECTIONS_CACHE = "panel_sections"
+
+
 def get_modules_for_role(role_name: str):
-    """Return the modules granted to a role."""
+    """Return the modules granted to a role.
+
+    Kept in this replica for the cache's lifetime and dropped whenever the
+    catalogue or a grant changes; each caller gets its own copies.
+    """
+    rows = cache.get_cache(SECTIONS_CACHE).get(
+        role_name, lambda: _read_modules_for_role(role_name))
+    return [dict(row) for row in rows]
+
+
+def _sections_changed() -> None:
+    cache.invalidate_everywhere(SECTIONS_CACHE)
+
+
+def _read_modules_for_role(role_name: str):
     return DatabaseManagerV2.execute('''
     SELECT fm.* 
     FROM frontend_modules fm
@@ -149,6 +170,7 @@ def create_or_update_module(module_data: Dict[str, Any]):
 
         start_time = time.time()
         result = DatabaseManagerV2.execute_commit(query, params)
+        _sections_changed()
 
         execution_time = time.time() - start_time
         logger.info(f"Query executed in {execution_time:.2f} seconds")
@@ -186,6 +208,7 @@ def update_role_modules(role_name: str, module_ids: List[str]):
             INSERT OR REPLACE INTO role_modules (role_name, module_id, is_active)
             VALUES (:role_name, :module_id, TRUE)
             ''', {"role_name": role_name, "module_id": module_id})
+    _sections_changed()
 
 
 def delete_module(module_id: str):
@@ -195,6 +218,7 @@ def delete_module(module_id: str):
     SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
     WHERE module_id = :module_id
     ''', {"module_id": module_id})
+    _sections_changed()
 
 
 def import_modules_from_json():
@@ -313,6 +337,8 @@ def sync_framework_sections(path: str = FRAMEWORK_SECTIONS) -> Dict[str, int]:
                 logger.warning("Framework grant %s/%s not added: %s",
                                role.get("name"), module_id, error)
 
+    if any(counted.values()):
+        _sections_changed()
     if counted["modules"] or counted["repointed"]:
         logger.info("Framework panel sections: %s added, %s repointed",
                     counted["modules"], counted["repointed"])
@@ -356,6 +382,7 @@ def sync_new_modules_from_json(path: str = MODULES_CONFIG_PATH) -> Dict[str, int
                 logger.warning(f"Panel section {module_id} not granted to {role.get('name')}: {e}")
 
     if added["modules"] or added["grants"]:
+        _sections_changed()
         logger.info(f"Panel sections from {path}: added {added['modules']} section(s) and "
                     f"{added['grants']} role grant(s) the database did not have")
     return added

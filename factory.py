@@ -120,6 +120,8 @@ def apply_performance(performance) -> None:
     if performance.metrics_interval is not None:
         from keepup.metrics import metrics_collector
         metrics_collector.collection_interval = int(performance.metrics_interval)
+    from keepup import cache
+    cache.set_ttl(performance.catalogue_cache_seconds)
 
 
 def apply_settings(settings: KeepupSettings) -> None:
@@ -256,6 +258,13 @@ def _build_lifespan(settings: KeepupSettings):
         if manager is not None:
             asyncio.create_task(run_post_construct_processors(manager))
 
+        # Whatever start-up read into the theme and section caches, it may have
+        # changed since: an application's one-off changesets run after the
+        # framework's schema and can switch the active theme or take a section
+        # from a role. The first request reads afresh.
+        from keepup import cache
+        cache.invalidate_all()
+
         yield
 
         await controller.shutdown()
@@ -299,6 +308,9 @@ async def _start_notification_bus(channel):
         return None
     bus = notification_bus.NotificationBus(get_instance_id(), channel)
     notification_bus.set_notification_bus(bus)
+    # The other replicas' changes to the theme and the section catalogue.
+    from keepup import cache
+    cache.attach_to_bus(bus)
     await bus.start()
     return bus
 

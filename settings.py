@@ -94,6 +94,10 @@ class PerformanceSettings:
     audit_buffer_size: Optional[int] = None
     #: Seconds between two collections of this replica's system metrics.
     metrics_interval: Optional[int] = None
+    #: Seconds a replica keeps the active theme and the panel's section catalogue
+    #: before reading them again (keepup/cache.py, 30 by default). The bound on
+    #: how long a change made on another replica can go unseen there.
+    catalogue_cache_seconds: Optional[int] = None
 
 
 @dataclass

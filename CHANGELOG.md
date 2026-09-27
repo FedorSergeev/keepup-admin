@@ -48,6 +48,9 @@ Notable changes to `keepup-admin`.
 - `AuthProvider.lookup_user(username)` — the synchronous read of an account,
   for callers that cannot await; the local provider reads its table. The
   default keeps a provider that only has `get_user_info()` working.
+- `keepup.cache` — per-replica caches with a lifetime, dropped locally at once
+  and on the other replicas over the notification bus; and
+  `PerformanceSettings.catalogue_cache_seconds`.
 - `DatabaseManagerV2.execute_async()`, `execute_one_async()`,
   `execute_commit_async()`, `execute_many_async()`,
   `execute_commit_returning_async()` — the same queries, awaitable: the call
@@ -57,6 +60,12 @@ Notable changes to `keepup-admin`.
 
 ### Changed
 
+- **The active theme and the panel's section catalogue are no longer read on
+  every request.** Each replica keeps them for `catalogue_cache_seconds` (30 by
+  default); the replica that changes them drops its copy at once and tells the
+  others over the notification bus when the application runs one. Caches are
+  empty when the server starts taking requests. The theme cache the service
+  used to write and never read is gone.
 - **No query to the database holds the event loop.** The audit flush,
   distributed locks, the event log, the panel section catalogue, the health
   check, sign-in, the cluster heartbeat, metrics and the plugin panel ran
