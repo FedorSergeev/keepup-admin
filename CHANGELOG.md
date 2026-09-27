@@ -120,6 +120,11 @@ Notable changes to `keepup-admin`.
   change: 401 for a bad token, a revoked session or a removed account, 403 for
   a blocked one.
 
+- **The event log and its HTTP routes are separate modules.** `keepup.events`
+  is the journal (table, `emit_event`, reading, retention) and loads no web
+  framework; `keepup.events_api` holds the routes and their models, and looks
+  the journal's manager up at each call. `register_event_api_routes` and the
+  models still answer from `keepup.events`, with a `DeprecationWarning`.
 - **Collecting metrics and handing them out are separate modules.**
   `keepup.metrics` collects and writes; `keepup.metrics_api` serves `/metrics`
   and the panel's summary. The names that moved — `register_metrics_routes`,

@@ -35,8 +35,8 @@ from keepup.audit import (audit_retention_background, background_buffer_flusher,
 from keepup.auth import dependencies as auth_dependencies
 from keepup.auth import routes as auth_routes
 from keepup.auth.oidc_routes import register_oidc_routes
-from keepup.events import (events_retention_background, init_event_manager,
-                           register_event_api_routes)
+from keepup.events import events_retention_background, init_event_manager
+from keepup.events_api import register_event_api_routes
 from keepup.instance import get_instance_id
 from keepup.locks import register_lock_routes
 from keepup.logging_setup import init_remote_logging
