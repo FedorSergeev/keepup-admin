@@ -162,6 +162,22 @@ CLUSTER_COMMANDS = tables.table(
     Index("idx_cluster_commands_target", "instance_id", "status"),
 )
 
+# The roles one account holds. The set is the truth about who this is;
+# ``users.role`` is a mirror of it for one release (keepup/auth/user_roles.py).
+USER_ROLES = tables.table(
+    "user_roles",
+    tables.auto_id(),
+    Column("user_id", Integer, nullable=False),
+    Column("role_name", Text, nullable=False),
+    Column("granted_at", DateTime, server_default=tables.NOW),
+    tables.foreign_key("user_id", "users", ("id",), ondelete="CASCADE"),
+    UniqueConstraint("user_id", "role_name", name="user_roles_user_role_unique")
+    .ddl_if(dialect="postgresql"),
+    Index("idx_user_roles_user", "user_id"),
+    Index("user_roles_user_role_unique", "user_id", "role_name",
+          unique=True).ddl_if(dialect="sqlite"),
+)
+
 ROLE_MODULES = tables.table(
     "role_modules",
     tables.auto_id(),
@@ -212,7 +228,7 @@ EXTERNAL_ROLE_MAPPINGS = tables.table(
 #: In the order their foreign keys need: ``users`` before what references it.
 CORE_TABLES = (
     DISTRIBUTED_LOCKS, USERS, INTEGRATION_LOGS, SYSTEM_METRICS, FRONTEND_MODULES,
-    PLUGIN_OVERRIDES, CLUSTER_MEMBERS, CLUSTER_COMMANDS, ROLE_MODULES,
+    PLUGIN_OVERRIDES, CLUSTER_MEMBERS, CLUSTER_COMMANDS, ROLE_MODULES, USER_ROLES,
     USER_PERMISSIONS, EXTERNAL_ROLE_MAPPINGS,
 )
 
@@ -263,13 +279,18 @@ def init_db(app_tables=None, extra_setup=None, plugins_dir=None):
         # One place creates the first-start accounts: three implementations in a
         # row had drifted apart in password, role and status -- see
         # keepup/auth/seed_accounts.py.
-        from keepup.auth import seed_accounts
+        from keepup.auth import seed_accounts, user_roles
 
         auth_source = AuthProviderFactory.get_provider().type
         seed_accounts.ensure_admin(cursor, role=ROLE_ADMIN, auth_source=auth_source,
                                    is_postgres=db_config.is_postgres())
         seed_accounts.ensure_system_user(cursor, role=ROLE_ADMIN, auth_source=auth_source,
                                          is_postgres=db_config.is_postgres())
+
+        # An account whose role set has never been filled in gets the one its
+        # ``role`` column names -- including the two just created. Idempotent,
+        # so every later start writes nothing (keepup-51).
+        user_roles.fill_from_mirror(cursor, is_postgres=db_config.is_postgres())
 
         conn.commit()
     finally:

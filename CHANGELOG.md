@@ -6,7 +6,8 @@ Notable changes to `keepup-admin`.
 
 A release about carrying load on several replicas: one way into the database,
 no query on the event loop, caches for what every page asks for, sweeps for
-the journals, and correct counting and publishing across replicas.
+the journals, and correct counting and publishing across replicas. And one
+change to who a user is: a user holds a set of roles, not one.
 
 **Upgrading from 0.1.1.** `keepup.db.DatabaseManager` is gone — move its calls
 to `DatabaseManagerV2` (see *Removed*). Names that moved to their own modules
@@ -14,7 +15,10 @@ to `DatabaseManagerV2` (see *Removed*). Names that moved to their own modules
 from the old ones with a `DeprecationWarning`. `max_upload_bytes` is enforced
 now: a route that takes large bodies through the framework's JSON reading
 should declare `max_body_bytes`; routes that read their own body
-(`is_upload`, `raw_request`) are not limited unless they declare one.
+(`is_upload`, `raw_request`) are not limited unless they declare one. A user
+now holds a set of roles: nothing has to be done for an existing database (the
+start fills the sets from `users.role`), but code that reads that column is
+reading a deprecated mirror and should move to `roles` before 0.3.0.
 
 ### Fixed
 
@@ -64,6 +68,20 @@ should declare `max_body_bytes`; routes that read their own body
 - `DatabaseManagerV2.raw_connection()` — a driver connection out of the pool,
   for code written against a cursor (the application's table hook receives one
   such cursor); `close()` hands it back.
+- **A user holds a set of roles.** `keepup.auth.user_roles` and the `user_roles`
+  table are the truth about who this is, and the panel sections and the plugins
+  of every role held are glued together — each section and each plugin once,
+  in an order that does not depend on the order of the roles. The
+  administrative right is `ADMIN` being in the set: somebody who both rents a
+  machine out and rents one, or an administrator looking at what a client
+  complains about, no longer has to give up one ability to get the other.
+  Roles are granted through `GET`/`PUT /api/admin/users/{id}/roles` and in the
+  panel's Users section; an empty set is refused (access is closed by blocking
+  the account) and so is a role nothing declares — `role_modules` is joined by
+  the exact name, so a role written in another case would look granted and grant
+  nothing. `has_role(user, ROLE_ADMIN)` is how code asks. Read
+  `keepup.modules.get_modules_for_roles()` where `get_modules_for_role()` took
+  one name; the single-name read stays.
 - `AuthProvider.lookup_user(username)` — the synchronous read of an account,
   for callers that cannot await; the local provider reads its table. The
   default keeps a provider that only has `get_user_info()` working.
@@ -87,6 +105,15 @@ should declare `max_body_bytes`; routes that read their own body
 
 ### Changed
 
+- **`users.role` is deprecated: it mirrors the role set** — `ADMIN` when that
+  role is held, otherwise the first role granted, which is the answer every
+  reader of the field actually asked for. It is written where the set is
+  written and no decision is taken from it; `PATCH /api/admin/users/{id}` with
+  a `role` replaces the whole set, because "this person is a client now" must
+  not leave `ADMIN` behind. Read `roles` instead: the field goes away in 0.3.0.
+  An account whose set has never been filled in reads as the one role its
+  mirror names, and the start fills the sets from that column, so an existing
+  database loses nothing.
 - **`max_upload_bytes` is enforced** — it was declared and checked nowhere. A
   body over the limit is refused with 413 before the route reads it (at once
   when `Content-Length` says so, as it arrives otherwise). It applies to

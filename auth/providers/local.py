@@ -21,6 +21,7 @@ from fastapi import HTTPException
 import jwt
 from starlette import status
 
+from keepup.auth import user_roles
 from keepup.roles import ROLE_CLIENT
 from keepup.auth.config import auth_config
 from keepup.db import DatabaseManagerV2
@@ -171,6 +172,10 @@ class LocalAuthProvider(AuthProvider):
                 "status": "blocked", "role": ROLE_CLIENT,
             })
             user_id = row["id"] if row else None
+            if user_id is not None:
+                # The roles this account holds, which is what decides what it
+                # sees (keepup/auth/user_roles.py).
+                user_roles.set_roles(user_id, [ROLE_CLIENT])
             logger.info(f"New user registered: {username} (agree_terms: {agree_terms})")
 
             return user_id

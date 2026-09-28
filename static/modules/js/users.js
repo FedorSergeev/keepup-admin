@@ -162,7 +162,7 @@ function addUsersSection() {
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">ID</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">User</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Status</th>
-                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Role</th>
+                            <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Roles</th>
                             <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Registered</th>
                             <th id="usersActionsHeading" class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase">Actions</th>
                         </tr>
@@ -226,6 +226,25 @@ async function loadAllUsers() {
 
 
 
+// The roles an account holds, as badges. A role name comes from the deployment's
+// own catalogue, so it is escaped rather than spliced into the markup as it is.
+function usersEscapeText(value) {
+    const holder = document.createElement('span');
+    holder.textContent = value === null || value === undefined ? '' : String(value);
+    return holder.innerHTML;
+}
+
+function usersRoleBadges(user) {
+    const roles = (Array.isArray(user.roles) && user.roles.length)
+        ? user.roles
+        : (user.role ? [user.role] : []);
+    if (!roles.length) return '<span class="text-gray-400 text-xs">none</span>';
+    return roles.map(role => {
+        const tone = role === ROLE_ADMIN ? 'role-admin' : 'role-client';
+        return `<span class="role-badge ${tone} mr-1">${usersEscapeText(role)}</span>`;
+    }).join('');
+}
+
 function displayUsersList(users) {
     const usersListBody = document.getElementById('usersListBody');
     if (!usersListBody) return;
@@ -250,10 +269,8 @@ function displayUsersList(users) {
                     ${user.status === 'active' ? 'Active' : 'Blocked'}
                 </span>
             </td>
-            <td class="px-6 py-4 whitespace-nowrap">
-                <span class="role-badge ${user.role === ROLE_ADMIN ? 'role-admin' : 'role-client'}">
-                    ${user.role === ROLE_ADMIN ? 'Admin' : 'Client'}
-                </span>
+            <td class="px-6 py-4">
+                ${usersRoleBadges(user)}
             </td>
             <td class="px-6 py-4 whitespace-nowrap">${new Date(user.created_at).toLocaleDateString('en-GB')}</td>
             ${usersExtraCells(user)}
@@ -265,12 +282,8 @@ function displayUsersList(users) {
                             `<button onclick="unblockUserWithReason(${user.id}, '${user.username}')" class="user-action-btn btn-activate text-xs px-2 py-1">Activate</button>`
                         }
                         <button onclick="showUserBlockHistory(${user.id}, '${user.username}')" class="user-action-btn text-xs px-2 py-1">Block log</button>
-                        ${user.role === ROLE_CLIENT ?
-                            `<button onclick="makeUserAdmin(${user.id})" class="user-action-btn btn-make-admin text-xs px-2 py-1">Make admin</button>` :
-                            user.id !== (currentUser?.id || 0) ?
-                                `<button onclick="makeUserClient(${user.id})" class="user-action-btn btn-make-client text-xs px-2 py-1">Make client</button>` :
-                                ``
-                        }
+                        <button onclick="showUserRolesModal(${user.id}, '${user.username}')"
+                                class="user-action-btn btn-make-admin text-xs px-2 py-1">Roles</button>
                     </div>
                     <div class="flex space-x-2">
                         <button onclick="showPasswordModal(${user.id}, '${user.username}')"
@@ -732,53 +745,106 @@ async function toggleUserStatus(userId, newStatus) {
     }
 }
 
-async function makeUserAdmin(userId) {
+// A user holds a set of roles, so the panel offers the set rather than the two
+// buttons that used to move a person between one role and another. The roles a
+// deployment has are the ones the server names -- the section catalogue is where
+// a role comes into being, and offering a list of our own would let somebody
+// grant a role that grants nothing.
+async function showUserRolesModal(userId, username) {
+    const token = localStorage.getItem('authToken');
+    let held = [];
+    let known = [];
     try {
-        const token = localStorage.getItem('authToken');
-        const response = await fetch(`/api/admin/users/${userId}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ role: ROLE_ADMIN })
+        const response = await fetch(`/api/admin/users/${userId}/roles`, {
+            headers: { 'Authorization': `Bearer ${token}` }
         });
-
         const data = await response.json();
-
-        if (response.ok) {
-            showNotification('User is now an administrator', 'success');
-            loadAllUsers();
-        } else {
-            showNotification(data.detail || 'Error changing role', 'error');
+        if (!response.ok) {
+            showNotification(data.detail || 'Error loading roles', 'error');
+            return;
         }
+        held = data.roles || [];
+        known = data.known_roles || [];
     } catch (error) {
         showNotification('Network error', 'error');
+        return;
     }
-}
 
-async function makeUserClient(userId) {
-    try {
-        const token = localStorage.getItem('authToken');
-        const response = await fetch(`/api/admin/users/${userId}`, {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                'Authorization': `Bearer ${token}`
-            },
-            body: JSON.stringify({ role: ROLE_CLIENT })
-        });
+    const modal = document.createElement('div');
+    modal.className = 'fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50';
+    modal.innerHTML = `
+        <div class="bg-white rounded-lg p-6 w-full max-w-md">
+            <div class="flex justify-between items-center mb-4">
+                <h3 class="text-lg font-semibold">Roles of ${usersEscapeText(username)}</h3>
+                <button onclick="closeRolesModal()" class="text-gray-500 hover:text-gray-700">
+                    <i data-feather="x" class="w-5 h-5"></i>
+                </button>
+            </div>
+            <p class="text-sm text-gray-600 mb-3">
+                The panel sections and plugins of every role selected here are
+                available to this user. To close access, block the account.
+            </p>
+            <div id="userRolesChoices" class="space-y-2 mb-4"></div>
+            <div class="flex justify-end space-x-3">
+                <button onclick="closeRolesModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                    Cancel
+                </button>
+                <button onclick="saveUserRoles(${userId})"
+                        class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                    Save roles
+                </button>
+            </div>
+        </div>
+    `;
 
-        const data = await response.json();
+    const choices = modal.querySelector('#userRolesChoices');
+    known.forEach((role, index) => {
+        const row = document.createElement('label');
+        row.className = 'flex items-center space-x-2';
+        const box = document.createElement('input');
+        box.type = 'checkbox';
+        box.value = role;
+        box.checked = held.indexOf(role) !== -1;
+        box.id = `userRoleChoice${index}`;
+        box.className = 'h-4 w-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500';
+        const text = document.createElement('span');
+        text.className = 'text-sm text-gray-700';
+        text.textContent = role;
+        row.appendChild(box);
+        row.appendChild(text);
+        choices.appendChild(row);
+    });
 
-        if (response.ok) {
-            showNotification('User is now a client', 'success');
-            loadAllUsers();
-        } else {
-            showNotification(data.detail || 'Error changing role', 'error');
+    window.closeRolesModal = () => {
+        if (modal.parentNode) document.body.removeChild(modal);
+    };
+
+    window.saveUserRoles = async (id) => {
+        const chosen = Array.from(choices.querySelectorAll('input[type="checkbox"]'))
+            .filter(box => box.checked)
+            .map(box => box.value);
+        try {
+            const response = await fetch(`/api/admin/users/${id}/roles`, {
+                method: 'PUT',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Authorization': `Bearer ${token}`
+                },
+                body: JSON.stringify({ roles: chosen })
+            });
+            const data = await response.json();
+            if (response.ok) {
+                showNotification('Roles saved', 'success');
+                window.closeRolesModal();
+                loadAllUsers();
+            } else {
+                showNotification(data.detail || 'Error saving roles', 'error');
+            }
+        } catch (error) {
+            showNotification('Network error', 'error');
         }
-    } catch (error) {
-        showNotification('Network error', 'error');
-    }
-}
+    };
 
+    document.body.appendChild(modal);
+    feather.replace();
+}

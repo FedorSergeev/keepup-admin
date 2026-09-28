@@ -61,6 +61,30 @@ installCsrfFetch(window);
 const ROLE_ADMIN = 'ADMIN';
 const ROLE_CLIENT = 'CLIENT';
 
+// --- The roles a user holds ------------------------------------------------------
+//
+// A user holds a set of roles, and the panel decides by the set: somebody who is
+// both an administrator and a client holds two, and comparing one field with
+// ROLE_ADMIN would have made them choose. `role` is the deprecated mirror of the
+// set and is still the answer for a user an application assembled itself; it
+// goes away in keepup 0.3.0 (keepup-51). Cut out by these markers and executed
+// under node -- see tests/user_roles_tests.py.
+function userRolesOf(user) {
+    if (user && Array.isArray(user.roles) && user.roles.length) return user.roles;
+    return user && user.role ? [user.role] : [];
+}
+
+function userHasRole(user, role) {
+    return userRolesOf(user).indexOf(role) !== -1;
+}
+
+function currentUserIsAdmin() {
+    return userHasRole(currentUser, ROLE_ADMIN);
+}
+
+window.AppRoles = { of: userRolesOf, has: userHasRole };
+// --- end of the roles a user holds ----------------------------------------------
+
 
 /* ==========================================================================
    Adaptive layout.
@@ -1393,8 +1417,13 @@ function headerBadgeView(user, badge) {
         return { text: String(badge.text), title: badge.title ? String(badge.title) : '',
                  className: `ml-2 role-badge header-badge header-badge-${tone}` };
     }
-    const admin = Boolean(user && user.role === ROLE_ADMIN);
-    return { text: admin ? 'Admin' : 'Client', title: '',
+    // The corner answers the same question it always did -- is this an
+    // administrator -- and names the whole set in the tooltip, where a second
+    // role fits and two words in the corner would not.
+    const roles = userRolesOf(user);
+    const admin = roles.indexOf(ROLE_ADMIN) !== -1;
+    return { text: admin ? 'Admin' : 'Client',
+             title: roles.length > 1 ? roles.join(', ') : '',
              className: `ml-2 role-badge ${admin ? 'role-admin' : 'role-client'}` };
 }
 
@@ -1506,7 +1535,7 @@ function updateUIAfterAuth() {
 
         const adminItems = document.querySelectorAll('.admin-only');
         adminItems.forEach(item => {
-            if (currentUser.role === ROLE_ADMIN) {
+            if (currentUserIsAdmin()) {
                 item.classList.remove('hidden');
             } else {
                 item.classList.add('hidden');
@@ -1793,8 +1822,8 @@ async function showVersionPanel() {
     const versionPanel = document.getElementById('versionPanel');
     if (!versionPanel) return;
 
-    // Check the user's role
-    if (currentUser && currentUser.role === ROLE_ADMIN) {
+    // Check the user's roles
+    if (currentUserIsAdmin()) {
         const versionData = await loadVersionInfo();
         if (versionData) {
             // Fill in the data
@@ -1825,7 +1854,7 @@ function updateVersionPanelVisibility() {
     const versionPanel = document.getElementById('versionPanel');
     if (!versionPanel) return;
 
-    if (currentUser && currentUser.role === ROLE_ADMIN) {
+    if (currentUserIsAdmin()) {
         showVersionPanel();
     } else {
         hideVersionPanel();

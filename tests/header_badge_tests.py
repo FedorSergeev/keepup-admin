@@ -16,12 +16,17 @@ import pytest
 SHELL = Path(__file__).resolve().parents[1] / "static" / "js" / "main_new.js"
 START = "// --- The application's badge in the header"
 END = "// --- end of the application's badge in the header"
+#: The corner reads the user's roles, and the region that answers what they are
+#: is cut out of the same file rather than restated here (keepup-51).
+ROLES_START = "// --- The roles a user holds"
+ROLES_END = "// --- end of the roles a user holds"
 NODE = shutil.which("node")
 
 pytestmark = pytest.mark.skipif(NODE is None, reason="needs node: the shell is JavaScript")
 
 PRELUDE = r"""
 const ROLE_ADMIN = 'ADMIN';
+const ROLE_CLIENT = 'CLIENT';
 let currentUser = null;
 const corner = { textContent: '', title: '', className: '' };
 global.window = {};
@@ -34,7 +39,8 @@ function show() { return { text: corner.textContent, title: corner.title, classN
 
 def region() -> str:
     source = SHELL.read_text(encoding="utf-8")
-    return source[source.index(START):source.index(END)]
+    roles = source[source.index(ROLES_START):source.index(ROLES_END)]
+    return roles + source[source.index(START):source.index(END)]
 
 
 def run(script: str):

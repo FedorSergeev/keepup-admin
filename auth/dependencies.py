@@ -26,6 +26,7 @@ from keepup.auth.dto.token import TokenData
 from keepup.auth.factory import AuthProviderFactory
 from keepup.auth.providers.base import AuthProvider, ALGORITHM, oauth2_scheme
 from keepup.auth.signing_key import resolve_signing_key
+from keepup.auth import user_roles
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
 from keepup.db import DatabaseManagerV2
 
@@ -63,14 +64,20 @@ def get_user_by_username(username: str):
     loop of its own in a thread that the caller waited for, holding the loop.
     The provider answers synchronously itself now.
     """
-    return auth_provider.lookup_user(username)
+    return user_roles.attach_roles(auth_provider.lookup_user(username))
 
 
 def get_user_by_id(user_id: int):
-    """Return a user by id, for any configured auth provider."""
+    """Return a user by id, with the roles it holds.
+
+    The set travels with the account wherever the framework hands one out: code
+    that asks whether this person holds a role must not have to know which of
+    the two reads it came from.
+    """
     # TODO: auth_provider needs a lookup by id as well; without it this only
     # works against the local database.
-    return DatabaseManagerV2.execute_one("SELECT * FROM users WHERE id = :id", {"id": user_id})
+    return user_roles.attach_roles(
+        DatabaseManagerV2.execute_one("SELECT * FROM users WHERE id = :id", {"id": user_id}))
 
 
 def get_system_user_id():
@@ -97,10 +104,21 @@ def get_system_user_id():
 
 
 def get_all_users():
-    """Return every user, for any configured auth provider."""
-    return DatabaseManagerV2.execute(
+    """Return every user, with the roles each of them holds."""
+    users = DatabaseManagerV2.execute(
         "SELECT id, username, status, role, created_at FROM users ORDER BY created_at DESC"
-    )
+    ) or []
+    held = {}
+    for row in DatabaseManagerV2.execute(
+            "SELECT user_id, role_name FROM user_roles") or []:
+        held.setdefault(row["user_id"], []).append(row["role_name"])
+    # One read for the whole list rather than one per user: this is the panel's
+    # first screen, and a query per row is what makes it slow on a real stand.
+    # An account whose set has never been filled in reads as its mirror says,
+    # which is known from the row already read.
+    return [dict(user, roles=(sorted(held.get(user["id"], []))
+                              or user_roles.held_by(user) or [ROLE_CLIENT]))
+            for user in users]
 
 
 def save_user_to_db(username: str, password: str):
@@ -117,7 +135,13 @@ def save_user_to_db(username: str, password: str):
             query,
             {"username": username, "password_hash": password_hash, "status": "blocked",
              "role": ROLE_CLIENT})
-        return row["id"] if row else None
+        user_id = row["id"] if row else None
+        if user_id is not None:
+            # The set is the truth about who this is, so a new account gets its
+            # row now rather than relying on the read's fallback until the next
+            # start (keepup/auth/user_roles.py).
+            user_roles.set_roles(user_id, [ROLE_CLIENT])
+        return user_id
 
     except Exception as e:
         if "unique constraint" in str(e).lower() or "duplicate" in str(e).lower():
@@ -161,6 +185,14 @@ def update_user(user_id: int, status: Optional[str] = None, role: Optional[str] 
     DatabaseManagerV2.execute_commit(
         f"UPDATE users SET {assignments}, updated_at = CURRENT_TIMESTAMP WHERE id = :id",
         {**changes, "id": user_id})
+
+    # A caller setting the single role means "this person is a client now", so
+    # the whole set becomes that role. Leaving ADMIN in it would quietly keep a
+    # right the administrator had just taken away (keepup-51). Unchecked, because
+    # this column never checked: turning a call that worked into a refusal is not
+    # what a deprecated field should do on its way out.
+    if role is not None:
+        user_roles.set_roles(user_id, [role], checked=False)
 
 
 async def authenticate(username: str, password: str):
@@ -253,10 +285,15 @@ def _session_is_live(payload: dict) -> bool:
 
 
 def _session_and_user(payload: dict, username: str):
-    """Whether the token's session is live and, only if it is, whose account it is."""
+    """Whether the token's session is live and, only if it is, whose account it is.
+
+    The role set is read here too, in the same hop out of the event loop: one
+    more statement on the thread that read the account, not a second thread and
+    a second loop (keepup-43). It is not cached -- see keepup/auth/user_roles.py.
+    """
     if not _session_is_live(payload):
         return False, None
-    return True, auth_provider.lookup_user(username)
+    return True, user_roles.attach_roles(auth_provider.lookup_user(username))
 
 
 async def get_current_user(token: str = Depends(request_token)):
@@ -356,7 +393,9 @@ async def get_optional_user(token: Optional[str]):
 
 
 async def get_current_admin(current_user: dict = Depends(get_current_user)):
-    if current_user["role"] != ROLE_ADMIN:
+    # The right is ADMIN being among the roles, not one role being equal to it:
+    # somebody who is both an administrator and a client holds two (keepup-51).
+    if not user_roles.has_role(current_user, ROLE_ADMIN):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",

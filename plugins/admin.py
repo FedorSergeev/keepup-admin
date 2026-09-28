@@ -23,6 +23,7 @@ from typing import Any, Dict
 from fastapi import Depends, HTTPException
 
 from keepup.auth.dependencies import get_current_admin, get_current_user
+from keepup.auth import user_roles
 from keepup.db import DatabaseManagerV2
 from keepup.plugins import enablement
 from keepup.plugins import route_mask
@@ -105,26 +106,27 @@ def _refuse_if_the_deployment_decides(plugin_id: str):
 
 
 async def get_plugins(manager, current_user):
-    """The plugins available to this user: granted to the role and running.
+    """The plugins available to this user: granted to a role of theirs and running.
 
     A module-level function rather than only a closure of the route, because
     this is the decision worth checking and a closure can be reached only
     through the HTTP layer.
+
+    A user holds a set of roles, and the lists of all of them are glued together
+    -- each plugin once, however many of the roles name it (keepup-51).
     """
     try:
         with open(MODULES_CONFIG_PATH, 'r', encoding='utf-8') as f:
             config = json.load(f)
 
-        user_role = current_user['role']
-        role_config = None
+        held = set(user_roles.held_by(current_user))
+        allowed_plugin_names = set()
         for role in config.get('roles', []):
-            if role.get('name') == user_role:
-                role_config = role
-                break
+            if role.get('name') in held:
+                allowed_plugin_names.update(role.get('plugins', []))
 
-        if not role_config:
+        if not allowed_plugin_names:
             return {"plugins": []}
-        allowed_plugin_names = role_config.get('plugins', [])
 
         # The role's list is visibility, not enablement: a plugin the role is
         # shown but that did not come up has no routes to advertise.

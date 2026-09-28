@@ -300,6 +300,13 @@ def test_a_role_from_the_claims_becomes_a_role_here_and_is_taken_away_again(clie
 
     assert promoted["role"] == "ADMIN"
     assert demoted["role"] == "CLIENT"
+    # The set follows, not only its mirror: the framework decides by the set, so
+    # a provider's promotion that moved the column alone would grant nothing
+    # (keepup-51).
+    assert [row["role_name"] for row in DatabaseManagerV2.execute(
+        "SELECT role_name FROM user_roles WHERE user_id = "
+        "(SELECT id FROM users WHERE external_id = :subject)",
+        {"subject": "subject-42"})] == ["CLIENT"]
     assert DatabaseManagerV2.execute(
         "SELECT permission_name FROM user_permissions WHERE user_id = "
         "(SELECT id FROM users WHERE external_id = :subject)", {"subject": "subject-42"}) == []

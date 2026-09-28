@@ -21,7 +21,7 @@ import jwt
 from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, Field, field_validator
 
-from keepup.auth import panel_session
+from keepup.auth import panel_session, user_roles
 from keepup.auth.dependencies import (
     _authenticated_by_cookie,
     _bearer_of,
@@ -160,9 +160,18 @@ class UserResponse(BaseModel):
     full_name: Optional[str] = None
     agree_terms: bool = False
     status: str
+    #: The roles this account holds. `role` below is the deprecated mirror of
+    #: this set and goes away in keepup 0.3.0 (keepup-51).
+    roles: List[str] = []
     role: str
     created_at: datetime
     updated_at: Optional[datetime] = None
+class UserRolesUpdate(BaseModel):
+    """The set of roles a user is to hold."""
+
+    roles: List[str]
+
+
 class UserUpdateRequest(BaseModel):
     """What an administrator may change about a user."""
 
@@ -475,6 +484,7 @@ def register_auth_routes(app, manager):
                 "id": current_user["id"],
                 "username": current_user["username"],
                 "status": current_user["status"],
+                "roles": current_user.get("roles", []),
                 "role": current_user["role"],
                 "created_at": current_user["created_at"]
             }
@@ -506,6 +516,10 @@ def register_auth_routes(app, manager):
             "phone": current_user.get("phone"),
             "full_name": current_user.get("full_name"),
             "status": current_user["status"],
+            "roles": current_user.get("roles", []),
+            # The deprecated mirror of the set: ADMIN when it is held, otherwise
+            # the first role granted. Read `roles` instead -- this goes away in
+            # keepup 0.3.0 (keepup-51).
             "role": current_user["role"],
             "created_at": current_user["created_at"],
             "updated_at": current_user.get("updated_at"),
@@ -589,6 +603,38 @@ def register_auth_routes(app, manager):
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         return dict(user)
+    @app.get("/api/admin/users/{user_id}/roles", response_model=dict)
+    async def get_user_roles_endpoint(user_id: int, admin: dict = Depends(get_current_admin)):
+        """The roles this account holds, and the roles this deployment has."""
+        user = await asyncio.to_thread(get_user_by_id, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        known = await asyncio.to_thread(user_roles.known_roles)
+        return {"roles": user.get("roles", []), "known_roles": known}
+
+    @app.put("/api/admin/users/{user_id}/roles", response_model=dict)
+    async def set_user_roles_endpoint(
+            user_id: int,
+            payload: UserRolesUpdate,
+            admin: dict = Depends(get_current_admin)
+    ):
+        """Replace the roles this account holds.
+
+        An empty set is refused: access is taken away by blocking the account,
+        and an empty set is how the framework recognises a row that predates the
+        set at all. So is a role nothing declares -- `role_modules` is joined by
+        the exact name, and a role written in another case would look granted and
+        grant nothing.
+        """
+        user = await asyncio.to_thread(get_user_by_id, user_id)
+        if not user:
+            raise HTTPException(status_code=404, detail="User not found")
+        try:
+            held = await asyncio.to_thread(user_roles.set_roles, user_id, payload.roles)
+        except (user_roles.EmptyRoleSet, user_roles.UnknownRole) as refusal:
+            raise HTTPException(status_code=400, detail=str(refusal))
+        return {"success": True, "roles": held}
+
     @app.patch("/api/admin/users/{user_id}", response_model=dict)
     async def update_user_endpoint(
             user_id: int,

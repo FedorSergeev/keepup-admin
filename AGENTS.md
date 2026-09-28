@@ -169,11 +169,27 @@ At start-up the framework copies sections and grants that the database lacks
 - **The narrow layout is the `is-narrow` class**, not a media query. Tables opt
   into the shared helper with `class="responsive-table"`; grids are
   `grid-cols-1 md:grid-cols-N`.
-- **The header corner** shows the user's role unless the application puts its
-  own badge there: `window.AppHeader.setBadge({text, title, tone})`,
-  `window.AppHeader.clearBadge()`.
+- **The header corner** shows whether the user is an administrator unless the
+  application puts its own badge there: `window.AppHeader.setBadge({text, title,
+  tone})`, `window.AppHeader.clearBadge()`.
 - Build section markup with text, not with values spliced into HTML: escape
   anything that came from data.
+
+## Roles
+
+A user holds a **set** of roles (`user_roles`, `keepup/auth/user_roles.py`), and
+the sections and plugins of every role in it are glued together — each one once.
+A role comes into being as a grant in the section catalogue; the framework's own
+two are `ADMIN` and `CLIENT`.
+
+- **Ask with `has_role(user, ROLE_ADMIN)`**, never `user["role"] == ROLE_ADMIN`:
+  `users.role` is a deprecated mirror of the set (`ADMIN` when held, otherwise
+  the first role granted) and goes away in 0.3.0. In the panel it is
+  `window.AppRoles.has(user, role)`.
+- **Nobody holds no role.** An empty set is refused on write and read as the one
+  role the mirror names; access is closed by blocking the account.
+- `keepup.modules.get_modules_for_roles()` is the read for a user;
+  `get_modules_for_role()` is still there for one role.
 
 ## Several replicas
 

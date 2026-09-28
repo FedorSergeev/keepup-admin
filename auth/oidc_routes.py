@@ -22,6 +22,7 @@ from fastapi.responses import RedirectResponse
 from keepup.auth import oidc, oidc_policy, panel_session
 from keepup.auth.dependencies import issue_session_token
 from keepup.db import DatabaseManagerV2
+from keepup.auth import user_roles
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
 
 logger = logging.getLogger(__name__)
@@ -112,6 +113,9 @@ def create_account(issuer: str, claims: Dict[str, Any],
     account = find_account(issuer, claims["sub"])
     if account is None:
         raise _refuse("the account was created but cannot be read back")
+    # The roles this account holds, which is what the panel and the plugins are
+    # decided by; the column above is their mirror (keepup/auth/user_roles.py).
+    user_roles.set_roles(account["id"], [decision.role], checked=False)
     return account
 
 
@@ -180,10 +184,10 @@ def sync_roles(account: Dict[str, Any], issuer: str, claims: Dict[str, Any],
 
     role = role_from_permissions(permissions, settings.default_role)
     if role != account.get("role"):
-        DatabaseManagerV2.execute_commit(
-            "UPDATE users SET role = :role WHERE id = :user_id",
-            {"role": role, "user_id": account["id"]},
-        )
+        # Through the set, not straight into the column: the provider decides
+        # what this person is on every sign-in, and a mirror moved on its own
+        # would leave the framework deciding by the previous role.
+        user_roles.set_roles(account["id"], [role], checked=False)
         logger.info(f"OIDC role for {account['username']}: {account.get('role')} -> {role}")
     return role
 

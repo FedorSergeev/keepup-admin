@@ -18,6 +18,7 @@ from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
 from keepup.auth.dependencies import get_current_admin, get_current_user
+from keepup.auth import user_roles
 from keepup import cache
 from keepup.db import DatabaseManagerV2, db_config
 
@@ -29,6 +30,7 @@ __all__ = [
     "get_all_modules_from_db",
     "get_module_by_id",
     "get_modules_for_role",
+    "get_modules_for_roles",
     "import_modules_from_json",
     "register_module_routes",
     "sync_framework_sections",
@@ -106,6 +108,33 @@ def get_modules_for_role(role_name: str):
     rows = cache.get_cache(SECTIONS_CACHE).get(
         role_name, lambda: _read_modules_for_role(role_name))
     return [dict(row) for row in rows]
+
+
+def get_modules_for_roles(role_names):
+    """Return the modules granted to any of these roles, each of them once.
+
+    A user holds a set of roles (keepup/auth/user_roles.py) and sees the sections
+    of all of them glued together. A section granted to two of the roles is in
+    the answer once: the loader mounts a section by its id, and a second copy
+    would initialise the page twice.
+
+    Each role's list is still read and kept on its own (the cache is keyed by
+    role name), so gluing costs nothing beyond the roles the person actually
+    holds. The order is by name and does not depend on the order of the roles --
+    the panel's menu must not rearrange itself because a role was granted later.
+
+    Args:
+        role_names: the roles to glue.
+
+    Returns:
+        The modules, ordered by name.
+    """
+    glued = {}
+    for role_name in role_names or []:
+        for module in get_modules_for_role(role_name):
+            glued.setdefault(module["module_id"], module)
+    return sorted(glued.values(), key=lambda module: (module.get("name") or "",
+                                                      module["module_id"]))
 
 
 def _sections_changed() -> None:
@@ -394,16 +423,18 @@ async def get_modules_from_json_fallback(current_user: dict):
         with open(MODULES_CONFIG_PATH, 'r', encoding='utf-8') as f:
             config = json.load(f)
 
-        user_role = current_user['role']
-        role_config = next(
-            (role for role in config.get('roles', []) if role.get('name') == user_role),
-            None
-        )
+        held = set(user_roles.held_by(current_user))
+        allowed_module_names = set()
+        for role in config.get('roles', []):
+            if role.get('name') in held:
+                allowed_module_names.update(role.get('modules', []))
 
-        if not role_config:
+        if not allowed_module_names:
             return {"modules": []}
 
-        allowed_module_names = set(role_config.get('modules', []))
+        # The file's own order, and each module once: the same answer the
+        # database path gives, with the roles glued rather than one of them
+        # chosen (keepup-51).
         available_modules = [
             module for module in config.get('modules', [])
             if module.get('id') in allowed_module_names
@@ -550,9 +581,8 @@ def register_module_routes(app):
     async def get_modules(current_user: dict = Depends(get_current_user)):
         """Return the modules available to the current user, from the database."""
         try:
-            user_role = current_user['role']
             # Every page of the panel asks for this; the read leaves the loop.
-            modules = await asyncio.to_thread(get_modules_for_role, user_role)
+            modules = await asyncio.to_thread(get_modules_for_roles, user_roles.held_by(current_user))
 
             if modules:
                 formatted_modules = []
