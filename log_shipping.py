@@ -51,15 +51,22 @@ REMOTE_LOG_URL = None
 REMOTE_LOG_TOKEN = None
 REMOTE_FLUSH_INTERVAL = 600
 REMOTE_BATCH_SIZE = 100_000
+#: How many records wait for the collector at most. While it is away, or
+#: before the application has given a token, the oldest are dropped rather
+#: than held for ever (keepup-68): a queue without a bound grew for as long as
+#: the collector stayed down, in the memory of every replica.
+REMOTE_MAX_QUEUED = 50_000
 
 _UNSET = object()
 
 
 def configure(project_name=_UNSET, remote_url=_UNSET, flush_interval=_UNSET,
-              batch_size=_UNSET, remote_token=_UNSET):
+              batch_size=_UNSET, remote_token=_UNSET, max_queued=_UNSET):
     """Supply the collector's values before the handlers are built."""
     global PROJECT_NAME, REMOTE_LOG_URL, REMOTE_LOG_TOKEN
-    global REMOTE_FLUSH_INTERVAL, REMOTE_BATCH_SIZE
+    global REMOTE_FLUSH_INTERVAL, REMOTE_BATCH_SIZE, REMOTE_MAX_QUEUED
+    if max_queued is not _UNSET and max_queued is not None:
+        REMOTE_MAX_QUEUED = max_queued
     if project_name is not _UNSET and project_name is not None:
         PROJECT_NAME = project_name
     if remote_url is not _UNSET:
@@ -91,9 +98,16 @@ class RemoteLoggerWrapper:
         self.remote_url = remote_url or REMOTE_LOG_URL
         self.flush_interval = flush_interval
         self.batch_size = batch_size
-        self.log_queue = queue.Queue()
+        self.max_queued = REMOTE_MAX_QUEUED
+        self.log_queue = queue.Queue(maxsize=self.max_queued)
+        #: Records dropped since the last delivery, reported with the next one.
+        self.dropped = 0
         self.buffer = []
         self.lock = threading.Lock()
+        #: Wakes the one shipping thread early. A full batch used to start a
+        #: thread of its own per record -- and without a token nothing was ever
+        #: sent, so every record past the batch size started one.
+        self._wake = threading.Event()
         self.running = True
         self.flush_thread = None
         self.project = self._get_project_name()
@@ -148,29 +162,36 @@ class RemoteLoggerWrapper:
         self.flush_thread.start()
 
     def _flush_worker(self):
-        """Background task shipping logs periodically."""
+        """Background task shipping logs periodically, or early on a full batch."""
         while self.running:
-            time.sleep(self.flush_interval)
+            self._wake.wait(self.flush_interval)
+            self._wake.clear()
             try:
                 self.flush()
             except Exception as e:
                 print(f"Error in flush worker: {str(e)}")
 
     def emit(self, record: logging.LogRecord):
-        """Queue a log record."""
+        """Queue a log record; the oldest is dropped when the queue is full."""
+        if not self.token:
+            # Nothing would ever be sent (flush() refuses without one), so
+            # nothing is kept.
+            return
         try:
             log_entry = self._format_record(record)
-            try:
-                self.log_queue.put(log_entry, block=False)
-            except queue.Full:
+            with self.lock:
                 try:
-                    self.log_queue.get_nowait()
                     self.log_queue.put_nowait(log_entry)
-                except:
-                    pass
+                except queue.Full:
+                    try:
+                        self.log_queue.get_nowait()
+                        self.dropped += 1
+                        self.log_queue.put_nowait(log_entry)
+                    except (queue.Empty, queue.Full):
+                        self.dropped += 1
 
             if self.log_queue.qsize() >= self.batch_size:
-                threading.Thread(target=self.flush, daemon=True).start()
+                self._wake.set()
 
         except Exception as e:
             print(f"Error in RemoteLoggerWrapper.emit: {str(e)}")
@@ -233,6 +254,11 @@ class RemoteLoggerWrapper:
                 self.consecutive_failures = 0
                 self.remote_available = True
                 logger.debug(f"Successfully sent {len(logs_to_send)} logs to remote server")
+                with self.lock:
+                    dropped, self.dropped = self.dropped, 0
+                if dropped:
+                    logger.warning(f"{dropped} log records were dropped while they "
+                                   f"could not be shipped")
             else:
                 self._handle_failure(f"HTTP {response.status_code}")
                 self._return_logs_to_queue(logs_to_send)
@@ -269,18 +295,25 @@ class RemoteLoggerWrapper:
             logger.warning(f"Remote logging disabled for {backoff_time}s due to {self.consecutive_failures} failures")
 
     def _return_logs_to_queue(self, logs: List[Dict]):
-        """Put logs back on the queue after a failed delivery."""
+        """Put logs back on the queue after a failed delivery.
+
+        Returned to the front, so ordering is preserved; what does not fit
+        under the bound is the oldest, and it is dropped.
+        """
         try:
-            # Returned to the front of the queue so ordering is preserved.
-            temp_queue = queue.Queue()
-            for log in logs:
-                temp_queue.put(log)
-            while not self.log_queue.empty():
-                try:
-                    temp_queue.put(self.log_queue.get_nowait())
-                except queue.Empty:
-                    break
-            self.log_queue = temp_queue
+            with self.lock:
+                waiting = list(logs)
+                while True:
+                    try:
+                        waiting.append(self.log_queue.get_nowait())
+                    except queue.Empty:
+                        break
+                overflow = max(0, len(waiting) - self.max_queued)
+                self.dropped += overflow
+                refilled = queue.Queue(maxsize=self.max_queued)
+                for log in waiting[overflow:]:
+                    refilled.put_nowait(log)
+                self.log_queue = refilled
         except Exception as e:
             print(f"Error returning logs to queue: {str(e)}")
 
@@ -325,6 +358,7 @@ class AsyncRemoteLogHandler(logging.Handler):
         self.max_consecutive_failures = 3
         self.backoff_until = 0
         self.max_buffer_size = 10000  # maximum buffer size
+        self._sending = False
 
     def _get_project_name(self) -> str:
         try:
@@ -374,6 +408,8 @@ class AsyncRemoteLogHandler(logging.Handler):
 
     def emit(self, record):
         """Add a record to the buffer."""
+        if not self.token:
+            return
         try:
             log_entry = {
                 "date": datetime.fromtimestamp(record.created).strftime('%Y-%m-%d %H:%M:%S.%f')[:-3],
@@ -399,7 +435,10 @@ class AsyncRemoteLogHandler(logging.Handler):
 
                 self.buffer.append(log_entry)
 
-                if len(self.buffer) >= self.batch_size:
+                # One send at a time: a full buffer used to start a send per
+                # record while the previous one was still on its way.
+                if len(self.buffer) >= self.batch_size and not self._sending:
+                    self._sending = True
                     asyncio.create_task(self._safe_send_buffer())
 
         except Exception as e:
@@ -411,6 +450,8 @@ class AsyncRemoteLogHandler(logging.Handler):
             await self._send_buffer()
         except Exception as e:
             print(f"Error in safe send buffer: {str(e)}")
+        finally:
+            self._sending = False
 
     async def _send_buffer(self):
         """Ship the buffer to the collector."""

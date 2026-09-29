@@ -63,6 +63,17 @@ Notable changes to `keepup-admin`.
   longer reaches the handler as an empty body, and the stripped mode no
   longer reads a body just to log its size.
 
+### Fixed
+
+- **Log and audit queues stay bounded while their receiver is away.** Log
+  shipping kept records without a bound while the collector was down or no
+  token was given, and past a full batch started a thread per record. It now
+  keeps nothing without a token, holds at most `REMOTE_MAX_QUEUED` (50 000,
+  `configure(max_queued=...)`) dropping the oldest, and wakes its one thread.
+  The request audit holds at most `BUFFER_HARD_LIMIT` (10 000) requests, runs
+  one flush at a time and pauses requests' flushes for five seconds after a
+  failed one. Both report what they dropped.
+
 ## 0.2.0 — 2026-09-27
 
 A release about carrying load on several replicas: one way into the database,

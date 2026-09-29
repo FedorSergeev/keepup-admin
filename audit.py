@@ -131,6 +131,17 @@ incoming_requests_lock = asyncio.Lock()
 
 BUFFER_FLUSH_INTERVAL = 125
 BUFFER_MAX_SIZE = 100
+#: The most requests the buffer holds, whatever happens to the database
+#: (keepup-68). A failed flush puts its rows back, so with the database away the
+#: buffer used to grow with every request; past this the oldest go.
+BUFFER_HARD_LIMIT = 10_000
+#: After a failed flush, requests do not start another one for this long: the
+#: timed flusher still retries, but not every request on its own.
+FLUSH_RETRY_PAUSE_SECONDS = 5.0
+
+_flush_lock = asyncio.Lock()
+_flush_paused_until = 0.0
+dropped_requests = 0
 #: A request running this long is written without its outcome (keepup-41): the
 #: process that would have finished it has most likely gone.
 IN_FLIGHT_STALE_SECONDS = 3600
@@ -170,7 +181,13 @@ class IncomingRequestLogger:
                 'request_start_at': request_start,
                 'created_at': datetime.utcnow()
             }
-            if len(incoming_requests_buffer) >= BUFFER_MAX_SIZE:
+            global dropped_requests
+            while len(incoming_requests_buffer) > BUFFER_HARD_LIMIT:
+                # Insertion order: the first key is the oldest request.
+                incoming_requests_buffer.pop(next(iter(incoming_requests_buffer)))
+                dropped_requests += 1
+            if (len(incoming_requests_buffer) >= BUFFER_MAX_SIZE and not _flush_lock.locked()
+                    and time.monotonic() >= _flush_paused_until):
                 asyncio.create_task(IncomingRequestLogger.flush_buffer())
 
         return request_id
@@ -231,6 +248,13 @@ class IncomingRequestLogger:
         not grow forever; and at shutdown (``include_in_flight``) everything is
         written -- nothing will finish afterwards.
         """
+        # One flush at a time: a full buffer asked for one on every request.
+        async with _flush_lock:
+            return await IncomingRequestLogger._flush_buffer(include_in_flight, now)
+
+    @staticmethod
+    async def _flush_buffer(include_in_flight: bool, now: Optional[datetime]) -> int:
+        global _flush_paused_until, dropped_requests
         now = now or datetime.utcnow()
         # The buffer lock is taken by the start and the end of every request, so
         # it is held only to pick the rows and take them out -- never across the
@@ -279,6 +303,7 @@ class IncomingRequestLogger:
             # Back into the buffer: the next flush tries again. A request that
             # somehow reappeared meanwhile keeps its newer entry.
             logger.error(f"Error flushing incoming requests buffer: {str(e)}")
+            _flush_paused_until = time.monotonic() + FLUSH_RETRY_PAUSE_SECONDS
             async with incoming_requests_lock:
                 for request_id, req in chosen.items():
                     incoming_requests_buffer.setdefault(request_id, req)
@@ -288,6 +313,10 @@ class IncomingRequestLogger:
         # duplicate alike: an ignored one is already in the table.
         if inserted_count:
             logger.info(f"Flushed {inserted_count} incoming requests to database")
+        if dropped_requests:
+            logger.warning(f"{dropped_requests} incoming requests were dropped from the "
+                           f"audit while it could not be written")
+            dropped_requests = 0
         return inserted_count
 
 
