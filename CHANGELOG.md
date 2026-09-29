@@ -6,6 +6,12 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **The panel shell hears only its own origin.** Its `message` handler acted
+  on whatever any window posted, so any site the user had open could make the
+  panel announce a payment and reload a section. Messages from another origin
+  are ignored; the rest are handed on as a `keepup:message` window event for
+  sections to listen to.
+
 - **A token without a session is refused.** Tokens from before sessions were
   recorded were accepted until they expired; that transition is over. Every
   token the server issues names a session, one that does not is refused on a
@@ -136,6 +142,13 @@ Notable changes to `keepup-admin`.
   The request audit holds at most `BUFFER_HARD_LIMIT` (10 000) requests, runs
   one flush at a time and pauses requests' flushes for five seconds after a
   failed one. Both report what they dropped.
+
+### Deprecated
+
+- The shell's own answer to a `payment_success` message (a notification and
+  `loadTariffsData()`) is product logic in the framework; it stays for this
+  release and is removed in the next minor one. Listen to `keepup:message` in
+  the application instead.
 
 ## 0.2.0 — 2026-09-27
 

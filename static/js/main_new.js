@@ -1731,16 +1731,32 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 
-// Handler for messages from the payment window
-window.addEventListener('message', function(event) {
-    if (event.data.type === 'payment_success') {
-        showNotification('Payment successful! Plan activated.', 'success');
-        // Reload the plans data
-        setTimeout(() => {
-            loadTariffsData();
-        }, 1000);
+// Messages from other windows (keepup-77). Only this page's own origin is
+// heard: any site the user has open can post to this window, and the handler
+// used to act on whatever arrived. What is heard is handed on as a
+// `keepup:message` event, which a section listens to for the messages that are
+// its business -- the shell has no product logic of its own to run.
+function keepupHandleWindowMessage(event) {
+    if (event.origin !== window.location.origin) {
+        return;
     }
-});
+    const data = event.data;
+    if (!data || typeof data !== 'object' || typeof data.type !== 'string') {
+        return;
+    }
+    window.dispatchEvent(new CustomEvent('keepup:message', { detail: data }));
+
+    // Deprecated, kept for one release: the payment window of an application
+    // still posts this and expects the shell to answer. An application listens
+    // to `keepup:message` instead; this branch goes in the next minor release.
+    if (data.type === 'payment_success') {
+        showNotification('Payment successful! Plan activated.', 'success');
+        if (typeof window.loadTariffsData === 'function') {
+            setTimeout(() => window.loadTariffsData(), 1000);
+        }
+    }
+}
+window.addEventListener('message', keepupHandleWindowMessage);
 
 /**
  * Event system for bulk markup application
