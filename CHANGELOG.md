@@ -6,6 +6,14 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **Answers and logs carry no text the server did not write.** The event-log
+  and panel-section routes answered a failure with the exception's text, and
+  the request audit recorded it unredacted; they now answer a generic message
+  and log the exception, and the audit keeps the exception's class (a refusal
+  keeps its reason, which is its answer). `logging_setup.for_log`
+  escapes control characters in values written into a log line, so a `%0a`
+  in a request path no longer forges a line.
+
 - **Registering with the log collector writes no token to disk.**
   `create_logger_token` wrote the issued token in the clear to
   `config/logger_token.json` and waited for the collector without a limit.

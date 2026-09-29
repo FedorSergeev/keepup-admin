@@ -15,6 +15,7 @@ from pydantic import BaseModel, Field
 
 from keepup.auth.dependencies import get_current_admin
 from keepup import admin_trail, events
+from keepup.logging_setup import for_log
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -27,6 +28,11 @@ __all__ = [
 # manager -- an application, a test -- replaces it for the routes too.
 
 logger = logging.getLogger(__name__)
+
+#: What a failed route answers. The exception's own text -- a database message
+#: naming tables, values and sometimes a query -- went to the client and to the
+#: audit as it was (keepup-76); it goes to the application log instead.
+INTERNAL_ERROR = "Internal server error; see the application log"
 
 
 class AppEvent(BaseModel):
@@ -109,8 +115,8 @@ def register_event_api_routes(app, declared_event_types=None):
                 }
             }
         except Exception as e:
-            logger.error(f"Error in create_event_endpoint: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+            logger.error("Error in create_event_endpoint: %s", for_log(e))
+            raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
 
     @app.get("/api/events", response_model=EventListResponse)
     async def get_events_endpoint(
@@ -142,8 +148,8 @@ def register_event_api_routes(app, declared_event_types=None):
 
             return result
         except Exception as e:
-            logger.error(f"Error in get_events_endpoint: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+            logger.error("Error in get_events_endpoint: %s", for_log(e))
+            raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
 
     @app.get("/api/events/types")
     async def get_event_types_endpoint(
@@ -170,8 +176,8 @@ def register_event_api_routes(app, declared_event_types=None):
                 "count": len(event_types)
             }
         except Exception as e:
-            logger.error(f"Error in get_event_types_endpoint: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+            logger.error("Error in get_event_types_endpoint: %s", for_log(e))
+            raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
 
     @app.get("/api/events/instances")
     async def get_instances_endpoint(
@@ -189,8 +195,8 @@ def register_event_api_routes(app, declared_event_types=None):
                 }
             }
         except Exception as e:
-            logger.error(f"Error in get_instances_endpoint: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+            logger.error("Error in get_instances_endpoint: %s", for_log(e))
+            raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
 
     @app.delete("/api/events/cleanup")
     async def cleanup_old_events_endpoint(
@@ -214,8 +220,8 @@ def register_event_api_routes(app, declared_event_types=None):
                 "message": f"Deleted {deleted_count} events older than {days} days"
             }
         except Exception as e:
-            logger.error(f"Error in cleanup_old_events_endpoint: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+            logger.error("Error in cleanup_old_events_endpoint: %s", for_log(e))
+            raise HTTPException(status_code=500, detail=INTERNAL_ERROR)
 
     @app.get("/api/events/stats")
     async def get_events_stats_endpoint(
@@ -226,5 +232,5 @@ def register_event_api_routes(app, declared_event_types=None):
             stats = await events.event_manager.get_events_stats()
             return stats
         except Exception as e:
-            logger.error(f"Error in get_events_stats_endpoint: {str(e)}")
-            raise HTTPException(status_code=500, detail=str(e))
+            logger.error("Error in get_events_stats_endpoint: %s", for_log(e))
+            raise HTTPException(status_code=500, detail=INTERNAL_ERROR)

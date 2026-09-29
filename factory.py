@@ -406,8 +406,8 @@ def _create_stripped_app(settings: KeepupSettings) -> FastAPI:
         logger.info("=" * 80)
         logger.info("📥 RAW REQUEST RECEIVED")
         logger.info(f"Method: {request.method}")
-        logger.info(f"URL: {request.url}")
-        logger.info(f"Path: {request.url.path}")
+        logger.info(f"URL: {logging_setup.for_log(request.url)}")
+        logger.info(f"Path: {logging_setup.for_log(request.url.path)}")
         logger.info(f"Query params: {dict(request.query_params)}")
 
         # Header names only, and never their values. This used to write every

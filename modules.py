@@ -20,6 +20,7 @@ from pydantic import BaseModel
 from keepup.auth.dependencies import get_current_admin, get_current_user
 from keepup.auth import user_roles
 from keepup import admin_trail, cache
+from keepup.logging_setup import for_log
 from keepup.db import DatabaseManagerV2, db_config
 
 #: What an application may import from this module. Everything else is
@@ -475,7 +476,9 @@ def register_module_routes(app):
                                      action="create", module_id=module_data.module_id)
             return {"success": True, "message": "Module created successfully"}
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            logger.error("Could not save panel sections: %s", for_log(e))
+            raise HTTPException(status_code=400, detail="Could not save the panel sections; "
+                                                        "see the application log")
     @app.put("/api/admin/modules/{module_id}")
     async def update_module(
             module_id: str,
@@ -497,7 +500,9 @@ def register_module_routes(app):
                                      fields=sorted(k for k in update_data if k != "module_id"))
             return {"success": True, "message": "Module updated successfully"}
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            logger.error("Could not save panel sections: %s", for_log(e))
+            raise HTTPException(status_code=400, detail="Could not save the panel sections; "
+                                                        "see the application log")
     @app.delete("/api/admin/modules/{module_id}")
     async def delete_module_endpoint(
             module_id: str,
@@ -541,7 +546,9 @@ def register_module_routes(app):
                                      module_ids=list(role_data.module_ids))
             return {"success": True, "message": "Role modules updated successfully"}
         except Exception as e:
-            raise HTTPException(status_code=400, detail=str(e))
+            logger.error("Could not save panel sections: %s", for_log(e))
+            raise HTTPException(status_code=400, detail="Could not save the panel sections; "
+                                                        "see the application log")
     @app.post("/api/admin/modules/import-from-json")
     async def import_modules_from_json_endpoint(admin: dict = Depends(get_current_admin)):
         """Import the modules from the JSON file."""

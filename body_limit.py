@@ -31,6 +31,8 @@ from typing import Optional
 
 from starlette.routing import Match
 
+from keepup.logging_setup import for_log
+
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
 __all__ = [
@@ -98,7 +100,7 @@ class BodyLimitMiddleware:
         declared = _content_length(scope)
         if declared is not None and declared > limit:
             logger.warning("Request body refused: %s %s declares %s bytes, the route "
-                           "accepts %s", scope.get("method"), scope.get("path"),
+                           "accepts %s", scope.get("method"), for_log(scope.get("path")),
                            declared, limit)
             return await _answer_too_large(send, limit)
 
@@ -114,7 +116,7 @@ class BodyLimitMiddleware:
                     state["over"] = True
                     logger.warning("Request body refused: %s %s passed %s bytes without "
                                    "declaring its length", scope.get("method"),
-                                   scope.get("path"), limit)
+                                   for_log(scope.get("path")), limit)
                     return {"type": "http.disconnect"}
             return message
 

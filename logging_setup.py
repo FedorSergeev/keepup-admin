@@ -19,10 +19,32 @@ from datetime import datetime
 #: internal and may change without notice -- see doc/keepup.md.
 __all__ = [
     "configure",
+    "for_log",
     "setup_logging",
 ]
 
 logger = logging.getLogger(__name__)
+
+#: How much of a value from outside is written into one log line.
+FOR_LOG_LIMIT = 500
+
+
+def for_log(value, limit: int = FOR_LOG_LIMIT) -> str:
+    """A value from outside, fit to be written into one log line.
+
+    Control characters are written as escapes: a request path is decoded before
+    anything sees it, so ``%0a`` in an address became a line break in the log
+    and the rest of the address a line of its own -- whatever the sender wanted
+    the log to say (keepup-76). Long values are cut, with the cut marked.
+    """
+    text = "" if value is None else str(value)
+    escaped = "".join(
+        ch if ch.isprintable() or ch == " " else ch.encode("unicode_escape").decode("ascii")
+        for ch in text)
+    if len(escaped) > limit:
+        return escaped[:limit] + f"...[{len(escaped) - limit} more]"
+    return escaped
+
 
 #: Where the local log files go; set by the application through configure().
 LOG_DIR = "logs"

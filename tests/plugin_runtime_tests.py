@@ -593,10 +593,12 @@ def test_a_refusal_keeps_its_status_and_its_reason(audited):
 
 
 def test_an_unhandled_exception_is_five_hundred_and_says_what_it_was(audited):
-    """The text stays in the audit and not in the answer.
+    """The kind of failure is in the audit; its text is in neither.
 
-    A caller gets the framework's 500; the reason is kept where the person
-    reading the incident afterwards will look for it.
+    A caller gets the framework's 500. The audit keeps the exception's class:
+    its text carries whatever the failing code held, and the audit's redaction
+    never sees it (keepup-76, changed with the owner's consent). The text is
+    in the application log.
     """
     response = running([{"path": "/api/probe/break", "methods": ["GET"],
                          "handler": a_breakage}]).get("/api/probe/break")
@@ -605,7 +607,7 @@ def test_an_unhandled_exception_is_five_hundred_and_says_what_it_was(audited):
 
     record = the_record(audited)
     assert record["http_status"] == 500
-    assert record["error_message"] == "no database"
+    assert record["error_message"] == "RuntimeError"
 
 
 def test_a_public_call_is_recorded_as_anonymous(audited, values_kept):

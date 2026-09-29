@@ -360,10 +360,14 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
                 )
                 raise
             except Exception as e:
+                # The kind of failure, not its text: the text of an unexpected
+                # exception carries whatever the failing code held -- values,
+                # queries, secrets -- and the audit's redaction never sees it
+                # (keepup-76). The text goes to the application log.
                 await IncomingRequestLogger.end_request(
                     request_id=request_id,
                     http_status=500,
-                    error_message=str(e)
+                    error_message=type(e).__name__
                 )
                 raise
 

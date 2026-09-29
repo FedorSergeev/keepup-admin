@@ -437,6 +437,12 @@ async def background_buffer_flusher():
             await asyncio.sleep(10)
 
 
+def _is_refusal(error: BaseException) -> bool:
+    """An HTTP refusal a route raised on purpose, whose text is its answer."""
+    from starlette.exceptions import HTTPException
+    return isinstance(error, HTTPException)
+
+
 @asynccontextmanager
 async def log_api_request(
         method: str,
@@ -463,10 +469,12 @@ async def log_api_request(
 
     except Exception as e:
         if request_id:
+            # A refusal keeps its reason: it is the answer the client was given.
+            # Anything else keeps its kind, not its text (keepup-76).
             await IncomingRequestLogger.end_request(
                 request_id=request_id,
                 duration_ms=int((time.time() - start_time) * 1000),
-                error_message=str(e)
+                error_message=str(e) if _is_refusal(e) else type(e).__name__
             )
         raise
 
