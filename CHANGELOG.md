@@ -6,6 +6,14 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **Registering with the log collector writes no token to disk.**
+  `create_logger_token` wrote the issued token in the clear to
+  `config/logger_token.json` and waited for the collector without a limit.
+  It now only returns the token -- keep it in the environment and hand it back
+  through `configure(remote_token=...)` -- and gives up after
+  `REGISTRATION_TIMEOUT`. A `config/logger_token.json` left by an earlier
+  version should be deleted once its token is in the environment.
+
 - **The email-domain policy admits only a verified email.**
   `create_if_email_domain` refused only the boolean `email_verified: false`,
   so a missing claim or the string `"false"` let an address the person typed

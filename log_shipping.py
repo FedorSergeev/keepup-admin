@@ -56,6 +56,8 @@ REMOTE_BATCH_SIZE = 100_000
 #: than held for ever (keepup-68): a queue without a bound grew for as long as
 #: the collector stayed down, in the memory of every replica.
 REMOTE_MAX_QUEUED = 50_000
+#: (connect, read) seconds for registering with the collector.
+REGISTRATION_TIMEOUT = (5, 15)
 
 _UNSET = object()
 
@@ -651,41 +653,43 @@ def create_logger_token(admin_token: str, collector_url: str = None,
         contact_email: contact address for the registration.
 
     Returns:
-        The issued API token, or None when no address is known or the
-        collector refused.
+        The issued API token, or None when no address is known, the collector
+        refused or did not answer. The token is the caller's to keep -- in the
+        environment, handed back through ``configure(remote_token=...)``. It is
+        written nowhere by the framework: it used to go in the clear to
+        ``config/logger_token.json``, a file with default permissions that git
+        did not ignore (keepup-75).
     """
-    import requests
-
     collector_url = collector_url or _registration_url()
     if not collector_url:
         logger.error("Cannot register with the log collector: no address was given.")
         return None
 
-    response = requests.post(
-        collector_url,
-        json={
-            "name": app_name or PROJECT_NAME,
-            "description": description,
-            "contact_email": contact_email
-        },
-        headers={
-            "Authorization": f"Bearer {admin_token}",
-            "Content-Type": "application/json"
-        }
-    )
+    try:
+        response = requests.post(
+            collector_url,
+            json={
+                "name": app_name or PROJECT_NAME,
+                "description": description,
+                "contact_email": contact_email
+            },
+            headers={
+                "Authorization": f"Bearer {admin_token}",
+                "Content-Type": "application/json"
+            },
+            # Bounded: without it a collector that accepts the connection and
+            # never answers held the caller for ever.
+            timeout=REGISTRATION_TIMEOUT,
+        )
+    except requests.exceptions.RequestException as error:
+        logger.error(f"Could not register with the log collector: {error}")
+        return None
 
     if response.status_code == 200:
         token_data = response.json()
-        with open('config/logger_token.json', 'w', encoding='utf-8') as f:
-            json.dump({
-                "token": token_data['api_token'],
-                "app_id": token_data['id'],
-                "app_name": token_data['name'],
-                "created_at": datetime.utcnow().isoformat()
-            }, f, indent=2)
-
-        logger.info("Logger token created and saved to config/logger_token.json")
+        logger.info(f"Registered with the log collector as application "
+                    f"{token_data.get('id')}; keep the returned token in the environment")
         return token_data['api_token']
     else:
-        logger.error(f"Failed to create logger token: {response.text}")
+        logger.error(f"Failed to create logger token: HTTP {response.status_code}")
         return None
