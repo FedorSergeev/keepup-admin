@@ -14,6 +14,7 @@ framework keep separate databases. SQLite exists for development only.
 
 import asyncio
 import os
+import warnings
 from contextlib import contextmanager
 from typing import Optional, List, Dict, Any
 
@@ -389,8 +390,16 @@ class DatabaseManagerV2:
     def get_last_insert_rowid(cls, session=None) -> int:
         """Return the id of the last inserted row.
 
-        Works on both PostgreSQL and SQLite.
+        Works on both PostgreSQL and SQLite -- but only with the session that
+        made the insert. Without one it opens a new session, which may be
+        another pooled connection, and answers another insert's id or 0
+        (keepup-82); that form is deprecated. Use execute_commit_returning().
         """
+        if session is None:
+            warnings.warn(
+                "get_last_insert_rowid() without the inserting session may answer "
+                "another insert's id; use execute_commit_returning()",
+                DeprecationWarning, stacklevel=2)
         if cls._engine is None:
             cls.initialize()
 

@@ -389,13 +389,12 @@ class ConfigService:
                 )
                 theme_id = result['id'] if result else None
             else:
-                DatabaseManagerV2.execute_commit(
-                    self.CREATE_THEME_SQLITE,
-                    params
-                )
-                result = DatabaseManagerV2.execute_one(
-                    "SELECT last_insert_rowid() as id"
-                )
+                # The insert and last_insert_rowid() in one session: asked
+                # separately, the second query could go to another pooled
+                # connection and answer another insert's id, or 0 -- and the
+                # theme activated would not be this one (keepup-82).
+                result = DatabaseManagerV2.execute_commit_returning(
+                    self.CREATE_THEME_SQLITE, params, "id")
                 theme_id = result['id'] if result else None
 
             # An upsert: a theme of the same name may be the active one, with a

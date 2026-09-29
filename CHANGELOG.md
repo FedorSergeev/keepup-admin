@@ -122,6 +122,11 @@ Notable changes to `keepup-admin`.
 
 ### Fixed
 
+- **Creating a theme answers its own id.** On SQLite the id came from a
+  separate `SELECT last_insert_rowid()`, which could reach another pooled
+  connection and answer another insert's id or 0; a theme created active then
+  activated some other row. The insert and the read now share one session.
+
 - **The event list answers with the event's data.** It put the event's text,
   parsed as JSON, into `event_data` and did not answer with the stored data at
   all. The data is now in `data`.
@@ -164,6 +169,9 @@ Notable changes to `keepup-admin`.
 
 ### Deprecated
 
+- `DatabaseManagerV2.get_last_insert_rowid()` without the inserting session:
+  it opens a new one and may answer another insert's id. Use
+  `execute_commit_returning()`.
 - `event_data` in the answer of `GET /api/events`: it carries the event's text,
   not its data, and goes in the next major release. Read `data`.
 - The shell's own answer to a `payment_success` message (a notification and
