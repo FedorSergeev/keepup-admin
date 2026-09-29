@@ -87,6 +87,15 @@ def extend(sid: str, lifetime: timedelta, now: Optional[datetime] = None) -> Non
         {"sid": sid, "expires_at": now + lifetime})
 
 
+def session_owner(sid: str) -> Optional[int]:
+    """The account a live session belongs to, or None when it is revoked or unknown."""
+    row = DatabaseManagerV2.execute_one(
+        f"SELECT user_id, revoked_at FROM {TABLE} WHERE sid = :sid", {"sid": sid})
+    if not row or row.get("revoked_at") is not None:
+        return None
+    return int(row["user_id"])
+
+
 def is_active(sid: str, user_id: Optional[int] = None) -> bool:
     row = DatabaseManagerV2.execute_one(
         f"SELECT user_id, revoked_at FROM {TABLE} WHERE sid = :sid", {"sid": sid})

@@ -6,6 +6,13 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **A token can no longer renew its session past the renewal window.** The
+  exchange of a token for the panel cookie renewed the session without the
+  window check that refresh makes, so a stolen token lived for ever. Every
+  renewal now goes through the check. A token without `exp` or `sub` is
+  refused, and a token that names a session is accepted only while that
+  session belongs to the account the token names.
+
 - **The guessing limit holds against attempts sent at once, and the time of a
   refusal no longer says which names exist.** An attempt is counted before the
   password is checked (`login_throttle.reserve_attempt`), so parallel attempts

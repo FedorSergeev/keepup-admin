@@ -247,6 +247,15 @@ def issue_session_token(user_id: int, username: str, sid: Optional[str] = None,
     if sid is None:
         sid = panel_session.open_session(user_id, lifetime)
     else:
+        # Every renewal is held to the window, not only /api/auth/refresh: the
+        # exchange of a token for the cookie carried a session on without the
+        # check, so a stolen token could be renewed for ever (keepup-64).
+        from keepup.auth import session_lifetime
+        if not session_lifetime.is_renewable(session_started_at):
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="This session has run its course. Sign in again.",
+            )
         panel_session.extend(sid, lifetime)
     token = create_access_token({"sub": username, panel_session.SESSION_CLAIM: sid},
                                 expires_delta=lifetime, session_started_at=session_started_at)
@@ -270,34 +279,40 @@ async def request_token(request: Request, bearer: Optional[str] = Depends(oauth2
     return panel_session.token_from_request(request, bearer)
 
 
-def _session_is_live(payload: dict) -> bool:
-    """A token that names a session is good only while that session is.
-
-    A token without one was issued before sessions were recorded and is accepted
-    until it expires -- at most a day after the deployment.
-    """
-    sid = payload.get(panel_session.SESSION_CLAIM)
-    if sid is None:
-        return True
+def _session_owner(sid: str) -> Optional[int]:
+    """The account the live session ``sid`` belongs to, or None."""
     try:
-        return panel_session.is_active(sid)
+        return panel_session.session_owner(sid)
     except Exception as error:
         # Failing open here would make revocation depend on the database being
         # up; failing closed only costs a retry.
         logger.error(f"Could not check session {str(sid)[:8]}...: {error}")
-        return False
+        return None
 
 
 def _session_and_user(payload: dict, username: str):
     """Whether the token's session is live and, only if it is, whose account it is.
 
+    A token without a session was issued before sessions were recorded and is
+    accepted until it expires. One that names a session is good only while that
+    session is live and belongs to the account the token names: otherwise it was
+    not issued by this server, or names an account recreated under the same
+    name (keepup-64).
+
     The role set is read here too, in the same hop out of the event loop: one
     more statement on the thread that read the account, not a second thread and
     a second loop (keepup-43). It is not cached -- see keepup/auth/user_roles.py.
     """
-    if not _session_is_live(payload):
+    sid = payload.get(panel_session.SESSION_CLAIM)
+    owner = None
+    if sid is not None:
+        owner = _session_owner(sid)
+        if owner is None:
+            return False, None
+    user = auth_provider.lookup_user(username)
+    if owner is not None and user is not None and int(user["id"]) != owner:
         return False, None
-    return True, user_roles.attach_roles(auth_provider.lookup_user(username))
+    return True, user_roles.attach_roles(user)
 
 
 async def get_current_user(token: str = Depends(request_token)):
@@ -341,7 +356,10 @@ async def _get_local_user(token: Optional[str], ignore_empty_user: bool = False)
             if ignore_empty_user:
                 return None
             raise credentials_exception
-        payload = jwt.decode(token, resolve_signing_key(), algorithms=[ALGORITHM])
+        # Every token this server issues has an expiry and a subject; one
+        # without them was not issued here (keepup-64).
+        payload = jwt.decode(token, resolve_signing_key(), algorithms=[ALGORITHM],
+                             options={"require": ["exp", "sub"]})
         username: str = payload.get("sub")
         if username is None:
             if ignore_empty_user:
