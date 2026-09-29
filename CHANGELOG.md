@@ -6,6 +6,14 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **The first administrator's password stays out of the logs, and the public
+  one is retired.** A generated password was written into the start-up log,
+  which is also a file and a stream to the collector; it now goes only to the
+  process's standard error. `admin123` from earlier builds can no longer sign
+  in (403 with what to do), and a start given `ADMIN_INITIAL_PASSWORD`
+  replaces it. Upgrading: an administrator still on `admin123` sets the
+  variable and restarts, or another administrator changes the password.
+
 - **Answers and logs carry no text the server did not write.** The event-log
   and panel-section routes answered a failure with the exception's text, and
   the request audit recorded it unredacted; they now answer a generic message

@@ -22,7 +22,7 @@ from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, Field, field_validator
 
 from keepup.auth.usernames import is_valid_username
-from keepup.auth import panel_session, user_roles
+from keepup.auth import panel_session, seed_accounts, user_roles
 from keepup.auth.dependencies import (
     _authenticated_by_cookie,
     _bearer_of,
@@ -441,6 +441,16 @@ def register_auth_routes(app, manager):
             )
 
         await asyncio.to_thread(login_throttle.record_success, login_data.username)
+
+        # The administrator's password from earlier builds is in the source and in
+        # the breach lists: it proves nothing about who is signing in (keepup-74).
+        if seed_accounts.is_retired_admin_password(login_data.username, login_data.password):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="This password is public and can no longer be used. Set "
+                       f"{seed_accounts.ADMIN_PASSWORD_ENV} and restart the server, "
+                       "or ask another administrator to change it.",
+            )
 
         if user["status"] != "active":
             raise HTTPException(

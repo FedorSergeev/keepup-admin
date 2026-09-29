@@ -17,9 +17,11 @@ Three decisions follow.
 
 **The administrator's password is set by whoever deploys, not by the code.** It
 is read from `ADMIN_INITIAL_PASSWORD`; without that variable it is generated at
-random and printed once into the start-up log -- that is exactly where it can
-be read, and it differs on every deployment. A default fit for everyone does
-not exist here.
+random and printed once to the console of the starting process (standard
+error), and nowhere else. It used to go into the start-up log, and the log is
+also a file on disk and a stream shipped to the collector -- every place that
+kept it knew the key to the panel (keepup-74). It differs on every deployment;
+a default fit for everyone does not exist here.
 
 **`system` has no password at all.** Nobody signs in as it, so it is given a
 random value known to no one, ourselves included, and a status that sign-in
@@ -39,6 +41,7 @@ from __future__ import annotations
 import logging
 import os
 import secrets
+import sys
 from typing import Iterable, Mapping, Optional, Sequence, Tuple
 
 import bcrypt
@@ -64,9 +67,10 @@ RETIRED_SYSTEM_PASSWORDS: Tuple[str, ...] = (
     "system_password",
 )
 
-#: The same for the administrator. Its password is not overwritten silently --
-#: somebody may be working with the deployment right now -- but it is named at
-#: every start.
+#: The same for the administrator. Its password is not overwritten by a start on
+#: its own -- somebody may be working with the deployment right now -- but it can
+#: no longer be signed in with (keepup-74), and a start that is given
+#: ADMIN_INITIAL_PASSWORD replaces it: that is the deployer saying so.
 RETIRED_ADMIN_PASSWORDS: Tuple[str, ...] = ("admin123",)
 
 #: Length of a generated password, in bytes of randomness before encoding.
@@ -149,19 +153,35 @@ def matches_any(password_hash: Optional[str], candidates: Iterable[str]) -> bool
     return False
 
 
-def announce_generated_admin_password(password: str, log=logger) -> None:
-    """The only place a generated password is shown to a person.
+def announce_generated_admin_password(password: str, log=logger, console=None) -> None:
+    """The only place a generated password is shown to a person: the console.
+
+    Written straight to standard error, past logging: every logging handler is a
+    place the password would stay -- the log file, the collector the logs are
+    shipped to. The log says only that it happened and where to look.
 
     Args:
         password: the generated password.
-        log: the logger to announce through.
+        log: the logger to say it happened through.
+        console: where the password is written; standard error when omitted.
     """
+    console = console or sys.stderr
+    console.write(
+        f"\nCreated the administrator account '{ADMIN_USERNAME}' with a generated "
+        f"password: {password}\nIt is stored nowhere else and will not be shown "
+        f"again. Sign in and change it, or set {ADMIN_PASSWORD_ENV} before the "
+        f"first start.\n\n")
+    console.flush()
     log.warning(
-        "Created the administrator account '%s' with a generated password: %s\n"
-        "It is stored nowhere else and will not be shown again. Sign in and "
-        "change it, or set %s before the first start.",
-        ADMIN_USERNAME, password, ADMIN_PASSWORD_ENV,
+        "Created the administrator account '%s' with a generated password; it was "
+        "printed to this process's console (standard error) and is not in the log.",
+        ADMIN_USERNAME,
     )
+
+
+def is_retired_admin_password(username: str, password: str) -> bool:
+    """Whether this is the administrator signing in with a password the source gave away."""
+    return username == ADMIN_USERNAME and password in RETIRED_ADMIN_PASSWORDS
 
 
 def warn_about_retired_admin_password(log=logger) -> None:
@@ -173,9 +193,10 @@ def warn_about_retired_admin_password(log=logger) -> None:
     log.warning(
         "Account '%s' still carries a password from earlier builds. It is the "
         "same on every deployment, known to everyone who has seen the source, "
-        "and is in the breach lists. Change it in the panel: the Users section "
-        "-> Change password.",
-        ADMIN_USERNAME,
+        "and is in the breach lists, so it cannot be signed in with. Set %s and "
+        "restart to replace it, or have another administrator change it in the "
+        "panel: the Users section -> Change password.",
+        ADMIN_USERNAME, ADMIN_PASSWORD_ENV,
     )
 
 
@@ -258,7 +279,16 @@ def ensure_admin(cursor, *, role: str, auth_source: str, is_postgres: bool,
     row = cursor.fetchone()
     stored = row.get("password_hash") if hasattr(row, "get") else (row[0] if row else None)
     if matches_any(stored, RETIRED_ADMIN_PASSWORDS):
-        warn_about_retired_admin_password()
+        given, generated = initial_admin_password(environ)
+        if generated:
+            warn_about_retired_admin_password()
+            return
+        # The deployer set a password and the account still has the public one:
+        # that is an instruction, not a background procedure deciding for them.
+        cursor.execute(_sql("UPDATE users SET password_hash = ? WHERE username = ?", is_postgres),
+                       (hash_password(given), ADMIN_USERNAME))
+        logger.warning("The administrator's password from earlier builds was replaced "
+                       "with the one given in %s", ADMIN_PASSWORD_ENV)
 
 
 def ensure_system_user(cursor, *, role: str, auth_source: str, is_postgres: bool) -> None:
