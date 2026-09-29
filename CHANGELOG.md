@@ -4,6 +4,14 @@ Notable changes to `keepup-admin`.
 
 ## Unreleased
 
+### Added
+
+- **`keepup.positional_sql`**: `positional()`, `positional_many()`,
+  `insert_returning_id()`, `execute_many()` and `raw_connection()` for statements
+  written with `?` placeholders. Three applications kept identical copies of
+  these; moving to this release, an application imports them from here and
+  deletes its copy.
+
 ### Security
 
 - **The panel shell hears only its own origin.** Its `message` handler acted
