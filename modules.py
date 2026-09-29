@@ -19,7 +19,7 @@ from pydantic import BaseModel
 
 from keepup.auth.dependencies import get_current_admin, get_current_user
 from keepup.auth import user_roles
-from keepup import cache
+from keepup import admin_trail, cache
 from keepup.db import DatabaseManagerV2, db_config
 
 #: What an application may import from this module. Everything else is
@@ -463,45 +463,55 @@ def register_module_routes(app):
             raise HTTPException(status_code=404, detail="Module not found")
         return module
     @app.post("/api/admin/modules")
-    def create_module(
+    async def create_module(
             module_data: ModuleCreate,
             admin: dict = Depends(get_current_admin)
     ):
         """Create a module."""
         try:
-            create_or_update_module(module_data.dict())
+            await asyncio.to_thread(create_or_update_module, module_data.dict())
+            await admin_trail.record(admin_trail.SECTIONS_CHANGED, admin,
+                                     f"Section {module_data.module_id} created",
+                                     action="create", module_id=module_data.module_id)
             return {"success": True, "message": "Module created successfully"}
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
     @app.put("/api/admin/modules/{module_id}")
-    def update_module(
+    async def update_module(
             module_id: str,
             module_data: ModuleUpdate,
             admin: dict = Depends(get_current_admin)
     ):
         """Update a module."""
-        existing = get_module_by_id(module_id)
+        existing = await asyncio.to_thread(get_module_by_id, module_id)
         if not existing:
             raise HTTPException(status_code=404, detail="Module not found")
 
         try:
             update_data = module_data.dict(exclude_unset=True)
             update_data['module_id'] = module_id
-            create_or_update_module(update_data)
+            await asyncio.to_thread(create_or_update_module, update_data)
+            await admin_trail.record(admin_trail.SECTIONS_CHANGED, admin,
+                                     f"Section {module_id} updated", action="update",
+                                     module_id=module_id,
+                                     fields=sorted(k for k in update_data if k != "module_id"))
             return {"success": True, "message": "Module updated successfully"}
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
     @app.delete("/api/admin/modules/{module_id}")
-    def delete_module_endpoint(
+    async def delete_module_endpoint(
             module_id: str,
             admin: dict = Depends(get_current_admin)
     ):
         """Delete a module."""
-        existing = get_module_by_id(module_id)
+        existing = await asyncio.to_thread(get_module_by_id, module_id)
         if not existing:
             raise HTTPException(status_code=404, detail="Module not found")
 
-        delete_module(module_id)
+        await asyncio.to_thread(delete_module, module_id)
+        await admin_trail.record(admin_trail.SECTIONS_CHANGED, admin,
+                                 f"Section {module_id} deleted", action="delete",
+                                 module_id=module_id)
         return {"success": True, "message": "Module deleted successfully"}
     @app.get("/api/admin/role-modules")
     def get_role_modules(admin: dict = Depends(get_current_admin)):
@@ -517,21 +527,29 @@ def register_module_routes(app):
 
         return roles_modules
     @app.post("/api/admin/role-modules")
-    def update_role_modules_endpoint(
+    async def update_role_modules_endpoint(
             role_data: RoleModulesUpdate,
             admin: dict = Depends(get_current_admin)
     ):
         """Update the modules granted to a role."""
         try:
-            update_role_modules(role_data.role_name, role_data.module_ids)
+            await asyncio.to_thread(update_role_modules, role_data.role_name,
+                                    role_data.module_ids)
+            await admin_trail.record(admin_trail.SECTIONS_CHANGED, admin,
+                                     f"Sections of role {role_data.role_name} set",
+                                     action="grant", role_name=role_data.role_name,
+                                     module_ids=list(role_data.module_ids))
             return {"success": True, "message": "Role modules updated successfully"}
         except Exception as e:
             raise HTTPException(status_code=400, detail=str(e))
     @app.post("/api/admin/modules/import-from-json")
-    def import_modules_from_json_endpoint(admin: dict = Depends(get_current_admin)):
+    async def import_modules_from_json_endpoint(admin: dict = Depends(get_current_admin)):
         """Import the modules from the JSON file."""
-        success = import_modules_from_json()
+        success = await asyncio.to_thread(import_modules_from_json)
         if success:
+            await admin_trail.record(admin_trail.SECTIONS_CHANGED, admin,
+                                     "Sections and grants reset from the file",
+                                     action="import")
             return {"success": True, "message": "Modules imported successfully"}
         else:
             raise HTTPException(status_code=500, detail="Error importing modules")

@@ -22,7 +22,6 @@ from pydantic import BaseModel
 
 from keepup.auth.dependencies import get_current_admin
 from keepup.db import DatabaseManagerV2
-from keepup.instance import get_instance_id
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -267,15 +266,12 @@ def register_metrics_routes(app, public=False):
             logger.error(f"Error getting instance details: {str(e)}")
             raise HTTPException(status_code=500, detail="Error retrieving instance details")
     @app.post("/api/admin/instances/{instance_id}/restart")
-    def restart_instance(instance_id: str, admin: dict = Depends(get_current_admin)):
-        """TODO: restart an instance -- not actually implemented."""
-        logger.info(f"Restart requested for instance: {instance_id} by admin: {admin['username']}")
+    async def restart_instance(instance_id: str, admin: dict = Depends(get_current_admin)):
+        """Restart one replica: the cluster's restart command, recorded with its author.
 
-        DatabaseManagerV2.execute_commit('''
-        INSERT INTO system_metrics (metric_name, metric_value, app_instance, tags)
-        VALUES (:metric_name, :metric_value, :app_instance, :tags)
-        ''', {"metric_name": "instance_restart", "metric_value": 1,
-            "app_instance": get_instance_id(),
-            "tags": f"target:{instance_id},admin:{admin['username']}"})
-
-        return {"success": True, "message": f"Restart command sent for instance {instance_id}"}
+        This answered "sent" and did nothing but write a metric (keepup-67); the
+        cluster registry is what actually carries a command to a replica, and it
+        refuses one that cannot be carried out with the reason.
+        """
+        from keepup import cluster
+        return await cluster.give_command(instance_id, {"action": cluster.ACTION_RESTART}, admin)

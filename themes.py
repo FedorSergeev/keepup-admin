@@ -8,7 +8,7 @@ from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 
 from keepup.auth.dependencies import get_current_admin
 
-from keepup import cache, tables
+from keepup import admin_trail, cache, tables
 from keepup.db import DatabaseManagerV2
 
 #: What an application may import from this module. Everything else is
@@ -484,6 +484,9 @@ def register_theme_routes(app, config_service):
         success = config_service.set_active_theme(theme_id)
 
         if success:
+            await admin_trail.record(admin_trail.THEMES_CHANGED, admin,
+                                     f"Theme {theme_id} activated",
+                                     action="activate", theme_id=theme_id)
             return {"success": True, "message": f"Theme {theme_id} activated"}
         else:
             return {"success": False, "message": f"Failed to activate theme {theme_id}"}
@@ -494,6 +497,11 @@ def register_theme_routes(app, config_service):
         theme_id = config_service.create_theme(theme_name, main_page_file, is_active)
 
         if theme_id:
+            await admin_trail.record(admin_trail.THEMES_CHANGED, admin,
+                                     f"Theme {theme_id} created",
+                                     action="create", theme_id=theme_id,
+                                     theme_name=theme_name, main_page_file=main_page_file,
+                                     is_active=is_active)
             return {"success": True, "theme_id": theme_id, "message": "Theme created"}
         else:
             return {"success": False, "message": "Failed to create theme"}
@@ -503,6 +511,9 @@ def register_theme_routes(app, config_service):
         success = config_service.delete_theme(theme_id)
 
         if success:
+            await admin_trail.record(admin_trail.THEMES_CHANGED, admin,
+                                     f"Theme {theme_id} deleted",
+                                     action="delete", theme_id=theme_id)
             return {"success": True, "message": f"Theme {theme_id} deleted"}
         else:
             return {"success": False, "message": f"Failed to delete theme {theme_id}"}

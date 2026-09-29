@@ -6,6 +6,16 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **What an administrator changes leaves a trace in the event log.** Purging
+  the log, changing panel sections and their grants, themes and plugin
+  decisions now each write an event naming the administrator
+  (`keepup.admin_trail`). `POST /api/events` refuses the types the application
+  declares and the framework's own trail types with 400, and marks what it
+  accepts with `event_data.manual`. `POST /api/admin/instances/{id}/restart`
+  issues the cluster's restart command -- refused with the cluster's reason
+  when it cannot be carried out -- instead of answering "sent" and doing
+  nothing.
+
 - **Envelopes on the replicas' bus are sealed.** Any database role that can
   connect may NOTIFY on the application's channel, and an envelope was accepted
   on its shape alone. `encode_envelope` now adds the time sent and an

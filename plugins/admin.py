@@ -23,6 +23,7 @@ from typing import Any, Dict
 from fastapi import Depends, HTTPException
 
 from keepup.auth.dependencies import get_current_admin, get_current_user
+from keepup import admin_trail
 from keepup.auth import user_roles
 from keepup.db import DatabaseManagerV2
 from keepup.plugins import enablement
@@ -186,6 +187,9 @@ async def set_plugin_enabled(plugin_id: str, request: Dict[str, Any], admin: dic
     except Exception as e:
         logger.error(f"Could not store the plugin override for {plugin_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+    await admin_trail.record(admin_trail.PLUGIN_DECISION_CHANGED, admin,
+                             f"Plugin {plugin_id} {'enabled' if enabled else 'disabled'} "
+                             f"from the panel", plugin_id=plugin_id, enabled=enabled)
     return {"success": True, "plugin_id": plugin_id, "enabled": enabled,
             "pending_restart": True}
 
@@ -198,6 +202,9 @@ async def clear_plugin_enabled(plugin_id: str, admin: dict = None):
     except Exception as e:
         logger.error(f"Could not clear the plugin override for {plugin_id}: {e}")
         raise HTTPException(status_code=500, detail="Internal server error")
+    await admin_trail.record(admin_trail.PLUGIN_DECISION_CHANGED, admin,
+                             f"Decision about plugin {plugin_id} given back to the file",
+                             plugin_id=plugin_id, enabled=None)
     return {"success": True, "plugin_id": plugin_id}
 
 

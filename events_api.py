@@ -14,7 +14,7 @@ from fastapi import Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from keepup.auth.dependencies import get_current_admin
-from keepup import events
+from keepup import admin_trail, events
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -72,18 +72,31 @@ def register_event_api_routes(app, declared_event_types=None):
             event: EventCreate,
             current_user: dict = Depends(get_current_admin)
     ):
-        """Create an event.
+        """Create an event by hand.
 
         Administrators only. Audit events are written by the server itself at
         the point the action happens (the application's audit helper), never
         accepted over HTTP: a journal the watched party can fill is not
-        evidence. The event is attached to the current instance.
+        evidence. So a type the application declares, or one the framework
+        writes itself, is refused here, and what is accepted carries who wrote
+        it by hand (keepup-67). The event is attached to the current instance.
         """
+        reserved = set(admin_trail.ADMIN_EVENT_TYPES)
+        if declared_event_types:
+            reserved.update(declared_event_types() or ())
+        if event.event_type in reserved:
+            raise HTTPException(
+                status_code=400,
+                detail="This event type is written by the application itself and "
+                       "cannot be created by hand.")
+        data = dict(event.event_data or {})
+        data["manual"] = {"user_id": current_user.get("id"),
+                          "username": current_user.get("username")}
         try:
             event_id = await events.event_manager.create_event(
                 event_type=event.event_type,
                 event_text=event.event_text,
-                event_data=event.event_data
+                event_data=data
             )
 
             return {
@@ -184,9 +197,17 @@ def register_event_api_routes(app, declared_event_types=None):
             days: int = Query(30, ge=1, le=365, description="Delete events older than N days"),
             current_user: dict = Depends(get_current_admin)
     ):
-        """Delete old events (administrators only)."""
+        """Delete old events (administrators only).
+
+        The purge itself is written into the log afterwards, so what it
+        removed is not all that is left of it (keepup-67).
+        """
         try:
             deleted_count = await events.event_manager.delete_old_events(days)
+            await admin_trail.record(
+                admin_trail.EVENTS_PURGED, current_user,
+                f"Deleted {deleted_count} events older than {days} days",
+                days=days, deleted_count=deleted_count)
             return {
                 "success": True,
                 "deleted_count": deleted_count,

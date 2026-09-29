@@ -721,7 +721,9 @@ async function restartInstance(instanceId) {
             // Refresh data after 5 seconds
             setTimeout(loadMetricsData, 5000);
         } else {
-            throw new Error('Restart failed');
+            // The cluster refuses a restart it cannot carry out, and says why.
+            const answer = await response.json().catch(() => ({}));
+            showNotification(answer.detail || 'Failed to restart instance', 'error');
         }
     } catch (error) {
         console.error('Failed to restart instance:', error);
