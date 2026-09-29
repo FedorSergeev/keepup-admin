@@ -75,8 +75,8 @@ def signed(claims):
     return jwt.encode(claims, resolve_signing_key(), algorithm=ALGORITHM)
 
 
-@pytest.mark.parametrize("drop", ["exp", "sub"])
-def test_a_token_without_an_expiry_or_a_subject_is_refused(client, drop):
+@pytest.mark.parametrize("drop", ["exp", "sub", "sid"])
+def test_a_token_without_an_expiry_a_subject_or_a_session_is_refused(client, drop):
     user = account("renewal-claims")
     sid = panel_session.open_session(user["id"], timedelta(hours=1))
     claims = {"sub": user["username"], "sid": sid,

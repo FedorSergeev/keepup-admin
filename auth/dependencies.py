@@ -293,24 +293,24 @@ def _session_owner(sid: str) -> Optional[int]:
 def _session_and_user(payload: dict, username: str):
     """Whether the token's session is live and, only if it is, whose account it is.
 
-    A token without a session was issued before sessions were recorded and is
-    accepted until it expires. One that names a session is good only while that
-    session is live and belongs to the account the token names: otherwise it was
-    not issued by this server, or names an account recreated under the same
-    name (keepup-64).
+    A token is good only while its session is live and belongs to the account
+    the token names: otherwise it was not issued by this server, or names an
+    account recreated under the same name (keepup-64). A token without a
+    session is refused: tokens from before sessions were recorded were accepted
+    until they expired, and that transition is over (keepup-81).
 
     The role set is read here too, in the same hop out of the event loop: one
     more statement on the thread that read the account, not a second thread and
     a second loop (keepup-43). It is not cached -- see keepup/auth/user_roles.py.
     """
     sid = payload.get(panel_session.SESSION_CLAIM)
-    owner = None
-    if sid is not None:
-        owner = _session_owner(sid)
-        if owner is None:
-            return False, None
+    if not sid:
+        return False, None
+    owner = _session_owner(sid)
+    if owner is None:
+        return False, None
     user = auth_provider.lookup_user(username)
-    if owner is not None and user is not None and int(user["id"]) != owner:
+    if user is not None and int(user["id"]) != owner:
         return False, None
     return True, user_roles.attach_roles(user)
 
@@ -356,10 +356,11 @@ async def _get_local_user(token: Optional[str], ignore_empty_user: bool = False)
             if ignore_empty_user:
                 return None
             raise credentials_exception
-        # Every token this server issues has an expiry and a subject; one
-        # without them was not issued here (keepup-64).
+        # Every token this server issues has an expiry, a subject and a session;
+        # one without them was not issued here, or was issued before sessions
+        # were recorded -- long enough ago to have expired (keepup-64, keepup-81).
         payload = jwt.decode(token, resolve_signing_key(), algorithms=[ALGORITHM],
-                             options={"require": ["exp", "sub"]})
+                             options={"require": ["exp", "sub", panel_session.SESSION_CLAIM]})
         username: str = payload.get("sub")
         if username is None:
             if ignore_empty_user:

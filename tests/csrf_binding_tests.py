@@ -15,7 +15,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from keepup.auth import dependencies, login_throttle, panel_session
+from keepup.auth import dependencies, panel_session
 from keepup.auth.routes import register_auth_routes
 from keepup.db import DatabaseManagerV2
 from keepup.schema import init_db
@@ -118,11 +118,12 @@ def test_the_value_is_not_the_session_id():
     assert sid not in csrf(client)
 
 
-def test_a_token_from_before_sessions_still_uses_the_cookie():
+def test_a_token_without_a_session_is_refused_whatever_the_cookie_says():
+    """No session, no value to check against -- and no token accepted (keepup-81)."""
     name = account("csrf-legacy")
     legacy = dependencies.create_access_token({"sub": name}, expires_delta=timedelta(minutes=5))
     client = TestClient(app())
     client.cookies.set(panel_session.SESSION_COOKIE, legacy)
     client.cookies.set(panel_session.CSRF_COOKIE, "legacy-value")
     answer = client.post("/api/auth/session", headers={panel_session.CSRF_HEADER: "legacy-value"})
-    assert answer.status_code == 200
+    assert answer.status_code in (401, 403)

@@ -6,6 +6,11 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **A token without a session is refused.** Tokens from before sessions were
+  recorded were accepted until they expired; that transition is over. Every
+  token the server issues names a session, one that does not is refused on a
+  request, at the exchange for the cookie and by the CSRF check.
+
 - **The first administrator's password stays out of the logs, and the public
   one is retired.** A generated password was written into the start-up log,
   which is also a file and a stream to the collector; it now goes only to the

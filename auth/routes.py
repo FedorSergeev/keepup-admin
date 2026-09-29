@@ -299,8 +299,7 @@ async def refresh_access_token(current_user: dict, request: Request = None,
         )
 
     # Carried forward, not restarted: the window counts from the login, and the
-    # session stays the one a logout will revoke. A token from before sessions
-    # were recorded gets one here.
+    # session stays the one a logout will revoke.
     issued = await asyncio.to_thread(
         issue_session_token, current_user["id"], current_user["username"],
         sid=current_user.get("session_id"), session_started_at=session_started_at)

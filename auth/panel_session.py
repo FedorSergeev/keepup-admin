@@ -176,8 +176,8 @@ def csrf_for(token: Optional[str]) -> Optional[str]:
     plain-HTTP hop -- knew the value a double-submit check would accept, and the
     value outlived every sign-in. A new sign-in is a new session and so a new
     value; a renewal keeps the session and so keeps the value, which is what an
-    open panel tab needs. None for a token that names no session (issued
-    before sessions were recorded) or does not decode.
+    open panel tab needs. None for a token that names no session or does not
+    decode -- neither is accepted by the server (keepup-81).
     """
     if not token:
         return None
@@ -203,9 +203,6 @@ def csrf_matches(request: Request) -> bool:
     if not presented:
         return False
     expected = csrf_for(request.cookies.get(SESSION_COOKIE))
-    if expected is None:
-        # A token from before sessions were recorded: the cookie is all there is.
-        expected = request.cookies.get(CSRF_COOKIE)
     return bool(expected) and secrets.compare_digest(expected, presented)
 
 
@@ -267,7 +264,7 @@ def set_cookies(response, request: Request, token: str, max_age: int) -> str:
                         httponly=True, secure=secure, samesite="lax")
     # The session's own value: new with every sign-in, the same across renewals,
     # so a panel tab holding it keeps working (keepup-72).
-    csrf = csrf_for(token) or request.cookies.get(CSRF_COOKIE) or secrets.token_urlsafe(32)
+    csrf = csrf_for(token) or secrets.token_urlsafe(32)
     response.set_cookie(CSRF_COOKIE, csrf, max_age=max_age, path="/",
                         httponly=False, secure=secure, samesite="lax")
     return csrf
