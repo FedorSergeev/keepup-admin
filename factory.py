@@ -34,7 +34,7 @@ from keepup.audit import (audit_retention_background, background_buffer_flusher,
                           init_incoming_requests_table)
 from keepup.auth import dependencies as auth_dependencies
 from keepup.auth import routes as auth_routes
-from keepup.auth import socket_sessions
+from keepup.auth import panel_session, socket_sessions
 from keepup.auth.oidc_routes import register_oidc_routes
 from keepup.events import events_retention_background, init_event_manager
 from keepup.events_api import register_event_api_routes
@@ -501,6 +501,10 @@ def create_app(settings: KeepupSettings = None) -> FastAPI:
     if settings.security_headers:
         app.add_middleware(SecurityHeadersMiddleware,
                            https=os.getenv("SSL_ENABLED", "false").lower() == "true")
+
+    # A panel signed in before the CSRF value was bound to the session gets the
+    # bound one on its next read (keepup/auth/panel_session.py, keepup-72).
+    app.add_middleware(panel_session.CsrfCookieRefresh)
 
     # A replica an administrator stopped refuses the API (keepup/cluster.py).
     # Added before the version middleware, so it runs inside it and sees the

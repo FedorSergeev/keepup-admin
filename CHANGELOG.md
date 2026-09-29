@@ -6,6 +6,14 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **The CSRF value belongs to the session.** It was random, survived every
+  sign-in and was trusted from its cookie, so whoever could plant a cookie
+  chose the value the check accepted. It is now derived from the session
+  (`panel_session.csrf_for`) and checked against it: new with every sign-in,
+  the same across renewals. `CsrfCookieRefresh` puts the session's value in
+  the cookie on any read that carries another, so a panel opened before the
+  upgrade keeps renewing. Cookie names are unchanged; applications read them.
+
 - **The lowest versions the package admits are free of known advisories.**
   The ranges let an installation keep PyJWT, python-multipart and requests
   versions with published advisories, and left `cryptography` and `urllib3`

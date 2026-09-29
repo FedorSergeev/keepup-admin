@@ -17,6 +17,9 @@ the page, echoed in `X-CSRF-Token`. A real `Authorization: Bearer` (an agent, a
 script) needs no such proof -- another site cannot set that header.
 """
 
+import base64
+import hashlib
+import hmac
 import logging
 import os
 import secrets
@@ -162,10 +165,48 @@ def token_from_request(request: Request, bearer: Optional[str]) -> Optional[str]
     return token
 
 
+_CSRF_CONTEXT = b"keepup.csrf"
+
+
+def csrf_for(token: Optional[str]) -> Optional[str]:
+    """The CSRF value of the session this token names, or None.
+
+    Derived from the session rather than drawn at random and trusted from the
+    cookie (keepup-72): whoever could plant a cookie -- a sibling subdomain, a
+    plain-HTTP hop -- knew the value a double-submit check would accept, and the
+    value outlived every sign-in. A new sign-in is a new session and so a new
+    value; a renewal keeps the session and so keeps the value, which is what an
+    open panel tab needs. None for a token that names no session (issued
+    before sessions were recorded) or does not decode.
+    """
+    if not token:
+        return None
+    try:
+        import jwt
+        from keepup.auth.providers.base import ALGORITHM
+        from keepup.auth.signing_key import resolve_signing_key
+        key = resolve_signing_key()
+        payload = jwt.decode(token, key, algorithms=[ALGORITHM],
+                             options={"verify_exp": False})
+    except Exception:
+        return None
+    sid = payload.get(SESSION_CLAIM)
+    if not sid:
+        return None
+    derived = hmac.new(key.encode("utf-8"), _CSRF_CONTEXT, hashlib.sha256).digest()
+    mac = hmac.new(derived, str(sid).encode("utf-8"), hashlib.sha256).digest()
+    return base64.urlsafe_b64encode(mac).rstrip(b"=").decode("ascii")
+
+
 def csrf_matches(request: Request) -> bool:
-    expected = request.cookies.get(CSRF_COOKIE)
     presented = request.headers.get(CSRF_HEADER)
-    return bool(expected and presented and secrets.compare_digest(expected, presented))
+    if not presented:
+        return False
+    expected = csrf_for(request.cookies.get(SESSION_COOKIE))
+    if expected is None:
+        # A token from before sessions were recorded: the cookie is all there is.
+        expected = request.cookies.get(CSRF_COOKIE)
+    return bool(expected) and secrets.compare_digest(expected, presented)
 
 
 def websocket_token(query_token: Optional[str], cookies) -> Optional[str]:
@@ -224,12 +265,52 @@ def set_cookies(response, request: Request, token: str, max_age: int) -> str:
     secure = is_https(request)
     response.set_cookie(SESSION_COOKIE, token, max_age=max_age, path="/",
                         httponly=True, secure=secure, samesite="lax")
-    # Kept across renewals: a panel tab holding the old value would otherwise
-    # have its next change refused.
-    csrf = request.cookies.get(CSRF_COOKIE) or secrets.token_urlsafe(32)
+    # The session's own value: new with every sign-in, the same across renewals,
+    # so a panel tab holding it keeps working (keepup-72).
+    csrf = csrf_for(token) or request.cookies.get(CSRF_COOKIE) or secrets.token_urlsafe(32)
     response.set_cookie(CSRF_COOKIE, csrf, max_age=max_age, path="/",
                         httponly=False, secure=secure, samesite="lax")
     return csrf
+
+
+class CsrfCookieRefresh:
+    """Put the session's CSRF value in the cookie on a read that carries another.
+
+    A session signed in before keepup-72 holds a random value, which no longer
+    matches, and the panel renews its session with a POST that needs the right
+    one -- so without this every open panel would be locked out of its own
+    renewal on the release day. A read cannot be forged into doing anything, so
+    the answer to any GET is where the value is put right; a planted cookie is
+    overwritten the same way.
+    """
+
+    def __init__(self, app):
+        self.app = app
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http" or scope.get("method", "GET").upper() not in SAFE_METHODS:
+            await self.app(scope, receive, send)
+            return
+        request = Request(scope)
+        token = request.cookies.get(SESSION_COOKIE)
+        expected = csrf_for(token) if token else None
+        if expected is None or request.cookies.get(CSRF_COOKIE) == expected:
+            await self.app(scope, receive, send)
+            return
+
+        from starlette.responses import Response
+        carrier = Response()
+        carrier.set_cookie(CSRF_COOKIE, expected, path="/", httponly=False,
+                           secure=is_https(request), samesite="lax")
+        cookie = [(name, value) for name, value in carrier.raw_headers
+                  if name == b"set-cookie"]
+
+        async def send_with_cookie(message):
+            if message["type"] == "http.response.start":
+                message = {**message, "headers": list(message.get("headers", [])) + cookie}
+            await send(message)
+
+        await self.app(scope, receive, send_with_cookie)
 
 
 def clear_cookies(response) -> None:
