@@ -122,6 +122,12 @@ Notable changes to `keepup-admin`.
 
 ### Fixed
 
+- **Signing in through a provider and starting up keep the database off the
+  loop.** The end of a provider sign-in -- finding or creating the account,
+  bringing its roles in step, opening the session -- and the table set-up at
+  start-up queried the database on the event loop. They run on a worker
+  thread now (`oidc_routes.complete_sign_in`).
+
 - **The database configuration is built once.** `keepup.db` built
   `DatabaseConfig` twice, the second instance replacing the first at import.
 

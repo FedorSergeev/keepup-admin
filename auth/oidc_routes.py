@@ -13,8 +13,9 @@ paths do not exist: the possibility is off, not broken, and a 404 there is the
 truthful answer.
 """
 
+import asyncio
 import logging
-from typing import Any, Dict, List, Optional
+from typing import Any, Dict, List, Optional, Tuple
 
 from fastapi import HTTPException, Request, status
 from fastapi.responses import RedirectResponse
@@ -197,6 +198,29 @@ def sync_roles(account: Dict[str, Any], issuer: str, claims: Dict[str, Any],
 
 # --- the endpoints -------------------------------------------------------------
 
+def complete_sign_in(issuer: str, claims: Dict[str, Any], provider,
+                     policy) -> Tuple[Dict[str, Any], Dict[str, Any]]:
+    """Find or create the account, bring its roles in step, open its session.
+
+    Blocking: run it off the loop. Raises SignInRefused when the policy
+    refuses a new account or the account is not active.
+    """
+    account = find_account(issuer, claims["sub"])
+
+    if account is None:
+        decision = oidc_policy.decide(policy, claims)
+        if not decision.admit:
+            raise oidc.SignInRefused(f"policy refused a new account: {decision.reason}")
+        account = create_account(issuer, claims, decision)
+
+    if account.get("status") != "active":
+        # Proving who you are is not the same as being allowed in.
+        raise oidc.SignInRefused(f"the account {account['username']} is not active")
+
+    sync_roles(account, issuer, claims, provider)
+    return account, issue_session_token(account["id"], account["username"])
+
+
 def register_oidc_routes(app, settings) -> None:
     """Register external sign-in, if this application configured a provider."""
     if settings.oidc is None:
@@ -266,21 +290,15 @@ def register_oidc_routes(app, settings) -> None:
             raise _refuse(f"the exchange failed: {error}")
 
         issuer = (await directory.metadata()).issuer
-        account = find_account(issuer, claims["sub"])
+        # Every step from here reads or writes the database, so they leave the
+        # loop together, in one hop: they used to run on it, holding every
+        # other request of the replica for the length of a sign-in (keepup-54).
+        try:
+            account, issued = await asyncio.to_thread(
+                complete_sign_in, issuer, claims, provider, settings.oidc_account_policy)
+        except oidc.SignInRefused as refusal:
+            raise _refuse(str(refusal))
 
-        if account is None:
-            decision = oidc_policy.decide(settings.oidc_account_policy, claims)
-            if not decision.admit:
-                raise _refuse(f"policy refused a new account: {decision.reason}")
-            account = create_account(issuer, claims, decision)
-
-        if account.get("status") != "active":
-            # Proving who you are is not the same as being allowed in.
-            raise _refuse(f"the account {account['username']} is not active")
-
-        sync_roles(account, issuer, claims, provider)
-
-        issued = issue_session_token(account["id"], account["username"])
         response = RedirectResponse(provider.after_login_path,
                                     status_code=status.HTTP_303_SEE_OTHER)
         panel_session.set_cookies(response, request, issued["access_token"],

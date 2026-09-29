@@ -221,7 +221,9 @@ def _build_lifespan(settings: KeepupSettings):
         # is shared across every replica.
         retention_task = asyncio.create_task(metrics_retention_background())
 
-        init_incoming_requests_table()
+        # Table creation is a round of statements against the database; off the
+        # loop, where the tasks started above already run (keepup-54).
+        await asyncio.to_thread(init_incoming_requests_table)
         flusher_task = asyncio.create_task(background_buffer_flusher())
         # The audit table had no sweep at all while snapshots and events both
         # had one, so it grew for as long as the deployment ran (keepup-11).
@@ -232,7 +234,7 @@ def _build_lifespan(settings: KeepupSettings):
         # revoked (keepup-65).
         socket_sessions_task = asyncio.create_task(socket_sessions.run_forever())
 
-        event_manager = init_event_manager()
+        event_manager = await asyncio.to_thread(init_event_manager)
         if event_manager:
             logger.info("Event manager started successfully")
         else:
