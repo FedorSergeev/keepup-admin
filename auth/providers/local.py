@@ -7,6 +7,7 @@ service to stand up.
 """
 
 import asyncio
+import os
 import logging
 from typing import Optional, Dict, Any
 
@@ -43,6 +44,17 @@ def get_user_by_id(user_id: int):
 
 def verify_password(plain_password: str, hashed_password: str):
     return bcrypt.checkpw(plain_password.encode('utf-8'), hashed_password.encode('utf-8'))
+
+_STAND_IN_HASH = None
+
+
+def _stand_in_hash() -> str:
+    """A bcrypt hash of nothing anyone knows, at the cost real hashes are made with."""
+    global _STAND_IN_HASH
+    if _STAND_IN_HASH is None:
+        _STAND_IN_HASH = bcrypt.hashpw(os.urandom(16).hex().encode(), bcrypt.gensalt()).decode()
+    return _STAND_IN_HASH
+
 
 class LocalAuthProvider(AuthProvider):
     """Local authentication provider backed by the existing database."""
@@ -113,6 +125,10 @@ class LocalAuthProvider(AuthProvider):
     def _authenticate(username: str, password: str) -> Optional[Dict[str, Any]]:
         user = get_user_by_username(username)
         if not user:
+            # The same bcrypt work as for a real account: answered at once, a
+            # missing name was told apart from a wrong password by time alone --
+            # 0.002 s against 0.27 s (audit keepup-52, finding 4).
+            verify_password(password, _stand_in_hash())
             return None
 
         if not verify_password(password, user["password_hash"]):

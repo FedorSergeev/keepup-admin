@@ -15,7 +15,7 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import Column, DateTime, Integer, String, Text
+from sqlalchemy import Column, DateTime, Integer, String, Text, text
 
 from keepup import tables
 from keepup.db import DatabaseManagerV2
@@ -137,6 +137,35 @@ def record_failure(username: str, now: Optional[datetime] = None) -> None:
             {"username": username, "now": now, "window_start": now - lockout_window()})
     except Exception as error:
         logger.warning(f"Could not record a failed login of {username}: {error}")
+
+
+def reserve_attempt(username: str, now: Optional[datetime] = None) -> int:
+    """Count this attempt before the password is checked; how many there are now.
+
+    The check and the count used to be separated by the password check -- a
+    quarter of a second of bcrypt -- so attempts sent at once all passed the
+    check before any of them was counted: forty in parallel against a limit of
+    ten were all answered 401 and none 429 (audit keepup-52, finding 3). Counted
+    first, attempts are numbered in the order the database takes them, and the
+    ones past the limit are refused without their password being looked at. A
+    successful sign-in clears the count as before.
+
+    Returns 0 when the count could not be kept: a throttle that cannot write its
+    own table must not become the reason nobody can sign in.
+    """
+    if not username:
+        return 0
+    now = now or datetime.utcnow()
+    try:
+        with DatabaseManagerV2.get_session() as session:
+            row = session.execute(
+                text(_RECORD_FAILURE + " RETURNING failures"),
+                {"username": username, "now": now,
+                 "window_start": now - lockout_window()}).fetchone()
+        return int(row[0]) if row else 0
+    except Exception as error:
+        logger.warning(f"Could not count a sign-in attempt of {username}: {error}")
+        return 0
 
 
 def record_success(username: str) -> None:

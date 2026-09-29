@@ -6,6 +6,12 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **The guessing limit holds against attempts sent at once, and the time of a
+  refusal no longer says which names exist.** An attempt is counted before the
+  password is checked (`login_throttle.reserve_attempt`), so parallel attempts
+  past the limit are refused without reaching bcrypt; a missing name is checked
+  against a stand-in hash of the same cost.
+
 - **A user name can no longer run as a script in the panel.** The Users
   section spliced the name into markup and into inline handlers, so a name
   with markup ran in the session of the administrator who opened the list; the

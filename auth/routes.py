@@ -32,7 +32,6 @@ from keepup.auth.dependencies import (
     get_current_admin,
     get_current_user,
     get_user_by_id,
-    get_user_by_username_async,
     issue_session_token,
     update_user,
 )
@@ -407,9 +406,20 @@ def register_auth_routes(app, manager):
                 detail="Too many sign-in attempts. Try again later.",
             )
 
-        user = await get_user_by_username_async(login_data.username)
-        if not user or not await authenticate(login_data.username, login_data.password):
-            await asyncio.to_thread(login_throttle.record_failure, login_data.username)
+        # Counted before the password is looked at, so attempts sent at once are
+        # numbered and the ones past the limit never reach the check (keepup-63).
+        attempt = await asyncio.to_thread(login_throttle.reserve_attempt, login_data.username)
+        if attempt > login_throttle.max_attempts():
+            raise HTTPException(
+                status_code=status.HTTP_429_TOO_MANY_REQUESTS,
+                detail="Too many sign-in attempts. Try again later.",
+            )
+
+        # One read and one password check, whether or not the name exists: the
+        # provider checks a stand-in hash for a missing account, so the time of
+        # the answer does not say which names are there (keepup-63).
+        user = await authenticate(login_data.username, login_data.password)
+        if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
