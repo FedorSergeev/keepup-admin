@@ -51,3 +51,14 @@ jobs:
         # vulnerability is found, 0 when the only thing skipped is ourselves.
         # Verified both ways rather than assumed (keepup-33).
         run: python -m pip_audit --progress-spinner off
+
+      - name: Audit the lowest versions the package admits
+        # The step above audits what resolves today, which is always the newest
+        # and goes green as soon as a fix is released. An installation that
+        # keeps an older version inside the declared range is just as much this
+        # package's installation, so the floors are audited too (keepup-69).
+        # Pinned and without dependencies: every floor is listed, and nothing
+        # is installed -- only the advisories are looked up.
+        run: |
+          python .github/scripts/floor_requirements.py > floors.txt
+          python -m pip_audit --progress-spinner off --no-deps --disable-pip -r floors.txt

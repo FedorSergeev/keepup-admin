@@ -61,13 +61,22 @@ dependencies = [
     # `ecdsa` implements -- so no installation of this package could be made
     # clean (keepup-32). The [crypto] extra brings `cryptography`, which is
     # what serves the asymmetric algorithms now.
-    "pyjwt[crypto]>=2.10,<3",
-    "python-multipart>=0.0.20",
+    # Floors are the first versions with no published advisory, checked by the
+    # security workflow against the floors themselves, not only against what a
+    # fresh install happens to resolve today (keepup-69): an installation that
+    # keeps an old PyJWT satisfied the range and was open to it.
+    "pyjwt[crypto]>=2.13,<3",
+    "python-multipart>=0.0.31",
     "PyYAML>=6.0,<7",
     "psutil>=7.0",
     "prometheus-client>=0.24",
-    "requests>=2.31",
+    "requests>=2.33",
     "httpx>=0.28",
+    # Not imported by the framework, but pulled in by what it does import
+    # (PyJWT's asymmetric algorithms, requests) with no floor of their own that
+    # excludes the advisories.
+    "cryptography>=50.0",
+    "urllib3>=2.7",
 ]
 
 [project.optional-dependencies]

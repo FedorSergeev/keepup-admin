@@ -6,6 +6,14 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **The lowest versions the package admits are free of known advisories.**
+  The ranges let an installation keep PyJWT, python-multipart and requests
+  versions with published advisories, and left `cryptography` and `urllib3`
+  unbounded. Floors are now `pyjwt>=2.13`, `python-multipart>=0.0.31`,
+  `requests>=2.33`, `cryptography>=50.0`, `urllib3>=2.7`, and the security
+  workflow audits the floors themselves as well as what resolves today.
+  An application pinning any of these lower has to raise its pin.
+
 - **What an administrator changes leaves a trace in the event log.** Purging
   the log, changing panel sections and their grants, themes and plugin
   decisions now each write an event naming the administrator
