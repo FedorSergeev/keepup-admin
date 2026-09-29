@@ -122,6 +122,10 @@ Notable changes to `keepup-admin`.
 
 ### Fixed
 
+- **A float parameter of a request mask is a finite number.** `float()` reads
+  `"nan"` and `"inf"`, and NaN passed any `min`/`max` -- every comparison
+  with it is false. Such values are now refused as not a number.
+
 - **The deployment keeps an administrator.** Neither route that changes roles
   takes `ADMIN` from the administrator making the change or from the last
   active account holding it any more (400 with the reason). The single role of

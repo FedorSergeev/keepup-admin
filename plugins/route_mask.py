@@ -26,6 +26,7 @@ See doc/keepup.md.
 """
 
 import inspect
+import math
 import re
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -80,9 +81,15 @@ def _to_int(value: Any) -> int:
 
 
 def _to_float(value: Any) -> float:
+    """A finite number. `float()` also reads "nan" and "inf", and NaN passes any
+    bound -- every comparison with it is false -- so a mask's min and max did
+    not hold against it (keepup-78)."""
     if isinstance(value, bool):
         raise ValueError("not a number")
-    return float(str(value).strip())
+    converted = float(str(value).strip())
+    if not math.isfinite(converted):
+        raise ValueError("not a finite number")
+    return converted
 
 
 #: The types a mask may declare, and how each converts a string from the query.
