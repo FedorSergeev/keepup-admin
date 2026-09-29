@@ -154,8 +154,6 @@ class DatabaseConfig:
             return f"DatabaseConfig(type={self.db_type}, path={self.db_path})"
 
 
-db_config = DatabaseConfig()
-
 
 class DatabaseManagerV2:
     """Database access through SQLAlchemy with a connection pool."""
@@ -444,7 +442,17 @@ class DatabaseManagerV2:
 
     @classmethod
     def execute_commit_with_positional(cls, query: str, params: tuple) -> int:
-        """Run a SQL query with POSITIONAL parameters (?) and commit."""
+        """Run a SQL query with POSITIONAL parameters (?) and commit.
+
+        Deprecated: a leftover of the transition from the manager that took
+        positional parameters, removed in 0.2.0 (keepup-55). Named parameters
+        are what this manager takes; statements still written with `?` go
+        through the application's own `positional()`. Removed in the next minor
+        release, once the applications that still call it have moved.
+        """
+        warnings.warn(
+            "DatabaseManagerV2.execute_commit_with_positional is deprecated; write "
+            "the statement with named parameters", DeprecationWarning, stacklevel=2)
         with cls.get_session() as session:
             # SQLAlchemy only binds named parameters, so ? placeholders are rewritten to :paramN.
             if '?' in query:

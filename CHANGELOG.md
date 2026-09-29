@@ -122,6 +122,9 @@ Notable changes to `keepup-admin`.
 
 ### Fixed
 
+- **The database configuration is built once.** `keepup.db` built
+  `DatabaseConfig` twice, the second instance replacing the first at import.
+
 - **Creating a theme answers its own id.** On SQLite the id came from a
   separate `SELECT last_insert_rowid()`, which could reach another pooled
   connection and answer another insert's id or 0; a theme created active then
@@ -175,6 +178,9 @@ Notable changes to `keepup-admin`.
 
 ### Deprecated
 
+- `DatabaseManagerV2.execute_commit_with_positional`: a leftover of the
+  positional manager removed in 0.2.0. It warns, and goes in the next minor
+  release; write the statement with named parameters.
 - `DatabaseManagerV2.get_last_insert_rowid()` without the inserting session:
   it opens a new one and may answer another insert's id. Use
   `execute_commit_returning()`.
