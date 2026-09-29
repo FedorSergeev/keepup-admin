@@ -73,6 +73,12 @@ Notable changes to `keepup-admin`.
 
 ### Fixed
 
+- **A lock's time is written and judged by one clock.** The holder's time was
+  written by the database's `CURRENT_TIMESTAMP` and compared with the
+  application's UTC; with a database zone other than UTC a crashed holder's
+  lock hung for hours, or a live one was taken over at once. The time written
+  is now the application's.
+
 - **Log and audit queues stay bounded while their receiver is away.** Log
   shipping kept records without a bound while the collector was down or no
   token was given, and past a full batch started a thread per record. It now

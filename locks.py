@@ -46,10 +46,16 @@ class DatabaseLock:
         """Take the lock, clearing stale holders first."""
         try:
             await self._cleanup_stale_locks()
+            # The application's UTC, not the database's CURRENT_TIMESTAMP: the
+            # age of a lock is judged against datetime.utcnow() -- here, in the
+            # stale-lock sweep and in the panel -- and a database whose zone is
+            # not UTC made a crashed holder's lock hang for hours, or a live one
+            # look stale at once (keepup-70).
             result = await DatabaseManagerV2.execute_commit_async('''
             INSERT INTO distributed_locks (lock_name, acquired_at, instance_id)
-            VALUES (:lock_name, CURRENT_TIMESTAMP, :instance_id)
-            ''', {"lock_name": self.lock_name, "instance_id": self.instance_id})
+            VALUES (:lock_name, :acquired_at, :instance_id)
+            ''', {"lock_name": self.lock_name, "acquired_at": datetime.utcnow(),
+                  "instance_id": self.instance_id})
 
             if result:
                 self.acquired = True
