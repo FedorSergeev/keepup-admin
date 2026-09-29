@@ -122,6 +122,11 @@ Notable changes to `keepup-admin`.
 
 ### Fixed
 
+- **Creating a user creates it once.** `dependencies.create_user` handed the
+  new account to the provider again, with the name and password as tuples, and
+  the provider called back into it: a second insert failed and was logged on
+  every creation.
+
 - **A float parameter of a request mask is a finite number.** `float()` reads
   `"nan"` and `"inf"`, and NaN passed any `min`/`max` -- every comparison
   with it is false. Such values are now refused as not a number.

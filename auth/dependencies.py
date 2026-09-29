@@ -163,10 +163,11 @@ async def create_user(
 ):
     user_id = auth_provider.create_user_in_db(username, password, email, phone, full_name, agree_terms)
 
-    user_data = {"user_id": user_id, "username": (username,), "password": (password,), "email": email, "phone": phone,
-                 "full_name": full_name, "agree_terms": agree_terms}
-
-    await auth_provider.create_user(user_data)
+    # The account is created once, above. This used to hand the provider the
+    # same account again -- with the name and password as one-element tuples --
+    # and the provider's create_user calls back into this function: a second
+    # insert that failed on every creation and was logged and swallowed
+    # (keepup-79).
 
     # The id is returned to the caller: it was computed and then thrown away,
     # while callers assigned the result to a variable and got None. The nearest
