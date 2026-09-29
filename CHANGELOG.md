@@ -6,6 +6,12 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **The email-domain policy admits only a verified email.**
+  `create_if_email_domain` refused only the boolean `email_verified: false`,
+  so a missing claim or the string `"false"` let an address the person typed
+  be compared with the admitted domains. It now requires `true` (the boolean
+  or the string, `oidc_policy.email_is_verified`).
+
 - **The CSRF value belongs to the session.** It was random, survived every
   sign-in and was trusted from its cookie, so whoever could plant a cookie
   chose the value the check accepted. It is now derived from the session

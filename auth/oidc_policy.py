@@ -66,13 +66,24 @@ def create_account(role: str = ROLE_CLIENT,
     return decide
 
 
+def email_is_verified(claims: Dict[str, Any]) -> bool:
+    """Whether the provider vouches for the email: true, or the string "true"."""
+    verified = claims.get("email_verified")
+    if isinstance(verified, str):
+        return verified.strip().lower() == "true"
+    return verified is True
+
+
 def create_if_email_domain(domains: Iterable[str], role: str = ROLE_CLIENT,
                            status: str = "active") -> Callable[[Dict[str, Any]], AccountDecision]:
     """An account for staff, nothing for everyone else at the same provider.
 
     The email is compared only when the provider says it verified it: an
     unverified address is a string the person typed, and several public
-    providers will hand it over unchecked.
+    providers will hand it over unchecked. "Says" means a claim that is true --
+    the boolean, or the string some providers send. A missing claim, or the
+    string "false", used to pass, since only the boolean False was refused
+    (keepup-73).
     """
     allowed = {domain.lower().lstrip("@") for domain in domains}
 
@@ -80,7 +91,7 @@ def create_if_email_domain(domains: Iterable[str], role: str = ROLE_CLIENT,
         email = (claims.get("email") or "").lower()
         if not email or "@" not in email:
             return AccountDecision.refuse("no email in the provider's claims")
-        if claims.get("email_verified") is False:
+        if not email_is_verified(claims):
             return AccountDecision.refuse("the provider did not verify this email")
         domain = email.rsplit("@", 1)[1]
         if domain not in allowed:
