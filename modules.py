@@ -217,6 +217,34 @@ def create_or_update_module(module_data: Dict[str, Any]):
         raise
 
 
+def _catalogue_entry(module_id: str, fields: Dict[str, Any]) -> Dict[str, Any]:
+    """A section as the routes describe it, in the shape the catalogue file has.
+
+    create_or_update_module() reads the file's names (`id`, `js`, `css`,
+    `initFunction`), and the routes handed it their own (`module_id`, `js_path`,
+    ...): every create and every change through the API answered 400 (keepup-80).
+    """
+    config = fields.get("config") or {}
+    if isinstance(config, str):
+        config = json.loads(config or "{}")
+    return {"id": module_id, "name": fields["name"],
+            "description": fields.get("description"),
+            "js": fields.get("js_path"), "css": fields.get("css_path"),
+            "initFunction": fields.get("init_function"),
+            "version": fields.get("version") or "1.0.0", "config": config}
+
+
+#: The fields of a stored section a change through the API may carry.
+_EDITABLE = ("name", "description", "js_path", "css_path", "init_function", "version", "config")
+
+
+def _changed_entry(existing: Dict[str, Any], changes: Dict[str, Any]) -> Dict[str, Any]:
+    """The stored section with the given fields changed and the rest kept."""
+    merged = {field: existing.get(field) for field in _EDITABLE}
+    merged.update({field: value for field, value in changes.items() if field in _EDITABLE})
+    return _catalogue_entry(existing["module_id"], merged)
+
+
 def update_role_modules(role_name: str, module_ids: List[str]):
     """Update the modules granted to a role."""
     DatabaseManagerV2.execute_commit('''
@@ -470,7 +498,8 @@ def register_module_routes(app):
     ):
         """Create a module."""
         try:
-            await asyncio.to_thread(create_or_update_module, module_data.dict())
+            await asyncio.to_thread(create_or_update_module,
+                                    _catalogue_entry(module_data.module_id, module_data.dict()))
             await admin_trail.record(admin_trail.SECTIONS_CHANGED, admin,
                                      f"Section {module_data.module_id} created",
                                      action="create", module_id=module_data.module_id)
@@ -492,8 +521,13 @@ def register_module_routes(app):
 
         try:
             update_data = module_data.dict(exclude_unset=True)
-            update_data['module_id'] = module_id
-            await asyncio.to_thread(create_or_update_module, update_data)
+            # Switching a section off is taking it away: the catalogue keeps the
+            # row and reads only active ones, which is what delete does.
+            if update_data.pop("is_active", None) is False:
+                await asyncio.to_thread(delete_module, module_id)
+            if update_data:
+                await asyncio.to_thread(create_or_update_module,
+                                        _changed_entry(existing, update_data))
             await admin_trail.record(admin_trail.SECTIONS_CHANGED, admin,
                                      f"Section {module_id} updated", action="update",
                                      module_id=module_id,

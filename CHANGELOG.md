@@ -122,6 +122,12 @@ Notable changes to `keepup-admin`.
 
 ### Fixed
 
+- **Panel sections can be created and changed through the API.**
+  `POST` and `PUT /api/admin/modules` handed the section to the writer under
+  their own field names while it reads the catalogue file's, and answered 400
+  to every request. The routes now translate; a change keeps the fields it
+  does not name, and `is_active: false` takes the section away.
+
 - **Creating a user creates it once.** `dependencies.create_user` handed the
   new account to the provider again, with the name and password as tuples, and
   the provider called back into it: a second insert failed and was logged on
