@@ -6,6 +6,14 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **Envelopes on the replicas' bus are sealed.** Any database role that can
+  connect may NOTIFY on the application's channel, and an envelope was accepted
+  on its shape alone. `encode_envelope` now adds the time sent and an
+  HMAC-SHA256 seal under a key derived from the signing secret;
+  `decode_envelope` drops an envelope without a valid seal or older than
+  `MAX_ENVELOPE_AGE_SECONDS` (300) and strips both fields. Replicas of the
+  previous version do not hear the new ones: deploy all replicas together.
+
 - **An open socket ends with its session.** A socket was checked only at the
   handshake, so one opened with a stolen token outlived a logout, a password
   change and a block. Sockets signed in through `authenticate_websocket` (and

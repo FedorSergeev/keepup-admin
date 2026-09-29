@@ -33,8 +33,11 @@ they are cleaned up (`keepup/factory.py`).
 """
 
 import asyncio
+import hashlib
+import hmac
 import json
 import logging
+import time
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
 from keepup.db import DatabaseManagerV2, db_config
@@ -42,6 +45,7 @@ from keepup.db import DatabaseManagerV2, db_config
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
 __all__ = [
+    "MAX_ENVELOPE_AGE_SECONDS",
     "MAX_PAYLOAD_BYTES",
     "NotificationBus",
     "ORIGIN_FIELD",
@@ -75,15 +79,56 @@ RECONNECT_DELAY_MAX = 30.0
 ORIGIN_FIELD = "origin"
 
 
+#: Fields the seal adds to every envelope on the channel (keepup-66). Any
+#: role that can connect to the database can NOTIFY on the application's
+#: channel, and the envelopes reach host agents' sockets; an envelope is
+#: accepted only under a seal made with a key derived from the application's
+#: signing secret, and only while fresh -- a captured one cannot be replayed
+#: later. `decode_envelope` checks and strips both.
+SEAL_FIELD = "seal"
+SENT_FIELD = "sent"
+
+#: How old a sealed envelope may be when it arrives, in seconds. NOTIFY is
+#: delivered within milliseconds; the margin is for replicas' clocks.
+MAX_ENVELOPE_AGE_SECONDS = 300
+
+_SEAL_CONTEXT = b"keepup.notification_bus"
+
+
+def _seal_key() -> bytes:
+    """A key for this purpose only, derived from the signing secret.
+
+    Derived rather than the secret itself, so a seal says nothing that could be
+    turned against the tokens signed with it. Raises SigningKeyUnavailable when
+    the application has no secret -- it would not have started without one.
+    """
+    from keepup.auth.signing_key import resolve_signing_key
+    return hmac.new(resolve_signing_key().encode("utf-8"), _SEAL_CONTEXT, hashlib.sha256).digest()
+
+
+def _canonical(body: Dict[str, Any]) -> bytes:
+    return json.dumps(body, ensure_ascii=False, sort_keys=True, separators=(",", ":"),
+                      default=str).encode("utf-8")
+
+
+def _seal(body: Dict[str, Any]) -> str:
+    return hmac.new(_seal_key(), _canonical(body), hashlib.sha256).hexdigest()
+
+
 def encode_envelope(envelope: Dict[str, Any]) -> str:
-    """Serialise an envelope for the channel.
+    """Serialise and seal an envelope for the channel.
 
     Raises:
         ValueError: when the result exceeds what the channel accepts. An
             envelope is meant to name an object, not to carry it, so hitting
             this means the caller put state in it.
     """
-    payload = json.dumps(envelope, ensure_ascii=False, default=str)
+    # Through JSON first, so the body sealed is the body the receiver parses.
+    body = json.loads(json.dumps(envelope, ensure_ascii=False, default=str))
+    body.pop(SEAL_FIELD, None)
+    body[SENT_FIELD] = int(time.time())
+    body[SEAL_FIELD] = _seal(body)
+    payload = json.dumps(body, ensure_ascii=False)
     size = len(payload.encode("utf-8"))
     if size > MAX_PAYLOAD_BYTES:
         raise ValueError(
@@ -107,6 +152,20 @@ def decode_envelope(payload: str) -> Optional[Dict[str, Any]]:
 
     if not isinstance(envelope, dict):
         logger.warning("Dropping a non-object envelope")
+        return None
+
+    seal = envelope.pop(SEAL_FIELD, None)
+    try:
+        expected = _seal(envelope)
+    except Exception as error:
+        logger.warning(f"Dropping an envelope: cannot check its seal ({error})")
+        return None
+    if not isinstance(seal, str) or not hmac.compare_digest(seal, expected):
+        logger.warning("Dropping an envelope without a valid seal")
+        return None
+    sent = envelope.pop(SENT_FIELD, None)
+    if not isinstance(sent, int) or abs(time.time() - sent) > MAX_ENVELOPE_AGE_SECONDS:
+        logger.warning("Dropping a stale envelope")
         return None
 
     return envelope
@@ -199,7 +258,8 @@ class NotificationBus:
 
         try:
             payload = encode_envelope(envelope)
-        except ValueError as e:
+        except Exception as e:
+            # Oversized, or no secret to seal with: either way nothing is sent.
             logger.error(str(e))
             return False
 
