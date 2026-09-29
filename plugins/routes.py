@@ -19,6 +19,7 @@ import json
 import logging
 
 from fastapi import Depends, HTTPException, Request
+from starlette.requests import ClientDisconnect
 
 from keepup.audit import IncomingRequestLogger, log_api_request
 from keepup.auth.dependencies import get_panel_user
@@ -238,6 +239,12 @@ async def json_body(request: Request, path: str = None):
             # lines this exists to produce.
             return {}
         return json.loads(body)
+    except ClientDisconnect:
+        # The body limit tells the application the client went away once a body
+        # without a declared length passes the route's limit. An empty body
+        # here would run the handler -- and its writes -- under a 413 the client
+        # was already answered with (keepup-61).
+        raise
     except Exception as exc:
         # Not a bare except, which used to be here: CancelledError does not
         # inherit from Exception, and swallowing it turned a cancelled request

@@ -411,12 +411,11 @@ def _create_stripped_app(settings: KeepupSettings) -> FastAPI:
         # (task keepup-13).
         logger.info(f"Header names: {', '.join(request.headers.keys())}")
 
-        body = await request.body()
-        if body:
-            try:
-                logger.info(f"Body: {len(body)} bytes")
-            except Exception:
-                logger.info(f"Body (binary): {body.hex()[:1000]}")
+        # The declared length, not the body: reading it only to log its size
+        # let one request of any size into memory (keepup-61).
+        declared = request.headers.get("content-length")
+        if declared:
+            logger.info(f"Body: {declared} bytes declared")
 
         logger.info("=" * 80)
 
@@ -507,7 +506,9 @@ def create_app(settings: KeepupSettings = None) -> FastAPI:
     # read by the route is a body already received.
     from keepup.body_limit import BodyLimitMiddleware
     app.add_middleware(BodyLimitMiddleware, router_of=app,
-                       default_limit=settings.max_upload_bytes)
+                       default_limit=(settings.max_upload_bytes
+                                      if settings.max_upload_bytes is not None
+                                      else settings.max_json_bytes))
 
     # Versioned paths (/api/v1, /ws/v1) reach the same handlers; added last, so it
     # runs first and every middleware and route below sees the registered path.

@@ -47,7 +47,9 @@ ROUTE_LIMIT_ATTRIBUTE = "keepup_max_body_bytes"
 READS_OWN_BODY_ATTRIBUTE = "keepup_reads_own_body"
 
 _NOT_DECLARED = object()
-_BODY_METHODS = {"POST", "PUT", "PATCH", "DELETE"}
+#: Methods whose requests are not checked. Everything else is: a route declared
+#: with OPTIONS or a custom method beside a write reads its body as well.
+_BODYLESS_METHODS = {"GET", "HEAD"}
 
 
 def declare_limit(endpoint, route: dict) -> None:
@@ -87,7 +89,7 @@ class BodyLimitMiddleware:
         return self.default_limit
 
     async def __call__(self, scope, receive, send):
-        if scope["type"] != "http" or scope.get("method") not in _BODY_METHODS:
+        if scope["type"] != "http" or scope.get("method") in _BODYLESS_METHODS:
             return await self.app(scope, receive, send)
         limit = self.limit_for(scope)
         if limit is None:

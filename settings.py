@@ -123,13 +123,19 @@ class KeepupSettings:
     #: Response headers the framework adds. The panel is a page, so without
     #: X-Frame-Options it can be framed by anybody.
     security_headers: bool = True
+    #: An application's own limit for routes whose body the framework reads,
+    #: when it wants one other than ``max_json_bytes``. None -- the default --
+    #: leaves ``max_json_bytes`` in charge. A route that reads its own body --
+    #: is_upload, raw_request -- is limited only by what it declares
+    #: (keepup/body_limit.py).
+    max_upload_bytes: Optional[int] = None
     #: The largest request body, in bytes, of a route whose body the framework
-    #: reads (a plain write route, the framework's own routes) and that declares
-    #: no ``max_body_bytes`` of its own; refused with 413 before it is read
-    #: (keepup/body_limit.py). A route that reads its own body -- is_upload,
-    #: raw_request -- is limited only by what it declares. None removes the
-    #: limit, which is a thing an application may want and should have to say.
-    max_upload_bytes: Optional[int] = 256 * 1024 * 1024
+    #: reads and parses before the handler -- and before the sign-in check --
+    #: when the route declares no ``max_body_bytes`` and the application sets
+    #: no ``max_upload_bytes`` (keepup-61). Small on purpose: parsed JSON takes
+    #: tens of times its size in memory, so 256 MiB let one unauthenticated
+    #: request exhaust a replica. None removes the limit.
+    max_json_bytes: Optional[int] = 2 * 1024 * 1024
     #: Pool, audit buffer and metrics interval, in one place (keepup-38).
     performance: PerformanceSettings = field(default_factory=PerformanceSettings)
 

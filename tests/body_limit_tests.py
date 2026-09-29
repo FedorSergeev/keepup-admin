@@ -124,5 +124,73 @@ def test_a_nonsense_limit_stops_the_start():
 
 def test_the_application_gets_the_middleware_with_its_setting():
     source = (PACKAGE / "factory.py").read_text(encoding="utf-8")
-    assert "app.add_middleware(BodyLimitMiddleware, router_of=app,\n" \
-           "                       default_limit=settings.max_upload_bytes)" in source
+    assert "app.add_middleware(BodyLimitMiddleware, router_of=app," in source
+    assert "else settings.max_json_bytes))" in source
+
+
+# --- keepup-61: small by default where the framework parses, and the holes around it ---
+
+from keepup.factory import create_app  # noqa: E402
+from keepup.settings import KeepupSettings  # noqa: E402
+
+MIB = 1024 * 1024
+
+
+def framework_app(**settings):
+    return TestClient(create_app(KeepupSettings(title="Limits", static_mounts=(),
+                                                plugin_manager=None, **settings)))
+
+
+def json_of(size):
+    return ('{"username":"' + "a" * (size - 30) + '","password":"x"}').encode()
+
+
+def test_a_sign_in_body_is_refused_long_before_it_could_fill_memory():
+    """JSON is parsed before the sign-in check; 256 MiB used to be let through."""
+    client = framework_app()
+    refused = client.post("/api/auth/login", content=json_of(3 * MIB),
+                          headers={"content-type": "application/json"})
+    assert refused.status_code == 413
+    assert client.post("/api/auth/login", content=json_of(MIB),
+                       headers={"content-type": "application/json"}).status_code != 413
+
+
+def test_the_json_limit_and_the_application_s_own_limit_are_settings():
+    small = framework_app(max_json_bytes=1000)
+    assert small.post("/api/auth/login", content=json_of(2000),
+                      headers={"content-type": "application/json"}).status_code == 413
+    own = framework_app(max_json_bytes=1000, max_upload_bytes=4000)
+    assert own.post("/api/auth/login", content=json_of(2000),
+                    headers={"content-type": "application/json"}).status_code != 413
+
+
+calls = []
+
+
+async def counted_write(request: dict = None):
+    calls.append(request)
+    return {"ok": True}
+
+
+def test_a_body_over_the_limit_without_a_length_never_reaches_the_handler():
+    import asyncio
+    app = FastAPI()
+    app.add_middleware(BodyLimitMiddleware, router_of=app, default_limit=100)
+    asyncio.run(register_plugin_routes(app, Manager([
+        {"path": "/api/counted", "methods": ["POST", "OPTIONS"], "handler": counted_write,
+         "require_auth": False}])))
+    client = TestClient(app)
+    calls.clear()
+    answer = client.post("/api/counted", content=iter([b"{" + b" " * 300 + b"}"]),
+                         headers={"content-type": "application/json"})
+    assert answer.status_code == 413 and calls == []
+    # A route declared with OPTIONS beside the write reads its body there too.
+    refused = client.request("OPTIONS", "/api/counted", content=b"{" + b" " * 300 + b"}",
+                             headers={"content-type": "application/json"})
+    assert refused.status_code == 413 and calls == []
+
+
+def test_the_stripped_mode_does_not_read_the_body_to_log_it():
+    source = (Path(__file__).resolve().parents[1] / "factory.py").read_text(encoding="utf-8")
+    stripped = source[source.index("def _create_stripped_app"):source.index("def create_app(")]
+    assert "await request.body()" not in stripped

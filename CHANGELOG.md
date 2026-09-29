@@ -2,6 +2,20 @@
 
 Notable changes to `keepup-admin`.
 
+## Unreleased
+
+### Security
+
+- **Bodies the framework parses before the sign-in check are small by
+  default.** JSON is parsed before a route's dependencies run, and a parsed
+  body takes tens of times its size in memory, so the 256 MiB default let one
+  unauthenticated request exhaust a replica. `KeepupSettings.max_json_bytes`
+  (2 MiB) is now the default for routes whose body the framework reads;
+  `max_upload_bytes` applies only when the application sets it. The limit
+  covers every method but GET and HEAD, a chunked body that passes it no
+  longer reaches the handler as an empty body, and the stripped mode no
+  longer reads a body just to log its size.
+
 ## 0.2.0 — 2026-09-27
 
 A release about carrying load on several replicas: one way into the database,
