@@ -6,6 +6,14 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **An open socket ends with its session.** A socket was checked only at the
+  handshake, so one opened with a stolen token outlived a logout, a password
+  change and a block. Sockets signed in through `authenticate_websocket` (and
+  so every `require_auth` route) are now held per replica with their session
+  and closed with 1008 once it is revoked: at once on the replica that revoked
+  it, on the others when the replicas' bus wakes them, and within
+  `KEEPUP_SOCKET_SESSION_RECHECK_SECONDS` (30) at the latest.
+
 - **A token can no longer renew its session past the renewal window.** The
   exchange of a token for the panel cookie renewed the session without the
   window check that refresh makes, so a stolen token lived for ever. Every

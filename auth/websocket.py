@@ -22,7 +22,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import HTTPException
 
-from keepup.auth import dependencies, panel_session
+from keepup.auth import dependencies, panel_session, socket_sessions
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -74,6 +74,8 @@ async def websocket_user(websocket) -> Dict[str, Any]:
         raise WebSocketRefused(REASON_INVALID_TOKEN)
     if not (user or {}).get("id"):
         raise WebSocketRefused(REASON_INVALID_TOKEN)
+    # Held until its session is revoked, and closed then (keepup-65).
+    socket_sessions.hold(websocket, user)
     return user
 
 

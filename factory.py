@@ -34,6 +34,7 @@ from keepup.audit import (audit_retention_background, background_buffer_flusher,
                           init_incoming_requests_table)
 from keepup.auth import dependencies as auth_dependencies
 from keepup.auth import routes as auth_routes
+from keepup.auth import socket_sessions
 from keepup.auth.oidc_routes import register_oidc_routes
 from keepup.events import events_retention_background, init_event_manager
 from keepup.events_api import register_event_api_routes
@@ -227,6 +228,9 @@ def _build_lifespan(settings: KeepupSettings):
         audit_retention_task = asyncio.create_task(audit_retention_background())
         # The event log had only a manual cleanup route (keepup-47).
         events_retention_task = asyncio.create_task(events_retention_background())
+        # A socket is signed in once; this closes it when its session is
+        # revoked (keepup-65).
+        socket_sessions_task = asyncio.create_task(socket_sessions.run_forever())
 
         event_manager = init_event_manager()
         if event_manager:
@@ -294,8 +298,9 @@ def _build_lifespan(settings: KeepupSettings):
         retention_task.cancel()
         audit_retention_task.cancel()
         events_retention_task.cancel()
+        socket_sessions_task.cancel()
         for task in (flusher_task, metrics_task, retention_task, audit_retention_task,
-                     events_retention_task):
+                     events_retention_task, socket_sessions_task):
             try:
                 await task
             except asyncio.CancelledError:
@@ -324,6 +329,7 @@ async def _start_notification_bus(channel):
     # The other replicas' changes to the theme and the section catalogue.
     from keepup import cache
     cache.attach_to_bus(bus)
+    socket_sessions.attach_to_bus(bus)
     await bus.start()
     return bus
 
@@ -332,6 +338,7 @@ async def _stop_notification_bus(bus):
     if bus is None:
         return
     await bus.stop()
+    socket_sessions.detach_from_bus()
     if notification_bus.get_notification_bus() is bus:
         notification_bus.set_notification_bus(None)
 

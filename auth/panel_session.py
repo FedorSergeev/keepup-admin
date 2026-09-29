@@ -107,17 +107,25 @@ def is_active(sid: str, user_id: Optional[int] = None) -> bool:
 
 
 def revoke(sid: str, reason: str = REASON_LOGOUT) -> int:
-    return DatabaseManagerV2.execute_commit(
+    return _closing_sockets(DatabaseManagerV2.execute_commit(
         f"UPDATE {TABLE} SET revoked_at = :now, revoked_reason = :reason "
         f"WHERE sid = :sid AND revoked_at IS NULL",
-        {"sid": sid, "now": datetime.utcnow(), "reason": reason})
+        {"sid": sid, "now": datetime.utcnow(), "reason": reason}))
 
 
 def revoke_all(user_id: int, reason: str) -> int:
-    return DatabaseManagerV2.execute_commit(
+    return _closing_sockets(DatabaseManagerV2.execute_commit(
         f"UPDATE {TABLE} SET revoked_at = :now, revoked_reason = :reason "
         f"WHERE user_id = :u AND revoked_at IS NULL",
-        {"u": user_id, "now": datetime.utcnow(), "reason": reason})
+        {"u": user_id, "now": datetime.utcnow(), "reason": reason}))
+
+
+def _closing_sockets(revoked: int) -> int:
+    """A revocation also ends the sockets signed in with it, here and on the other replicas."""
+    if revoked:
+        from keepup.auth import socket_sessions
+        socket_sessions.wake()
+    return revoked
 
 
 def purge_expired(now: Optional[datetime] = None, keep: timedelta = timedelta(days=7)) -> int:
