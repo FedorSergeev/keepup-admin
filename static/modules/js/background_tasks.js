@@ -358,11 +358,11 @@ class BackgroundTasksPlugin {
             <div class="border border-gray-200 rounded-lg p-4 mb-3 last:mb-0">
                 <div class="flex justify-between items-start mb-2">
                     <div>
-                        <h4 class="font-semibold text-gray-800">${lock.lock_name}</h4>
-                        <p class="text-sm text-gray-600">Instance: ${lock.instance_id}</p>
+                        <h4 class="font-semibold text-gray-800">${keepupEscapeHtml(lock.lock_name)}</h4>
+                        <p class="text-sm text-gray-600">Instance: ${keepupEscapeHtml(lock.instance_id)}</p>
                     </div>
                     <div class="flex space-x-2">
-                        <button onclick="backgroundTasksPlugin.forceReleaseLock('${lock.lock_name}')"
+                        <button onclick="backgroundTasksPlugin.forceReleaseLock(${keepupJsArg(lock.lock_name)})"
                                 class="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200 flex items-center">
                             <i data-feather="unlock" class="w-3 h-3 mr-1"></i>
                             Release
@@ -406,14 +406,14 @@ class BackgroundTasksPlugin {
                 <tbody class="bg-white divide-y divide-gray-200">
                     ${jobs.map(job => `
                         <tr class="hover:bg-gray-50">
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${job.id}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${job.name}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${keepupEscapeHtml(job.id)}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm font-medium text-gray-900">${keepupEscapeHtml(job.name)}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 ${job.next_run_time ? new Date(job.next_run_time).toLocaleString() : '—'}
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${job.trigger}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${keepupEscapeHtml(job.trigger)}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                <button onclick="backgroundTasksPlugin.triggerJob('${job.id}')"
+                                <button onclick="backgroundTasksPlugin.triggerJob(${keepupJsArg(job.id)})"
                                         class="text-blue-600 hover:text-blue-900 bg-blue-100 px-3 py-1 rounded text-sm flex items-center">
                                     <i data-feather="play" class="w-3 h-3 mr-1"></i>
                                     Run
@@ -500,7 +500,7 @@ class BackgroundTasksPlugin {
                 let successCount = 0;
                 for (const job of jobs) {
                     try {
-                        const triggerResponse = await fetch(`/api/admin/scheduler/jobs/${job.id}/trigger`, {
+                        const triggerResponse = await fetch(`/api/admin/scheduler/jobs/${encodeURIComponent(job.id)}/trigger`, {
                             method: 'POST',
                             headers: {
                                 'Authorization': `Bearer ${token}`
@@ -569,7 +569,7 @@ class BackgroundTasksPlugin {
                 let releasedCount = 0;
                 for (const lock of locks) {
                     try {
-                        await fetch(`/api/admin/locks/${lock.lock_name}?confirm=true`, {
+                        await fetch(`/api/admin/locks/${encodeURIComponent(lock.lock_name)}?confirm=true`, {
                             method: 'DELETE',
                             headers: {
                                 'Authorization': `Bearer ${token}`

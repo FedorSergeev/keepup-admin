@@ -21,6 +21,7 @@ import jwt
 from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, Field, field_validator
 
+from keepup.auth.usernames import is_valid_username
 from keepup.auth import panel_session, user_roles
 from keepup.auth.dependencies import (
     _authenticated_by_cookie,
@@ -130,6 +131,14 @@ class UserCreate(UserBase):
     phone: Optional[str] = None
     full_name: Optional[str] = None
     agree_terms: bool = Field(False, description="Agreement with the terms of use")
+
+    @field_validator('username')
+    def validate_username(cls, v):
+        # Held to a plain shape: it is shown back in the panel (keepup-62).
+        if not is_valid_username(v):
+            raise ValueError("Username may contain letters, digits and . _ @ + -, "
+                             "at most 64 characters")
+        return v
 
     @field_validator('email')
     def validate_email(cls, v):

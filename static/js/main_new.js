@@ -1656,6 +1656,25 @@ if (nextPageBtn) {
 }
 
 // Helper function for showing notifications
+// --- Escaping data for section markup (keepup-62) ---
+// Sections build their tables from template strings. A value that came from data
+// -- a name, an id, a message -- goes through keepupEscapeHtml in markup, and
+// through keepupJsArg when it has to be an argument of an inline handler: there
+// it is a JavaScript string inside an HTML attribute, where escaping for HTML
+// alone is not enough.
+function keepupEscapeHtml(value) {
+    return String(value === undefined || value === null ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
+function keepupJsArg(value) {
+    return keepupEscapeHtml(JSON.stringify(String(value === undefined || value === null ? '' : value)));
+}
+window.keepupEscapeHtml = keepupEscapeHtml;
+window.keepupJsArg = keepupJsArg;
+// --- end of escaping data for section markup ---
+
 function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
     notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
@@ -1666,13 +1685,17 @@ function showNotification(message, type = 'info') {
                 <div class="flex items-center">
                     <i data-feather="${type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info'}"
                        class="w-5 h-5 mr-2"></i>
-                    <span>${message}</span>
+                    <span data-notification-text></span>
                     <button onclick="this.parentElement.parentElement.remove()"
                             class="ml-4 text-gray-500 hover:text-gray-700">
                         <i data-feather="x" class="w-4 h-4"></i>
                     </button>
                 </div>
             `;
+    // The message is text, never markup: it often carries a name that came from
+    // data -- a user's, a section's -- and markup there would run (keepup-62).
+    notification.querySelector('[data-notification-text]').textContent =
+        message === null || message === undefined ? '' : String(message);
     document.body.appendChild(notification);
 
     // Refresh feather icons

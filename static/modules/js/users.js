@@ -245,9 +245,34 @@ function usersRoleBadges(user) {
     }).join('');
 }
 
+//: The accounts of the list as it was last drawn, by id: the buttons carry only
+//: the id, and the name is taken from here, never from the markup.
+let usersById = new Map();
+
+const USER_ACTIONS = {
+    block: (user) => blockUserWithReason(user.id, user.username),
+    unblock: (user) => unblockUserWithReason(user.id, user.username),
+    history: (user) => showUserBlockHistory(user.id, user.username),
+    roles: (user) => showUserRolesModal(user.id, user.username),
+    password: (user) => showPasswordModal(user.id, user.username),
+};
+
+function usersBindActions(usersListBody) {
+    if (usersListBody.dataset.actionsBound) return;
+    usersListBody.dataset.actionsBound = '1';
+    usersListBody.addEventListener('click', (event) => {
+        const button = event.target.closest('[data-user-action]');
+        if (!button) return;
+        const user = usersById.get(button.dataset.userId);
+        const action = USER_ACTIONS[button.dataset.userAction];
+        if (user && action) action(user);
+    });
+}
+
 function displayUsersList(users) {
     const usersListBody = document.getElementById('usersListBody');
     if (!usersListBody) return;
+    usersBindActions(usersListBody);
 
     if (users.length === 0) {
         usersListBody.innerHTML = `
@@ -260,10 +285,15 @@ function displayUsersList(users) {
         return;
     }
 
+    // Every value from an account is escaped, and the buttons carry the account's
+    // id in a data attribute rather than a script built from its name: a name
+    // is whatever somebody registered, and a name with markup or a quote in it
+    // ran in the session of the administrator who opened this list (keepup-62).
+    usersById = new Map(users.map(user => [String(user.id), user]));
     usersListBody.innerHTML = users.map(user => `
         <tr>
-            <td class="px-6 py-4 whitespace-nowrap">${user.id}</td>
-            <td class="px-6 py-4 whitespace-nowrap font-medium">${user.username}</td>
+            <td class="px-6 py-4 whitespace-nowrap">${usersEscapeHtml(user.id)}</td>
+            <td class="px-6 py-4 whitespace-nowrap font-medium">${usersEscapeHtml(user.username)}</td>
             <td class="px-6 py-4 whitespace-nowrap">
                 <span class="status-badge ${user.status === 'active' ? 'status-active' : 'status-blocked'}">
                     ${user.status === 'active' ? 'Active' : 'Blocked'}
@@ -278,15 +308,15 @@ function displayUsersList(users) {
                 <div class="user-actions flex flex-col space-y-2">
                     <div class="flex space-x-2">
                         ${user.status === 'active' ?
-                            `<button onclick="blockUserWithReason(${user.id}, '${user.username}')" class="user-action-btn btn-block text-xs px-2 py-1">Block</button>` :
-                            `<button onclick="unblockUserWithReason(${user.id}, '${user.username}')" class="user-action-btn btn-activate text-xs px-2 py-1">Activate</button>`
+                            `<button data-user-action="block" data-user-id="${usersEscapeHtml(user.id)}" class="user-action-btn btn-block text-xs px-2 py-1">Block</button>` :
+                            `<button data-user-action="unblock" data-user-id="${usersEscapeHtml(user.id)}" class="user-action-btn btn-activate text-xs px-2 py-1">Activate</button>`
                         }
-                        <button onclick="showUserBlockHistory(${user.id}, '${user.username}')" class="user-action-btn text-xs px-2 py-1">Block log</button>
-                        <button onclick="showUserRolesModal(${user.id}, '${user.username}')"
+                        <button data-user-action="history" data-user-id="${usersEscapeHtml(user.id)}" class="user-action-btn text-xs px-2 py-1">Block log</button>
+                        <button data-user-action="roles" data-user-id="${usersEscapeHtml(user.id)}"
                                 class="user-action-btn btn-make-admin text-xs px-2 py-1">Roles</button>
                     </div>
                     <div class="flex space-x-2">
-                        <button onclick="showPasswordModal(${user.id}, '${user.username}')"
+                        <button data-user-action="password" data-user-id="${usersEscapeHtml(user.id)}"
                                 class="user-action-btn btn-change-password text-xs px-2 py-1">
                             Change password
                         </button>
@@ -308,7 +338,7 @@ function showPasswordModal(userId, username) {
     modal.innerHTML = `
         <div class="bg-white rounded-lg p-6 w-full max-w-md">
             <div class="flex justify-between items-center mb-4">
-                <h3 class="text-lg font-semibold">Change password for ${username}</h3>
+                <h3 class="text-lg font-semibold">Change password for ${usersEscapeHtml(username)}</h3>
                 <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
                     <i data-feather="x" class="w-5 h-5"></i>
                 </button>
@@ -402,7 +432,7 @@ function showPasswordModal(userId, username) {
                         class="px-4 py-2 text-gray-600 hover:text-gray-800">
                     Cancel
                 </button>
-                <button onclick="changeUserPassword(${userId}, '${username}')"
+                <button data-save-password
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
                     <i data-feather="key" class="w-4 h-4 mr-2"></i>
                     Save password
@@ -540,6 +570,8 @@ function showPasswordModal(userId, username) {
     };
 
     document.body.appendChild(modal);
+    modal.querySelector('[data-save-password]')
+        .addEventListener('click', () => changeUserPassword(userId, username));
     feather.replace();
 
     // Handler for the generation checkbox
@@ -561,16 +593,6 @@ function showPasswordModal(userId, username) {
             feather.replace();
         }
     });
-}
-
-// Also add a function for the password reset button
-function addPasswordResetButton() {
-    return `
-        <button onclick="resetUserPassword(${user.id}, '${user.username}')"
-                class="user-action-btn btn-reset-password text-xs px-2 py-1">
-            Reset password
-        </button>
-    `;
 }
 
 async function resetUserPassword(userId, username) {

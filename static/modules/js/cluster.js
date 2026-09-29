@@ -273,9 +273,8 @@ function clusterButton(member, action, enabled, reason) {
     const css = action === 'stop' ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
         : action === 'start' ? 'bg-green-600 hover:bg-green-700 text-white'
         : 'bg-blue-600 hover:bg-blue-700 text-white';
-    const id = escapeClusterHtml(member.instance_id);
     return `<button class="px-3 py-1 rounded text-sm ${enabled ? css : 'bg-gray-200 text-gray-400 cursor-not-allowed'}"
-                ${enabled ? `onclick="sendClusterCommand('${id}', '${action}')"` : 'disabled'}
+                ${enabled ? `onclick="sendClusterCommand(${keepupJsArg(member.instance_id)}, ${keepupJsArg(action)})"` : 'disabled'}
                 ${reason ? `title="${escapeClusterHtml(reason)}"` : ''}>${CLUSTER_ACTION_LABELS[action]}</button>`;
 }
 

@@ -1,3 +1,13 @@
+// Every value of a log row is escaped: user names, addresses, endpoints and the
+// bodies sent to and received from somebody else's service are whatever those
+// parties put there, and a row rendered as markup ran in the administrator's
+// session (keepup-62).
+function integrationLogsEscape(value) {
+    return String(value === undefined || value === null ? '' : value)
+        .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 // static/modules/js/integration_logs.js
 class IntegrationLogsPlugin {
     constructor() {
@@ -347,25 +357,25 @@ this.name = "Integration Log";
                                 ${new Date(log.created_at).toLocaleString()}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
-                                <div>${log.username}</div>
-                                <div class="text-gray-500 text-xs">ID: ${log.user_id}</div>
+                                <div>${integrationLogsEscape(log.username)}</div>
+                                <div class="text-gray-500 text-xs">ID: ${integrationLogsEscape(log.user_id)}</div>
                             </td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${log.host}</td>
-                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${log.method}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${integrationLogsEscape(log.host)}</td>
+                            <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">${integrationLogsEscape(log.method)}</td>
                             <td class="px-6 py-4 whitespace-nowrap">
                                 <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full ${
                                     log.status_code >= 400 ? 'bg-red-100 text-red-800' :
                                     log.status_code >= 200 ? 'bg-green-100 text-green-800' :
                                     'bg-yellow-100 text-yellow-800'
                                 }">
-                                    ${log.status_code || 'N/A'}
+                                    ${integrationLogsEscape(log.status_code || 'N/A')}
                                 </span>
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
                                 ${log.duration_ms ? `${log.duration_ms}ms` : 'N/A'}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                <button onclick="window.integrationLogsPlugin.showLogDetail(${log.id})"
+                                <button onclick="window.integrationLogsPlugin.showLogDetail(${Number(log.id)})"
                                         class="text-blue-600 hover:text-blue-900 bg-blue-100 px-3 py-1 rounded text-sm flex items-center">
                                     <i data-feather="eye" class="w-3 h-3 mr-1"></i>
                                     Details
@@ -505,22 +515,22 @@ this.name = "Integration Log";
         content.innerHTML = `
             <div class="grid grid-cols-1 md:grid-cols-2 gap-4 mb-4">
                 <div>
-                    <strong>ID:</strong> ${log.id}
+                    <strong>ID:</strong> ${integrationLogsEscape(log.id)}
                 </div>
                 <div>
                     <strong>Date:</strong> ${new Date(log.created_at).toLocaleString()}
                 </div>
                 <div>
-                    <strong>User:</strong> ${log.username} (ID: ${log.user_id})
+                    <strong>User:</strong> ${integrationLogsEscape(log.username)} (ID: ${integrationLogsEscape(log.user_id)})
                 </div>
                 <div>
-                    <strong>Host:</strong> ${log.host}
+                    <strong>Host:</strong> ${integrationLogsEscape(log.host)}
                 </div>
                 <div>
-                    <strong>Method:</strong> ${log.method}
+                    <strong>Method:</strong> ${integrationLogsEscape(log.method)}
                 </div>
                 <div>
-                    <strong>Endpoint:</strong> ${log.endpoint}
+                    <strong>Endpoint:</strong> ${integrationLogsEscape(log.endpoint)}
                 </div>
                 <div>
                     <strong>Status:</strong>
@@ -529,7 +539,7 @@ this.name = "Integration Log";
                         log.status_code >= 200 ? 'bg-green-100 text-green-800' :
                         'bg-yellow-100 text-yellow-800'
                     }">
-                        ${log.status_code || 'N/A'}
+                        ${integrationLogsEscape(log.status_code || 'N/A')}
                     </span>
                 </div>
                 <div>
@@ -540,11 +550,11 @@ this.name = "Integration Log";
             <div class="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 <div>
                     <h4 class="font-semibold mb-2">Request body:</h4>
-                    <pre class="bg-gray-100 p-3 rounded text-sm overflow-auto max-h-60">${this.formatJson(log.request_body)}</pre>
+                    <pre class="bg-gray-100 p-3 rounded text-sm overflow-auto max-h-60">${integrationLogsEscape(this.formatJson(log.request_body))}</pre>
                 </div>
                 <div>
                     <h4 class="font-semibold mb-2">Response body:</h4>
-                    <pre class="bg-gray-100 p-3 rounded text-sm overflow-auto max-h-60">${this.formatJson(log.response_body)}</pre>
+                    <pre class="bg-gray-100 p-3 rounded text-sm overflow-auto max-h-60">${integrationLogsEscape(this.formatJson(log.response_body))}</pre>
                 </div>
             </div>
         `;
@@ -629,7 +639,7 @@ this.name = "Integration Log";
         if (!container) return;
 
         if (!data.success) {
-            container.innerHTML = `<div class="text-red-600">${data.error}</div>`;
+            container.innerHTML = `<div class="text-red-600">${integrationLogsEscape(data.error)}</div>`;
             container.classList.remove('hidden');
             return;
         }
@@ -662,8 +672,8 @@ Error rate
                     ${(data.host_stats || []).map(stat => `
                         <div class="flex justify-between items-center bg-white p-2 rounded border">
                             <div>
-                                <span class="font-medium">${stat.host}</span>
-                                <span class="text-gray-500 text-sm ml-2">(${stat.method})</span>
+                                <span class="font-medium">${integrationLogsEscape(stat.host)}</span>
+                                <span class="text-gray-500 text-sm ml-2">(${integrationLogsEscape(stat.method)})</span>
                             </div>
                             <div class="flex space-x-4 text-sm">
                                 <span>Requests: ${stat.request_count}</span>

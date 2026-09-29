@@ -19,6 +19,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
+from keepup.auth.usernames import safe_username
 from keepup.auth import oidc, oidc_policy, panel_session
 from keepup.auth.dependencies import issue_session_token
 from keepup.db import DatabaseManagerV2
@@ -64,7 +65,9 @@ def propose_username(claims: Dict[str, Any]) -> str:
     for claim in ("preferred_username", "email", "sub"):
         value = claims.get(claim)
         if value:
-            return str(value).strip().lower()
+            # Whatever the provider allows, the name here keeps to the plain
+            # shape the panel shows back (keepup-62).
+            return safe_username(str(value).strip().lower())
     return "user"
 
 

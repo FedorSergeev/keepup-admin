@@ -512,7 +512,7 @@ function updateInstancesStatus(instances) {
         return `
             <div class="bg-white border rounded-lg p-4 hover:shadow-md transition-shadow">
                 <div class="flex justify-between items-start mb-3">
-                    <h4 class="font-semibold text-gray-800">${instance.instance_id}</h4>
+                    <h4 class="font-semibold text-gray-800">${keepupEscapeHtml(instance.instance_id)}</h4>
                     <span class="px-2 py-1 text-xs rounded-full ${statusClass}">
                         ${statusText}
                     </span>
@@ -536,11 +536,11 @@ function updateInstancesStatus(instances) {
                 ${instance.is_online ? `
                     <div class="mt-3 pt-3 border-t border-gray-200">
                         <div class="flex space-x-2">
-                            <button onclick="restartInstance('${instance.instance_id}')"
+                            <button onclick="restartInstance(${keepupJsArg(instance.instance_id)})"
                                     class="flex-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200">
                                 Restart
                             </button>
-                            <button onclick="showInstanceDetails('${instance.instance_id}')"
+                            <button onclick="showInstanceDetails(${keepupJsArg(instance.instance_id)})"
                                     class="flex-1 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded hover:bg-gray-200">
                                 Details
                             </button>
@@ -584,7 +584,7 @@ function updateMetricsTable(instances) {
         return `
             <tr class="hover:bg-gray-50">
                 <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm font-medium text-gray-900">${instance.instance_id}</div>
+                    <div class="text-sm font-medium text-gray-900">${keepupEscapeHtml(instance.instance_id)}</div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
                     <span class="text-sm ${cpuClass}">${cpuUsage.toFixed(1)}%</span>
@@ -760,7 +760,7 @@ function showInstanceDetailsModal(instance) {
     modal.innerHTML = `
         <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center p-6 border-b">
-                <h3 class="text-xl font-bold text-gray-800">Instance Details: ${instance.instance_id}</h3>
+                <h3 class="text-xl font-bold text-gray-800">Instance Details: ${keepupEscapeHtml(instance.instance_id)}</h3>
                 <button onclick="closeInstanceDetailsModal()" class="text-gray-500 hover:text-gray-700 p-2">
                     <i data-feather="x" class="w-6 h-6"></i>
                 </button>
@@ -813,7 +813,7 @@ function showInstanceDetailsModal(instance) {
                         ${instance.recent_events && instance.recent_events.length > 0 ?
                             instance.recent_events.map(event => `
                                 <div class="flex justify-between py-1 border-b border-gray-200 last:border-b-0">
-                                    <span>${event.message}</span>
+                                    <span>${keepupEscapeHtml(event.message)}</span>
                                     <span class="text-gray-500">${new Date(event.timestamp).toLocaleString()}</span>
                                 </div>
                             `).join('') :

@@ -20,6 +20,7 @@ from fastapi.security import OAuth2PasswordBearer
 import jwt
 from starlette import status
 
+from keepup.auth.usernames import is_valid_username
 from keepup.auth.signing_key import resolve_signing_key
 from keepup.auth import user_roles
 from keepup.roles import ROLE_CLIENT
@@ -167,6 +168,14 @@ class AuthProvider(ABC):
             agree_terms: bool = False
     ):
         """Create a user, including the extra fields and the terms agreement."""
+
+        # Every path that creates an account ends here, whatever route or plugin
+        # started it: the name is held to the shape the panel can show (keepup-62).
+        if not is_valid_username(username):
+            raise HTTPException(
+                status_code=status.HTTP_400_BAD_REQUEST,
+                detail="Username may contain letters, digits and . _ @ + -, at most 64 characters"
+            )
 
         if not agree_terms:
             raise HTTPException(

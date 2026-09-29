@@ -564,8 +564,8 @@ function renderBackendPlugins(rows) {
         }
         return `
             <tr class="hover:bg-gray-50">
-                <td class="px-6 py-4"><div class="text-sm font-medium text-gray-900">${row.name || row.id}</div></td>
-                <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-900 font-mono">${row.id}</div></td>
+                <td class="px-6 py-4"><div class="text-sm font-medium text-gray-900">${keepupEscapeHtml(row.name || row.id)}</div></td>
+                <td class="px-6 py-4 whitespace-nowrap"><div class="text-sm text-gray-900 font-mono">${keepupEscapeHtml(row.id)}</div></td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-700">${row.priority}</td>
                 <td class="px-6 py-4 whitespace-nowrap">${decision}${source}</td>
                 <td class="px-6 py-4 whitespace-nowrap">${state}</td>
@@ -592,10 +592,10 @@ function pluginSwitch(row) {
     const label = target ? 'Enable' : 'Disable';
     const colour = target ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700';
     const reset = row.desired_source === 'panel'
-        ? `<button onclick="clearPluginOverride('${row.id}')"
+        ? `<button onclick="clearPluginOverride(${keepupJsArg(row.id)})"
                    class="ml-2 px-2 py-1 text-xs text-gray-600 underline">from file</button>`
         : '';
-    return `<button onclick="setPluginEnabled('${row.id}', ${target})"
+    return `<button onclick="setPluginEnabled(${keepupJsArg(row.id)}, ${target})"
                     class="px-3 py-1 ${colour} text-white rounded text-xs">${label}</button>${reset}`;
 }
 
@@ -653,7 +653,7 @@ async function loadBackendPlugins() {
         tbody.innerHTML = renderBackendPlugins(data.plugins);
     } catch (error) {
         console.error('Error loading plugin status:', error);
-        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Could not get plugin status: ${error.message}</td></tr>`;
+        tbody.innerHTML = `<tr><td colspan="6" class="px-6 py-4 text-center text-red-500">Could not get plugin status: ${keepupEscapeHtml(error.message)}</td></tr>`;
     }
     feather.replace();
 }
@@ -699,16 +699,16 @@ function displayModules(modules, rolesData) {
                             <i data-feather="grid" class="w-5 h-5 text-blue-600"></i>
                         </div>
                         <div class="ml-4">
-                            <div class="text-sm font-medium text-gray-900">${module.name}</div>
-                            <div class="text-sm text-gray-500">${module.description || 'No description'}</div>
+                            <div class="text-sm font-medium text-gray-900">${keepupEscapeHtml(module.name)}</div>
+                            <div class="text-sm text-gray-500">${keepupEscapeHtml(module.description || 'No description')}</div>
                         </div>
                     </div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
-                    <div class="text-sm text-gray-900 font-mono">${module.module_id}</div>
+                    <div class="text-sm text-gray-900 font-mono">${keepupEscapeHtml(module.module_id)}</div>
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap">
-                    <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">${module.version}</span>
+                    <span class="px-2 py-1 bg-gray-100 text-gray-800 rounded text-xs">${keepupEscapeHtml(module.version)}</span>
                 </td>
                 <td class="px-6 py-4">
                     <div class="flex flex-wrap gap-1">${rolesText}</div>
@@ -720,17 +720,17 @@ function displayModules(modules, rolesData) {
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div class="flex space-x-2">
-                        <button onclick="editModule('${module.module_id}')"
+                        <button onclick="editModule(${keepupJsArg(module.module_id)})"
                                 class="text-blue-600 hover:text-blue-900 bg-blue-100 px-3 py-1 rounded text-sm flex items-center">
                             <i data-feather="edit" class="w-3 h-3 mr-1"></i>
                             Edit
                         </button>
-                        <button onclick="manageModuleRoles('${module.module_id}')"
+                        <button onclick="manageModuleRoles(${keepupJsArg(module.module_id)})"
                                 class="text-purple-600 hover:text-purple-900 bg-purple-100 px-3 py-1 rounded text-sm flex items-center">
                             <i data-feather="users" class="w-3 h-3 mr-1"></i>
                             Roles
                         </button>
-                        <button onclick="deleteModule('${module.module_id}')"
+                        <button onclick="deleteModule(${keepupJsArg(module.module_id)})"
                                 class="text-red-600 hover:text-red-900 bg-red-100 px-3 py-1 rounded text-sm flex items-center">
                             <i data-feather="trash-2" class="w-3 h-3 mr-1"></i>
                             Delete

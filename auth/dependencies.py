@@ -21,6 +21,7 @@ import jwt
 from jwt import PyJWTError as JWTError
 from starlette import status
 
+from keepup.auth.usernames import is_valid_username
 from keepup.auth import panel_session
 from keepup.auth.dto.token import TokenData
 from keepup.auth.factory import AuthProviderFactory
@@ -123,6 +124,9 @@ def get_all_users():
 
 def save_user_to_db(username: str, password: str):
     """Create a user, for any configured auth provider."""
+    if not is_valid_username(username):
+        raise HTTPException(status_code=400, detail="Username may contain letters, digits "
+                                                    "and . _ @ + -, at most 64 characters")
     password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
     query = """

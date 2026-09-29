@@ -173,7 +173,7 @@ function createThemeElement(theme) {
                 <i data-feather="edit-2" class="w-4 h-4 mr-1"></i>Edit
             </button>
             ${!isActive ? `
-            <button onclick="deleteTheme(${id}, '${escapeHtml(theme.theme_name)}')"
+            <button onclick="deleteTheme(${id}, ${keepupJsArg(theme.theme_name)})"
                     class="theme-action-btn bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm flex items-center">
                 <i data-feather="trash-2" class="w-4 h-4 mr-1"></i>Delete
             </button>

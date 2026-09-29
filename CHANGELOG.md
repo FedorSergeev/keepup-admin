@@ -6,6 +6,14 @@ Notable changes to `keepup-admin`.
 
 ### Security
 
+- **A user name can no longer run as a script in the panel.** The Users
+  section spliced the name into markup and into inline handlers, so a name
+  with markup ran in the session of the administrator who opened the list; the
+  integration log view did the same with names, addresses and bodies. Sections
+  escape data (`keepupEscapeHtml`, `keepupJsArg` in the shell), the Users list
+  binds its buttons by id, notifications show text, and a user name is held to
+  letters, digits and `. _ @ + -` (64 at most) wherever an account is created.
+
 - **Bodies the framework parses before the sign-in check are small by
   default.** JSON is parsed before a route's dependencies run, and a parsed
   body takes tens of times its size in memory, so the 256 MiB default let one
