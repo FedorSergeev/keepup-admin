@@ -324,7 +324,10 @@ function createAuditEventElement(event) {
     div.setAttribute('data-event-id', event.id);
 
     const eventTypeColor = getEventTypeColor(event.event_type);
-    const eventData = event.event_data ? formatJSON(event.event_data) : null;
+    // `data` is the event's own payload (keepup-57); `event_data` was the text
+    // parsed as JSON and stays only for answers from an older server.
+    const payload = event.data !== undefined ? event.data : event.event_data;
+    const eventData = payload ? formatJSON(payload) : null;
 
     div.innerHTML = `
         <div class="flex justify-between items-start mb-3">
@@ -687,7 +690,8 @@ function exportEventsToCSV() {
         event.instance_id,
         event.instance_name || '',
         formatDate(event.created_at, 'datetime'),
-        event.event_data ? JSON.stringify(event.event_data) : ''
+        (event.data !== undefined ? event.data : event.event_data)
+            ? JSON.stringify(event.data !== undefined ? event.data : event.event_data) : ''
     ]);
 
     const csvContent = [headers, ...rows].map(row => row.map(cell => `"${String(cell).replace(/"/g, '""')}"`).join(',')).join('\n');

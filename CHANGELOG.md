@@ -122,6 +122,10 @@ Notable changes to `keepup-admin`.
 
 ### Fixed
 
+- **The event list answers with the event's data.** It put the event's text,
+  parsed as JSON, into `event_data` and did not answer with the stored data at
+  all. The data is now in `data`.
+
 - **Panel sections can be created and changed through the API.**
   `POST` and `PUT /api/admin/modules` handed the section to the writer under
   their own field names while it reads the catalogue file's, and answered 400
@@ -160,6 +164,8 @@ Notable changes to `keepup-admin`.
 
 ### Deprecated
 
+- `event_data` in the answer of `GET /api/events`: it carries the event's text,
+  not its data, and goes in the next major release. Read `data`.
 - The shell's own answer to a `payment_success` message (a notification and
   `loadTariffsData()`) is product logic in the framework; it stays for this
   release and is removed in the next minor one. Listen to `keepup:message` in

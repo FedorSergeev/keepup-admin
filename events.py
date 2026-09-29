@@ -185,14 +185,20 @@ class EventManager:
                         row['created_at']) if len(row) > 6 else None
                 }
 
+                # Deprecated: `event_data` has always carried the *text*, parsed
+                # as JSON when it happened to be JSON, and the event's own data
+                # was not in the answer at all (keepup-57). Kept as it was for
+                # whoever reads it; goes in the next major release.
                 if len(row) > 3 and row['event_text']:
                     try:
                         if isinstance(row['event_text'], str):
                             event['event_data'] = json.loads(row['event_text'])
                         else:
                             event['event_data'] = row['event_text']
-                    except:
+                    except (TypeError, ValueError):
                         event['event_data'] = row['event_text']
+
+                event['data'] = _stored_data(row['event_data'])
 
                 events.append(event)
 
@@ -371,6 +377,22 @@ EVENTS_MAX_CHUNKS_PER_PASS = 20
 EVENTS_ERROR_BACKOFF_SECONDS = 60
 
 EVENTS_RETENTION_LOCK = "app_events_retention"
+
+
+def _stored_data(value):
+    """The event's data as it was written: a mapping, or None when there is none.
+
+    Stored as JSON text; a value that does not parse is handed back as it is
+    rather than dropped, so nothing written is lost from the answer.
+    """
+    if value is None or value == "":
+        return None
+    if isinstance(value, str):
+        try:
+            return json.loads(value)
+        except ValueError:
+            return value
+    return value
 
 
 def events_retention_days() -> int:
