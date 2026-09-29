@@ -94,6 +94,10 @@ class ConfigService:
         VALUES (:theme_name, :main_page_file, :brand_name, :logo_url, :is_active)
     """
 
+    THEME_STATE_SQL = """
+        SELECT id, is_active FROM visual_themes WHERE id = :theme_id
+    """
+
     DELETE_THEME_SQL = """
         DELETE FROM visual_themes
         WHERE id = :theme_id
@@ -411,6 +415,22 @@ class ConfigService:
             logger.error(f"Error creating theme: {str(e)}")
             return None
 
+    def deletion_refusal(self, theme_id: int) -> Optional[str]:
+        """Why this theme cannot be deleted, or None when it can.
+
+        Read by id from the table. The check used to compare with the cached
+        active theme, whose query does not select the id, so it never fired:
+        only the condition in the delete kept the active theme, and the answer
+        could not say which of "not found" and "active" it was (keepup-58).
+        """
+        self._ensure_ready()
+        row = DatabaseManagerV2.execute_one(self.THEME_STATE_SQL, {"theme_id": theme_id})
+        if not row:
+            return f"There is no theme {theme_id}."
+        if row.get("is_active"):
+            return "The active theme cannot be deleted; activate another theme first."
+        return None
+
     def delete_theme(self, theme_id: int) -> bool:
         """Delete a theme. The active theme cannot be deleted.
 
@@ -422,11 +442,13 @@ class ConfigService:
         """
         self._ensure_ready()
         try:
-            active_theme = self.get_active_theme()
-            if active_theme and active_theme.get('id') == theme_id:
-                logger.warning(f"Cannot delete active theme {theme_id}")
+            refusal = self.deletion_refusal(theme_id)
+            if refusal:
+                logger.warning(f"Theme {theme_id} not deleted: {refusal}")
                 return False
 
+            # The condition in the statement stays: the theme may have been
+            # activated between the check and the delete.
             affected = DatabaseManagerV2.execute_commit(
                 self.DELETE_THEME_SQL,
                 {"theme_id": theme_id}
@@ -506,7 +528,10 @@ def register_theme_routes(app, config_service):
             return {"success": False, "message": "Failed to create theme"}
     @app.delete("/themes/{theme_id}")
     async def delete_theme(theme_id: int, admin: dict = Depends(get_current_admin)):
-        """Delete a theme."""
+        """Delete a theme; the answer says why when it cannot be."""
+        refusal = config_service.deletion_refusal(theme_id)
+        if refusal:
+            return {"success": False, "message": refusal}
         success = config_service.delete_theme(theme_id)
 
         if success:

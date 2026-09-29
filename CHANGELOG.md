@@ -127,6 +127,12 @@ Notable changes to `keepup-admin`.
   connection and answer another insert's id or 0; a theme created active then
   activated some other row. The insert and the read now share one session.
 
+- **Deleting a theme says why it cannot.** The check compared the theme with
+  the cached active theme, whose query selects no id, so it never fired; the
+  delete's own condition kept the active theme and the answer could not tell
+  "not found" from "active". `ConfigService.deletion_refusal()` reads the
+  theme's state by id, and the route answers the reason.
+
 - **The event list answers with the event's data.** It put the event's text,
   parsed as JSON, into `event_data` and did not answer with the stored data at
   all. The data is now in `data`.
