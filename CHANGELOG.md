@@ -73,6 +73,12 @@ Notable changes to `keepup-admin`.
 
 ### Fixed
 
+- **The deployment keeps an administrator.** Neither route that changes roles
+  takes `ADMIN` from the administrator making the change or from the last
+  active account holding it any more (400 with the reason). The single role of
+  `PATCH /api/admin/users/{id}` is now checked against the declared roles and
+  stored as declared, like the set -- a name nothing declares is refused.
+
 - **A lock's time is written and judged by one clock.** The holder's time was
   written by the database's `CURRENT_TIMESTAMP` and compared with the
   application's UTC; with a database zone other than UTC a crashed holder's

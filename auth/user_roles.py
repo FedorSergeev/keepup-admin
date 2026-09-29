@@ -38,7 +38,9 @@ from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
 __all__ = [
+    "AdministratorKept",
     "attach_roles",
+    "ensure_an_administrator_remains",
     "has_role",
     "held_by",
     "known_roles",
@@ -63,6 +65,10 @@ class UnknownRole(ValueError):
         super().__init__(
             f"Unknown role '{name}'. The roles of this deployment are: "
             f"{', '.join(self.known)}")
+
+
+class AdministratorKept(ValueError):
+    """The change would leave the deployment, or the one making it, without ADMIN."""
 
 
 class EmptyRoleSet(ValueError):
@@ -150,6 +156,44 @@ def normalise(names: Iterable[str], known: Optional[Sequence[str]] = None,
     if not resolved:
         raise EmptyRoleSet()
     return sorted(resolved)
+
+
+def _other_active_administrators(user_id: int) -> int:
+    """Active accounts other than this one that hold ADMIN -- in the set, or
+    in the mirror for an account whose set is still empty (see roles_of)."""
+    row = DatabaseManagerV2.execute_one(
+        "SELECT COUNT(*) AS n FROM users u WHERE u.id <> :id AND u.status = 'active' AND ("
+        " EXISTS (SELECT 1 FROM user_roles r WHERE r.user_id = u.id AND r.role_name = :admin)"
+        " OR (u.role = :admin AND NOT EXISTS (SELECT 1 FROM user_roles r WHERE r.user_id = u.id)))",
+        {"id": user_id, "admin": ROLE_ADMIN})
+    return int((row or {}).get("n") or 0)
+
+
+def ensure_an_administrator_remains(user_id: int, roles: Sequence[str],
+                                    actor_id: Optional[int]) -> None:
+    """Refuse a change that takes ADMIN from its author or from the last holder.
+
+    An administrator who took the role from themselves, or from the last
+    account holding it, left the deployment with nobody able to give it back
+    short of editing the database (keepup-71). Taking it from another
+    administrator while one remains is an ordinary decision.
+
+    Two such changes made at the same moment could still both pass; the window
+    is one request wide and the answer to it is the database, as before.
+
+    Raises:
+        AdministratorKept: the change is one of the two above.
+    """
+    if ROLE_ADMIN in roles or ROLE_ADMIN not in roles_of(user_id):
+        return
+    if actor_id is not None and int(actor_id) == int(user_id):
+        raise AdministratorKept(
+            "An administrator cannot take the administrator role from themselves. "
+            "Ask another administrator to do it.")
+    if _other_active_administrators(user_id) == 0:
+        raise AdministratorKept(
+            "This is the last active administrator. Give the role to another "
+            "account first.")
 
 
 def primary_role(roles: Sequence[str]) -> str:

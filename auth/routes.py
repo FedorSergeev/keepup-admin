@@ -227,6 +227,20 @@ class UserProfileUpdate(BaseModel):
         if v and not re.match(r'^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$', v):
             raise ValueError('Invalid email format')
         return v
+def _replace_roles(user_id: int, names, admin: dict):
+    """The administrator's change of a role set: declared names, an administrator kept."""
+    roles = user_roles.normalise(names)
+    user_roles.ensure_an_administrator_remains(user_id, roles, admin.get("id"))
+    return user_roles.set_roles(user_id, roles)
+
+
+def _checked_single_role(user_id: int, name: str, admin: dict) -> str:
+    """The deprecated single role, held to the same rules as the set."""
+    roles = user_roles.normalise([name])
+    user_roles.ensure_an_administrator_remains(user_id, roles, admin.get("id"))
+    return roles[0]
+
+
 def update_user_profile(user_id: int, email: str = None, phone: str = None, full_name: str = None):
     """Update a user's profile."""
     changes = {"email": email, "phone": phone, "full_name": full_name}
@@ -649,8 +663,9 @@ def register_auth_routes(app, manager):
         if not user:
             raise HTTPException(status_code=404, detail="User not found")
         try:
-            held = await asyncio.to_thread(user_roles.set_roles, user_id, payload.roles)
-        except (user_roles.EmptyRoleSet, user_roles.UnknownRole) as refusal:
+            held = await asyncio.to_thread(_replace_roles, user_id, payload.roles, admin)
+        except (user_roles.EmptyRoleSet, user_roles.UnknownRole,
+                user_roles.AdministratorKept) as refusal:
             raise HTTPException(status_code=400, detail=str(refusal))
         return {"success": True, "roles": held}
 
@@ -666,11 +681,22 @@ def register_auth_routes(app, manager):
         if user_data.status and user_data.status != "active" and int(admin["id"]) == int(user_id):
             raise HTTPException(status_code=400, detail="An administrator cannot block their own account")
 
+        # The single role is held to what the deployment declares, like the set
+        # is, and to the same rule about the administrator role: this field
+        # wrote whatever it was given (keepup-71).
+        role = None
+        if user_data.role is not None:
+            try:
+                role = await asyncio.to_thread(_checked_single_role, user_id, user_data.role, admin)
+            except (user_roles.EmptyRoleSet, user_roles.UnknownRole,
+                    user_roles.AdministratorKept) as refusal:
+                raise HTTPException(status_code=400, detail=str(refusal))
+
         await asyncio.to_thread(
             update_user,
             user_id,
             user_data.status,
-            user_data.role,
+            role,
             user_data.email,
             user_data.phone,
             user_data.full_name
