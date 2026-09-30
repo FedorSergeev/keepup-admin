@@ -130,6 +130,11 @@ Notable changes to `keepup-admin`.
 
 ### Fixed
 
+- **Nothing in the framework decides by the `role` mirror.** The lock
+  endpoints refused an administrator whose mirror disagreed with the set, and
+  a provider sign-in compared the provider's role with the mirror. Both use
+  the set now. The mirror is still written and answered; it goes in 0.4.0.
+
 - **Signing in through a provider and starting up keep the database off the
   loop.** The end of a provider sign-in -- finding or creating the account,
   bringing its roles in step, opening the session -- and the table set-up at

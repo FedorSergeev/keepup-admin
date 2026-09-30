@@ -16,6 +16,7 @@ from datetime import datetime, timedelta
 
 from fastapi import Depends, HTTPException, Query, status
 
+from keepup.auth import user_roles
 from keepup.auth.dependencies import get_current_admin
 from keepup.db import DatabaseManagerV2
 from keepup.instance import get_instance_id
@@ -307,7 +308,7 @@ def register_lock_routes(app):
     def get_active_locks(admin: dict = Depends(get_current_admin)):
         """Return the active locks (administrators only)."""
         try:
-            if admin["role"] != ROLE_ADMIN:
+            if not user_roles.has_role(admin, ROLE_ADMIN):
                 logger.warning(f"Non-admin user {admin['username']} attempted to access locks endpoint")
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -337,7 +338,7 @@ def register_lock_routes(app):
     ):
         """Force-release a lock (administrators only)."""
         try:
-            if admin["role"] != ROLE_ADMIN:
+            if not user_roles.has_role(admin, ROLE_ADMIN):
                 logger.warning(f"Non-admin user {admin['username']} attempted to release lock {lock_name}")
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
@@ -416,7 +417,7 @@ def register_lock_routes(app):
     def get_locks_stats(admin: dict = Depends(get_current_admin)):
         """Return lock statistics (administrators only)."""
         try:
-            if admin["role"] != ROLE_ADMIN:
+            if not user_roles.has_role(admin, ROLE_ADMIN):
                 raise HTTPException(
                     status_code=status.HTTP_403_FORBIDDEN,
                     detail="Admin access required"

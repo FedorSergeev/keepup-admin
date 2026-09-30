@@ -187,12 +187,15 @@ def sync_roles(account: Dict[str, Any], issuer: str, claims: Dict[str, Any],
     apply_permissions(account["id"], permissions)
 
     role = role_from_permissions(permissions, settings.default_role)
-    if role != account.get("role"):
+    # Compared with the set, not with the deprecated mirror, which is not what
+    # the framework decides by (keepup-60).
+    held = user_roles.roles_of(account["id"])
+    if held != [role]:
         # Through the set, not straight into the column: the provider decides
         # what this person is on every sign-in, and a mirror moved on its own
         # would leave the framework deciding by the previous role.
         user_roles.set_roles(account["id"], [role], checked=False)
-        logger.info(f"OIDC role for {account['username']}: {account.get('role')} -> {role}")
+        logger.info(f"OIDC roles for {account['username']}: {held} -> {[role]}")
     return role
 
 
