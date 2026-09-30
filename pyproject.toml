@@ -65,7 +65,7 @@ dependencies = [
     # security workflow against the floors themselves, not only against what a
     # fresh install happens to resolve today (keepup-69): an installation that
     # keeps an old PyJWT satisfied the range and was open to it.
-    "pyjwt[crypto]>=2.14,<3",
+    "pyjwt[crypto]>=2.15,<3",
     "python-multipart>=0.0.31",
     "PyYAML>=6.0,<7",
     "psutil>=7.0",
@@ -76,7 +76,7 @@ dependencies = [
     # (PyJWT's asymmetric algorithms, requests) with no floor of their own that
     # excludes the advisories.
     "cryptography>=50.0",
-    "urllib3>=2.7",
+    "urllib3>=2.8",
 ]
 
 [project.optional-dependencies]

@@ -70,10 +70,12 @@ wheel does not have it.
   purpose. `app.openapi()` in code is unchanged. **Upgrading:** a client that
   fetched the schema without signing in now gets 401.
 
-- **PyJWT at least 2.14.** Ten advisories against PyJWT 2.13 were published
-  after 2.13 had been made the floor, all fixed in 2.14.0; the floor follows.
-  An application that pins PyJWT below 2.14 raises its pin when it moves to
-  this release -- otherwise the installation does not resolve.
+- **PyJWT at least 2.15, urllib3 at least 2.8.** Ten advisories against PyJWT
+  2.13 were published after 2.13 had been made the floor, fixed in 2.14.0, and
+  one more against 2.14 the same day, fixed in 2.15.0; three against urllib3
+  2.7 are fixed in 2.8.0. The floors follow. An application that pins either
+  below its floor raises the pin when it moves to this release -- otherwise the
+  installation does not resolve.
 
 - **The panel shell hears only its own origin.** Its `message` handler acted
   on whatever any window posted, so any site the user had open could make the

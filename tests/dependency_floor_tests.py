@@ -20,13 +20,15 @@ WORKFLOW = PACKAGE / ".github" / "workflows" / "security.yml"
 #: The first version clear of every advisory published when the floor was set
 #: (pip-audit, 29.09.2026). A floor below it readmits a known vulnerability.
 FIRST_CLEAN = {
-    # 2.14: ten advisories against 2.13 were published after keepup-69 set the
-    # floor -- found by the security audit suite (keepup-94, keepup-95).
-    "pyjwt": "2.14",
+    # 2.14 closed ten advisories against 2.13 (keepup-95); one more against 2.14
+    # was published the same day and is closed in 2.15 (keepup-97). Both were
+    # found by the security audit suite (keepup-94).
+    "pyjwt": "2.15",
     "python-multipart": "0.0.31",
     "requests": "2.33",
     "cryptography": "50.0",
-    "urllib3": "2.7",
+    # 2.8: three advisories against 2.7 (keepup-97).
+    "urllib3": "2.8",
 }
 
 
