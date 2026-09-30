@@ -46,7 +46,9 @@ def test_the_password_rule_applies_when_an_administrator_sets_a_password():
     A deployment asking for twelve characters got them at registration and lost
     them here, without a word.
     """
-    source = (PACKAGE / "auth/routes.py").read_text(encoding="utf-8")
+    # The administration of users moved to user_routes.py with keepup-59; the
+    # path is the only change, made with the owner's consent.
+    source = (PACKAGE / "auth/user_routes.py").read_text(encoding="utf-8")
 
     change = source[source.index("new_password_hash = bcrypt.hashpw") - 1200:
                     source.index("new_password_hash = bcrypt.hashpw")]
@@ -62,7 +64,8 @@ def test_blocking_an_account_revokes_its_sessions():
     A WebSocket is not: it authenticates once at the handshake and then runs,
     so a blocked account kept whatever socket it already had open.
     """
-    source = (PACKAGE / "auth/routes.py").read_text(encoding="utf-8")
+    # Moved to user_routes.py with keepup-59; only the path changed.
+    source = (PACKAGE / "auth/user_routes.py").read_text(encoding="utf-8")
 
     block = source[source.index("notify_account_blocked(manager, int(user_id), admin)") - 800:
                    source.index("notify_account_blocked(manager, int(user_id), admin)")]

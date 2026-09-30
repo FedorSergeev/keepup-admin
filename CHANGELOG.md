@@ -190,6 +190,15 @@ Notable changes to `keepup-admin`.
   one flush at a time and pauses requests' flushes for five seconds after a
   failed one. Both report what they dropped.
 
+### Changed
+
+- **Signing in and the management of users are separate modules.**
+  `keepup.auth.routes` keeps signing in, the panel session, token renewal,
+  sign-out and registration; profiles, the administration of accounts and
+  roles moved to `keepup.auth.user_routes`. `register_auth_routes` still
+  registers both, and the moved names (`UserResponse`, `update_user_profile`,
+  ...) still answer from `keepup.auth.routes`, with a DeprecationWarning.
+
 ### Deprecated
 
 - `DatabaseManagerV2.execute_commit_with_positional`: a leftover of the
