@@ -1,0 +1,68 @@
+# The load stand of the framework (keepup-53): PostgreSQL, a one-off schema
+# step and two replicas of an application made of keepup alone. Memory is
+# capped on every container: the machine this runs on is also running other
+# work, and an uncapped stand is what once drove it into swap.
+#
+#   docker compose -f tests/load/compose.yaml up -d --build
+#   python tests/load/drive.py --replicas http://localhost:18001,http://localhost:18002
+#   docker compose -f tests/load/compose.yaml down -v
+
+x-replica: &replica
+  build:
+    context: ../..
+    dockerfile: tests/load/Dockerfile
+  image: keepup-load-stand
+  environment: &env
+    DB_TYPE: postgres
+    DB_HOST: postgres
+    DB_PORT: "5432"
+    DB_NAME: keepup
+    DB_USER: keepup
+    DB_PASSWORD: load-stand-only
+    DB_POOL_SIZE: ${LOAD_DB_POOL_SIZE:-10}
+    DB_POOL_MAX_OVERFLOW: ${LOAD_DB_POOL_MAX_OVERFLOW:-20}
+    SECRET_KEY: load-stand-signing-key-not-for-anything-else
+    ADMIN_INITIAL_PASSWORD: load-stand-admin-password
+    # Every virtual user signs in as the one administrator at once, and the
+    # guessing limit counts an attempt before it checks the password.
+    LOGIN_MAX_ATTEMPTS: "100000"
+    LOAD_NOTIFICATION_CHANNEL: keepup_load
+  depends_on:
+    schema:
+      condition: service_completed_successfully
+  mem_limit: 512m
+  cpus: 1.0
+  # Lets py-spy read a replica's stacks while the driver runs: where the time
+  # of a request goes is what the stand is for.
+  cap_add: ["SYS_PTRACE"]
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: keepup
+      POSTGRES_USER: keepup
+      POSTGRES_PASSWORD: load-stand-only
+    command: ["postgres", "-c", "max_connections=200", "-c", "shared_buffers=128MB"]
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U keepup -d keepup"]
+      interval: 2s
+      retries: 30
+    mem_limit: 768m
+    cpus: 1.5
+
+  schema:
+    <<: *replica
+    command: ["python", "stand_app.py", "init"]
+    depends_on:
+      postgres:
+        condition: service_healthy
+    restart: "no"
+
+  replica-a:
+    <<: *replica
+    ports: ["18001:8000"]
+
+  replica-b:
+    <<: *replica
+    ports: ["18002:8000"]
