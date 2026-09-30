@@ -130,6 +130,11 @@ Notable changes to `keepup-admin`.
 
 ### Fixed
 
+- **A fresh installation reaches PostgreSQL.** The connection address was a
+  bare `postgresql://`, which SQLAlchemy 2.1 resolves to psycopg 3; the
+  package installs psycopg2, so every fresh installation failed on its first
+  query. The driver is named: `postgresql+psycopg2://`.
+
 - **Nothing in the framework decides by the `role` mirror.** The lock
   endpoints refused an administrator whose mirror disagreed with the set, and
   a provider sign-in compared the provider's role with the mirror. Both use

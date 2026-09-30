@@ -116,7 +116,12 @@ class DatabaseConfig:
 
     def get_connection_string(self) -> str:
         if self.db_type == 'postgres':
-            return f"postgresql://{self.db_user}:{self.db_password}@{self.db_host}:{self.db_port}/{self.db_name}"
+            # The driver is named, not left to SQLAlchemy: from 2.1 a bare
+            # postgresql:// means psycopg 3, which this package does not
+            # install, and every fresh installation failed to reach the
+            # database at all (keepup-84). psycopg2 is the declared dependency.
+            return (f"postgresql+psycopg2://{self.db_user}:{self.db_password}"
+                    f"@{self.db_host}:{self.db_port}/{self.db_name}")
         else:
             return f"sqlite:///{self.db_path}"
 
