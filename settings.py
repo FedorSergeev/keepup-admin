@@ -89,6 +89,9 @@ class PerformanceSettings:
     db_pool_timeout: Optional[int] = None
     #: Seconds after which a connection is replaced (servers and proxies drop idle ones).
     db_pool_recycle: Optional[int] = None
+    #: Seconds a connection may lie in the pool and be handed out unpinged;
+    #: 0 pings on every checkout (keepup-86). DB_POOL_PING_AFTER_IDLE otherwise.
+    db_pool_ping_after_idle: Optional[int] = None
     #: How often, in seconds, and at how many rows the request audit is written.
     audit_flush_interval: Optional[int] = None
     audit_buffer_size: Optional[int] = None

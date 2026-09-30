@@ -177,6 +177,13 @@ wheel does not have it.
 
 ### Fixed
 
+- **A connection is pinged only after lying idle.** The pool pinged the
+  database on every checkout, a fifth of what a replica spent on the load
+  stand. A connection is pinged at checkout only when it has lain in the pool
+  longer than `DB_POOL_PING_AFTER_IDLE` seconds
+  (`PerformanceSettings.db_pool_ping_after_idle`, 10 by default; 0 pings every
+  time); one failing the ping is replaced as before.
+
 - **A read does not commit a transaction.** `execute()` and `execute_one()`
   wrapped every statement in a transaction and committed it, reads included --
   a round trip for a query that wrote nothing. A plain SELECT runs in

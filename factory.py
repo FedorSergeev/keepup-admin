@@ -118,7 +118,8 @@ def apply_performance(performance) -> None:
     """
     from keepup.db import DatabaseManagerV2, db_config
     if db_config.apply_pool(performance.db_pool_size, performance.db_pool_max_overflow,
-                            performance.db_pool_timeout, performance.db_pool_recycle):
+                            performance.db_pool_timeout, performance.db_pool_recycle,
+                            performance.db_pool_ping_after_idle):
         DatabaseManagerV2.dispose()
     if performance.metrics_interval is not None:
         from keepup.metrics import metrics_collector

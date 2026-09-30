@@ -16,12 +16,55 @@ import asyncio
 import contextvars
 import os
 import threading
+import time
 import warnings
 from contextlib import contextmanager
 from typing import Optional, List, Dict, Any
 
-from sqlalchemy import create_engine, text
+from sqlalchemy import create_engine, event, exc, text
+from sqlalchemy.engine import Engine
 from sqlalchemy.orm import sessionmaker, Session
+
+_RETURNED_AT = "keepup_returned_at"
+
+
+def _ping_when_idle(engine, idle_seconds: int) -> None:
+    """Ping a connection at checkout only when it has lain in the pool a while.
+
+    The pool used to ping on every checkout (pool_pre_ping), and a request that
+    takes three connections pinged three times -- on the load stand (keepup-53)
+    a fifth of what a replica spent. A connection handed back a moment ago has
+    had no time to be closed by the database or the network; one that has lain
+    longer than ``idle_seconds`` is pinged, and one that fails the ping is
+    replaced, exactly as the built-in ping does (keepup-86). The ping is the
+    dialect's own. A connection the database dropped while it was busy a
+    moment ago still fails its next statement once, as it would have after a
+    ping made just before the drop.
+    """
+    if not isinstance(engine, Engine):
+        # A stand-in engine (a test's mock) has no pool events to listen to.
+        return
+
+    @event.listens_for(engine, "connect")
+    def _fresh(dbapi_connection, record):
+        record.info[_RETURNED_AT] = time.monotonic()
+
+    @event.listens_for(engine, "checkin")
+    def _returned(dbapi_connection, record):
+        if record is not None:
+            record.info[_RETURNED_AT] = time.monotonic()
+
+    @event.listens_for(engine, "checkout")
+    def _ping(dbapi_connection, record, proxy):
+        returned = record.info.get(_RETURNED_AT)
+        if idle_seconds and returned is not None and time.monotonic() - returned < idle_seconds:
+            return
+        try:
+            engine.dialect.do_ping(dbapi_connection)
+        except Exception as error:
+            # The pool discards the connection and hands out a fresh one.
+            raise exc.DisconnectionError(f"connection failed its ping: {error}") from error
+
 
 def _reads_only(query: str) -> bool:
     """Whether the statement is a plain read: a SELECT that takes no lock."""
@@ -62,13 +105,18 @@ class DatabaseConfig:
         self.pool_max_overflow = 10
         self.pool_timeout = 30
         self.pool_recycle = 3600
+        #: Seconds a connection may lie in the pool and still be handed out
+        #: without a ping; 0 pings on every checkout (keepup-86).
+        self.pool_ping_after_idle = 10
         self._load_config()
 
-    def apply_pool(self, size=None, max_overflow=None, timeout=None, recycle=None) -> bool:
+    def apply_pool(self, size=None, max_overflow=None, timeout=None, recycle=None,
+                   ping_after_idle=None) -> bool:
         """Take the application's pool values over the deployment's; True if any changed."""
         changed = False
         for field_name, value in (("pool_size", size), ("pool_max_overflow", max_overflow),
-                                  ("pool_timeout", timeout), ("pool_recycle", recycle)):
+                                  ("pool_timeout", timeout), ("pool_recycle", recycle),
+                                  ("pool_ping_after_idle", ping_after_idle)):
             if value is not None and getattr(self, field_name) != int(value):
                 setattr(self, field_name, int(value))
                 changed = True
@@ -93,6 +141,7 @@ class DatabaseConfig:
         self.pool_max_overflow = int(os.getenv('DB_POOL_MAX_OVERFLOW', '10'))
         self.pool_timeout = int(os.getenv('DB_POOL_TIMEOUT', '30'))
         self.pool_recycle = int(os.getenv('DB_POOL_RECYCLE', '3600'))
+        self.pool_ping_after_idle = int(os.getenv('DB_POOL_PING_AFTER_IDLE', '10'))
 
         if self.db_type == 'sqlite':
             os.makedirs(os.path.dirname(self.db_path), exist_ok=True)
@@ -147,7 +196,9 @@ class DatabaseConfig:
                 'max_overflow': self.pool_max_overflow,
                 'pool_timeout': self.pool_timeout,
                 'pool_recycle': self.pool_recycle,
-                'pool_pre_ping': True,
+                # Pinged by _ping_when_idle() instead: on every checkout the
+                # ping was a fifth of what a replica spent (keepup-86).
+                'pool_pre_ping': False,
                 'echo': os.getenv('SQL_ECHO', 'false').lower() == 'true'
             })
         else:
@@ -187,6 +238,7 @@ class DatabaseManagerV2:
             connection_string = db_config.get_connection_string()
             engine_params = db_config.get_sqlalchemy_engine_params()
             cls._engine = create_engine(connection_string, **engine_params)
+            _ping_when_idle(cls._engine, db_config.pool_ping_after_idle)
             cls._session_factory = sessionmaker(bind=cls._engine)
             import logging
             logging.getLogger(__name__).info(f"DatabaseManagerV2 initialized with pool_size={db_config.pool_size}")
