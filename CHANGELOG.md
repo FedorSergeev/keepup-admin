@@ -177,6 +177,12 @@ wheel does not have it.
 
 ### Fixed
 
+- **The session check of a request takes one connection.** It checked the
+  session, read the account and its roles as three separate trips to the
+  database, each with its own checkout, ping and commit -- half of what a
+  replica spent on the load stand. `DatabaseManagerV2.shared_session()` runs a
+  block's queries on one session and one connection, and the check uses it.
+
 - **An account without a local password answers the sign-in form with no.**
   The password column of an account an outside identity owns is not a bcrypt
   hash, and checking a password against it raised -- a 500 on the form instead

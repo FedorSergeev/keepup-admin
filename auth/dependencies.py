@@ -311,13 +311,22 @@ def _session_and_user(payload: dict, username: str):
     sid = payload.get(panel_session.SESSION_CLAIM)
     if not sid:
         return False, None
-    owner = _session_owner(sid)
-    if owner is None:
+    # One connection and one commit for the three reads, not one each: this
+    # runs on every request, and it was half of what a replica spent (keepup-85).
+    try:
+        with DatabaseManagerV2.shared_session():
+            owner = _session_owner(sid)
+            if owner is None:
+                return False, None
+            user = auth_provider.lookup_user(username)
+            if user is not None and int(user["id"]) != owner:
+                return False, None
+            return True, user_roles.attach_roles(user)
+    except Exception as error:
+        # A failed read leaves the shared session unable to commit; either way
+        # the answer is the one a failed check always gave -- refuse.
+        logger.error(f"Could not check the session of {username}: {error}")
         return False, None
-    user = auth_provider.lookup_user(username)
-    if user is not None and int(user["id"]) != owner:
-        return False, None
-    return True, user_roles.attach_roles(user)
 
 
 async def get_current_user(token: str = Depends(request_token)):

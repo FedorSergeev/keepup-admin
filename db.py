@@ -13,13 +13,20 @@ framework keep separate databases. SQLite exists for development only.
 """
 
 import asyncio
+import contextvars
 import os
+import threading
 import warnings
 from contextlib import contextmanager
 from typing import Optional, List, Dict, Any
 
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
+
+#: The session of the shared_session() block running on this thread, if any,
+#: with the thread it belongs to.
+_SHARED_SESSION: contextvars.ContextVar = contextvars.ContextVar(
+    "keepup_shared_session", default=None)
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -180,7 +187,15 @@ class DatabaseManagerV2:
     @classmethod
     @contextmanager
     def get_session(cls) -> Session:
-        """Context manager yielding a session, committing or rolling back on exit."""
+        """Context manager yielding a session, committing or rolling back on exit.
+
+        Inside ``shared_session()`` on the same thread it yields that block's
+        session instead, and leaves committing to the block.
+        """
+        shared = _SHARED_SESSION.get()
+        if shared is not None and shared[0] == threading.get_ident():
+            yield shared[1]
+            return
         if cls._engine is None:
             cls.initialize()
         session = cls._session_factory()
@@ -192,6 +207,30 @@ class DatabaseManagerV2:
             raise e
         finally:
             session.close()
+
+    @classmethod
+    @contextmanager
+    def shared_session(cls):
+        """Run every query of this block on one session: one connection, one commit.
+
+        Each call of the query helpers takes a connection from the pool on its
+        own -- a checkout, a ping, the query and a commit -- and a path that
+        asks three questions paid that three times. The session check on every
+        request did: it was half of what a replica spent (keepup-85). Nested
+        blocks join the outer one. Bound to the thread that opened it, so work
+        handed to another thread from inside the block takes a session of its
+        own rather than sharing one across threads.
+        """
+        shared = _SHARED_SESSION.get()
+        if shared is not None and shared[0] == threading.get_ident():
+            yield shared[1]
+            return
+        with cls.get_session() as session:
+            token = _SHARED_SESSION.set((threading.get_ident(), session))
+            try:
+                yield session
+            finally:
+                _SHARED_SESSION.reset(token)
 
     # --- the same calls, awaitable ------------------------------------------
     #
