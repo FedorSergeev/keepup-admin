@@ -23,6 +23,13 @@ from typing import Optional, List, Dict, Any
 from sqlalchemy import create_engine, text
 from sqlalchemy.orm import sessionmaker, Session
 
+def _reads_only(query: str) -> bool:
+    """Whether the statement is a plain read: a SELECT that takes no lock."""
+    body = query.lstrip().lstrip("(").lstrip()
+    return body[:6].upper() == "SELECT" and "FOR UPDATE" not in query.upper() \
+        and "FOR SHARE" not in query.upper()
+
+
 #: The session of the shared_session() block running on this thread, if any,
 #: with the thread it belongs to.
 _SHARED_SESSION: contextvars.ContextVar = contextvars.ContextVar(
@@ -295,12 +302,34 @@ class DatabaseManagerV2:
         return cls._engine.raw_connection()
 
     @classmethod
+    @contextmanager
+    def _statement_scope(cls, query: str):
+        """Where one statement of execute()/execute_one() runs.
+
+        A plain read runs on a connection in autocommit: it wrote nothing, and
+        the transaction around it cost a BEGIN and a COMMIT -- a round trip to
+        the database for every read (keepup-87). Anything else, and anything
+        inside shared_session(), keeps its transaction as before: these helpers
+        are also called with INSERT ... RETURNING, and a SELECT ... FOR UPDATE
+        means its lock.
+        """
+        shared = _SHARED_SESSION.get()
+        if _reads_only(query) and not (shared is not None and shared[0] == threading.get_ident()):
+            if cls._engine is None:
+                cls.initialize()
+            with cls._engine.connect() as connection:
+                yield connection.execution_options(isolation_level="AUTOCOMMIT")
+            return
+        with cls.get_session() as session:
+            yield session
+
+    @classmethod
     def execute(cls, query: str, params: Optional[dict] = None) -> List[Dict]:
         """Run a SQL query.
 
         NOTE: takes NAMED parameters (:param_name), not positional ones.
         """
-        with cls.get_session() as session:
+        with cls._statement_scope(query) as session:
             result = session.execute(text(query), params or {})
             if result.returns_rows:
                 result = [dict(row._mapping) for row in result.fetchall()]
@@ -313,7 +342,7 @@ class DatabaseManagerV2:
 
         NOTE: takes NAMED parameters (:param_name), not positional ones.
         """
-        with cls.get_session() as session:
+        with cls._statement_scope(query) as session:
             result = session.execute(text(query), params or {})
             if result.returns_rows:
                 row = result.fetchone()

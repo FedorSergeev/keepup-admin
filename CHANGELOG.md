@@ -177,6 +177,12 @@ wheel does not have it.
 
 ### Fixed
 
+- **A read does not commit a transaction.** `execute()` and `execute_one()`
+  wrapped every statement in a transaction and committed it, reads included --
+  a round trip for a query that wrote nothing. A plain SELECT runs in
+  autocommit now; writes, locking reads and `shared_session()` blocks keep
+  their transaction.
+
 - **The session check of a request takes one connection.** It checked the
   session, read the account and its roles as three separate trips to the
   database, each with its own checkout, ping and commit -- half of what a
