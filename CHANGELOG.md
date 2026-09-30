@@ -61,6 +61,11 @@ wheel does not have it.
 
 ### Security
 
+- **PyJWT at least 2.14.** Ten advisories against PyJWT 2.13 were published
+  after 2.13 had been made the floor, all fixed in 2.14.0; the floor follows.
+  An application that pins PyJWT below 2.14 raises its pin when it moves to
+  this release -- otherwise the installation does not resolve.
+
 - **The panel shell hears only its own origin.** Its `message` handler acted
   on whatever any window posted, so any site the user had open could make the
   panel announce a payment and reload a section. Messages from another origin
