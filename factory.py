@@ -26,7 +26,6 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from starlette.middleware.base import BaseHTTPMiddleware
 
 from keepup import audit, cluster, logging_setup, notification_bus, web
 from keepup.api_versions import ApiVersionMiddleware
@@ -83,30 +82,45 @@ def require_signing_key() -> None:
         raise SigningKeyUnavailable(problem)
 
 
-class SecurityHeadersMiddleware(BaseHTTPMiddleware):
+class SecurityHeadersMiddleware:
     """The response headers a browser needs in order to refuse things.
 
     The panel is an ordinary page, so without X-Frame-Options anybody can frame
     it and read a click as the administrator's. The framework carried none of
     these headers at all, which for a package installed on a public address is
     a default rather than an omission.
+
+    Plain ASGI: it only adds headers to the start of a response. Written on
+    BaseHTTPMiddleware it ran every request through a task and a body stream
+    of its own, the most expensive kind of middleware Starlette has (keepup-88).
+    A header the response already carries is left as it is.
     """
 
     def __init__(self, app, https=False):
-        super().__init__(app)
-        self.https = https
-
-    async def dispatch(self, request, call_next):
-        response = await call_next(request)
-        response.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
-        response.headers.setdefault("X-Content-Type-Options", "nosniff")
-        response.headers.setdefault("Referrer-Policy", "same-origin")
-        if self.https:
+        self.app = app
+        headers = [(b"x-frame-options", b"SAMEORIGIN"),
+                   (b"x-content-type-options", b"nosniff"),
+                   (b"referrer-policy", b"same-origin")]
+        if https:
             # Only over TLS: sent over plain HTTP it would be ignored, and a
             # deployment on a local network without TLS must stay reachable.
-            response.headers.setdefault(
-                "Strict-Transport-Security", "max-age=31536000")
-        return response
+            headers.append((b"strict-transport-security", b"max-age=31536000"))
+        self.headers = headers
+
+    async def __call__(self, scope, receive, send):
+        if scope["type"] != "http":
+            await self.app(scope, receive, send)
+            return
+
+        async def send_with_headers(message):
+            if message["type"] == "http.response.start":
+                present = {name.lower() for name, _ in message.get("headers", [])}
+                missing = [(name, value) for name, value in self.headers if name not in present]
+                if missing:
+                    message = {**message, "headers": list(message.get("headers", [])) + missing}
+            await send(message)
+
+        await self.app(scope, receive, send_with_headers)
 
 
 def apply_performance(performance) -> None:

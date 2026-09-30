@@ -177,6 +177,11 @@ wheel does not have it.
 
 ### Fixed
 
+- **The security headers cost what they are.** `SecurityHeadersMiddleware` was
+  a BaseHTTPMiddleware, which runs every request through a task and a body
+  stream of its own; it is plain ASGI now and adds the same headers to the
+  start of the response, leaving any the response set itself.
+
 - **A connection is pinged only after lying idle.** The pool pinged the
   database on every checkout, a fifth of what a replica spent on the load
   stand. A connection is pinged at checkout only when it has lain in the pool
