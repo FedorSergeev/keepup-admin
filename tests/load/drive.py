@@ -6,13 +6,14 @@ check, and now and then a write to the event log. Once a second the pools of
 every replica are sampled. What comes out: per operation the count, errors,
 throughput and latency percentiles, and the peaks of both pools.
 
-    python tests/load/drive.py --replicas http://localhost:18001,http://localhost:18002 \\
-        --users 40 --duration 60 --out result.json
+    LOAD_ADMIN_PASSWORD=... python tests/load/drive.py \\
+        --replicas http://localhost:18001,http://localhost:18002 --users 40 --duration 60
 """
 
 import argparse
 import asyncio
 import json
+import os
 import random
 import statistics
 import time
@@ -151,9 +152,12 @@ def main():
     parser.add_argument("--users", type=int, default=40)
     parser.add_argument("--duration", type=int, default=60)
     parser.add_argument("--warmup", type=int, default=10)
-    parser.add_argument("--password", default="load-stand-admin-password")
+    parser.add_argument("--password", default=os.environ.get("LOAD_ADMIN_PASSWORD"),
+                        help="the administrator's password; LOAD_ADMIN_PASSWORD by default")
     parser.add_argument("--out", help="where to write the report as JSON")
     args = parser.parse_args()
+    if not args.password:
+        parser.error("give --password or export LOAD_ADMIN_PASSWORD, as for the stand")
     report = asyncio.run(run(args.replicas.split(","), args.users, args.duration,
                              args.warmup, args.password))
     print_report(report)

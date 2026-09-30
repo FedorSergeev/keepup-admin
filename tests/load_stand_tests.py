@@ -51,3 +51,14 @@ def test_every_container_of_the_stand_has_a_memory_limit():
     compose = yaml.safe_load((LOAD / "compose.yaml").read_text(encoding="utf-8"))
     for name, service in compose["services"].items():
         assert service.get("mem_limit"), f"{name} has no memory limit"
+
+
+def test_the_stand_s_credentials_come_from_the_environment():
+    """A password written into the repository is a password everyone has
+    (keepup-90): every credential of the stand is a required variable."""
+    compose = yaml.safe_load((LOAD / "compose.yaml").read_text(encoding="utf-8"))
+    for name, service in compose["services"].items():
+        for key, value in (service.get("environment") or {}).items():
+            if any(word in key for word in ("PASSWORD", "SECRET")):
+                assert str(value).startswith("${") and ":?" in str(value), (
+                    f"{name}.{key} is written into the file")

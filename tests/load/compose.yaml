@@ -3,6 +3,13 @@
 # capped on every container: the machine this runs on is also running other
 # work, and an uncapped stand is what once drove it into swap.
 #
+# The stand's credentials come from the environment, never from this file:
+# a password written into a repository is a password everyone has (keepup-90).
+# Any values do; fresh random ones are the point:
+#
+#   export LOAD_DB_PASSWORD=$(openssl rand -hex 16)
+#   export LOAD_SIGNING_KEY=$(openssl rand -hex 32)
+#   export LOAD_ADMIN_PASSWORD=$(openssl rand -hex 16)
 #   docker compose -f tests/load/compose.yaml up -d --build
 #   python tests/load/drive.py --replicas http://localhost:18001,http://localhost:18002
 #   docker compose -f tests/load/compose.yaml down -v
@@ -18,11 +25,11 @@ x-replica: &replica
     DB_PORT: "5432"
     DB_NAME: keepup
     DB_USER: keepup
-    DB_PASSWORD: load-stand-only
+    DB_PASSWORD: ${LOAD_DB_PASSWORD:?export LOAD_DB_PASSWORD first}
     DB_POOL_SIZE: ${LOAD_DB_POOL_SIZE:-10}
     DB_POOL_MAX_OVERFLOW: ${LOAD_DB_POOL_MAX_OVERFLOW:-20}
-    SECRET_KEY: load-stand-signing-key-not-for-anything-else
-    ADMIN_INITIAL_PASSWORD: load-stand-admin-password
+    SECRET_KEY: ${LOAD_SIGNING_KEY:?export LOAD_SIGNING_KEY first}
+    ADMIN_INITIAL_PASSWORD: ${LOAD_ADMIN_PASSWORD:?export LOAD_ADMIN_PASSWORD first}
     # Every virtual user signs in as the one administrator at once, and the
     # guessing limit counts an attempt before it checks the password.
     LOGIN_MAX_ATTEMPTS: "100000"
@@ -42,7 +49,7 @@ services:
     environment:
       POSTGRES_DB: keepup
       POSTGRES_USER: keepup
-      POSTGRES_PASSWORD: load-stand-only
+      POSTGRES_PASSWORD: ${LOAD_DB_PASSWORD:?export LOAD_DB_PASSWORD first}
     command: ["postgres", "-c", "max_connections=200", "-c", "shared_buffers=128MB"]
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U keepup -d keepup"]
