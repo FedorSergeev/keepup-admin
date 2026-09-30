@@ -53,12 +53,12 @@ PUBLIC_ROUTES = {
     ("GET", "/api/theme/brand"): "the logo on the sign-in screen",
     ("GET", "/api/auth/oidc/login"): "external sign-in; checks state, nonce and PKCE itself",
     ("GET", "/api/auth/oidc/callback"): "external sign-in; checks state, nonce and PKCE itself",
+    ("GET", "/api/docs"): "a documentation page; the schema it loads is administrators' only",
+    ("GET", "/api/redoc"): "a documentation page; the schema it loads is administrators' only",
+    ("GET", "/docs/oauth2-redirect"): "Swagger UI's return page from an OAuth2 sign-in",
     ("GET", PLUGIN_PUBLIC): "the audit plugin's deliberately public route",
     ("POST", PLUGIN_RAW): "a raw route signs its caller in itself -- knocked on below",
 }
-
-#: FastAPI's own documentation routes: public by FastAPI's design.
-DOCUMENTATION = {"/api/docs", "/api/redoc", "/docs/oauth2-redirect", "/openapi.json"}
 
 #: Directories served as files, and why each may be public.
 MOUNTS = {"/keepup-static": "the package's panel shell: code and styles, no data"}
@@ -117,7 +117,7 @@ def test_every_route_is_signed_in_or_declared_public(start, profile_name):
             undeclared.append(f"mount {route.path}")
         elif isinstance(route, WebSocketRoute) and route.path not in SOCKETS:
             undeclared.append(f"socket {route.path}")
-        elif type(route) is Route and route.path not in DOCUMENTATION:
+        elif type(route) is Route:
             undeclared.append(f"route {route.path}")
     assert undeclared == [], (
         f"{profile_name}: these answer without a sign-in and nobody said they may -- "
@@ -305,14 +305,16 @@ def test_the_stripped_application_answers_nothing_but_metrics(the_other_system, 
         for path in ("/api/auth/me", "/api/auth/login", "/api/admin/users", "/selfcare"):
             assert stripped.client.get(path).status_code in (404, 405), path
 
-# --- known findings ------------------------------------------------------------------------
+# --- findings this suite made, now fixed ---------------------------------------------------
 
-@pytest.mark.xfail(strict=True, reason=(
-    "finding: /openapi.json describes every route, administrative ones included, to "
-    "anybody, and no setting switches it off -- create_app() passes docs_url and "
-    "redoc_url but not openapi_url (keepup-96). Strict: when it is fixed this starts "
-    "passing and the mark has to go."))
-@pytest.mark.parametrize("profile_name", ["bare"])
-def test_the_api_schema_is_not_published_to_everybody(start, profile_name):
-    answer = start(profile_name).client.get("/openapi.json")
-    assert answer.status_code in (401, 403, 404)
+@pytest.mark.finding("keepup-94#schema")
+@pytest.mark.parametrize("profile_name", PROFILE_NAMES)
+def test_the_api_schema_answers_administrators_only(start, profile_name):
+    """Found by this suite on its first run: the schema was anybody's (keepup-96)."""
+    running = start(profile_name)
+    assert running.client.get("/openapi.json").status_code == 401
+    client = audit_actors.client_actor()
+    assert running.client.get("/openapi.json", headers=client.bearer()).status_code == 403
+    admin = audit_actors.admin()
+    answer = running.client.get("/openapi.json", headers=admin.bearer())
+    assert answer.status_code == 200 and "/api/admin/users" in answer.json()["paths"]

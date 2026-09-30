@@ -28,6 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from keepup import audit, cluster, logging_setup, notification_bus, web
+from keepup.api_docs import register_api_documentation
 from keepup.api_versions import ApiVersionMiddleware
 from keepup.audit import (audit_retention_background, background_buffer_flusher,
                           init_incoming_requests_table)
@@ -474,14 +475,18 @@ def create_app(settings: KeepupSettings = None) -> FastAPI:
         return _create_stripped_app(settings)
 
     # /docs belongs to the public gateway reference, so the interactive API docs
-    # live under /api. FastAPI registers them in the constructor, ahead of any
-    # app route, so a page at /docs could not shadow them otherwise.
+    # live under /api. FastAPI's own schema and pages are switched off: the
+    # schema describes every route and FastAPI would hand it to anybody. The
+    # framework registers its own right here, ahead of any other route, which is
+    # the place FastAPI's constructor gave them (keepup/api_docs.py, keepup-96).
     app = FastAPI(
         title=settings.title,
         lifespan=_build_lifespan(settings),
-        docs_url=settings.docs_url,
-        redoc_url=settings.redoc_url,
+        docs_url=None,
+        redoc_url=None,
+        openapi_url=None,
     )
+    register_api_documentation(app, settings)
     app.state.settings = settings
     app.state.plugin_manager = settings.plugin_manager
 

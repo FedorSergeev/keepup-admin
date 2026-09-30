@@ -61,6 +61,15 @@ wheel does not have it.
 
 ### Security
 
+- **The API schema answers an administrator only.** `/openapi.json` described
+  every route, the administrative ones with their parameters, to anybody, and no
+  setting switched it off. The schema now requires the administrative right like
+  the framework's other administrative routes; the documentation pages stay
+  public shells that fetch it with the panel's cookie. `openapi_url` moves it or,
+  set to None, removes it with the pages; `openapi_public=True` publishes it on
+  purpose. `app.openapi()` in code is unchanged. **Upgrading:** a client that
+  fetched the schema without signing in now gets 401.
+
 - **PyJWT at least 2.14.** Ten advisories against PyJWT 2.13 were published
   after 2.13 had been made the floor, all fixed in 2.14.0; the floor follows.
   An application that pins PyJWT below 2.14 raises its pin when it moves to

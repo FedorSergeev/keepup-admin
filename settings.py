@@ -112,6 +112,14 @@ class KeepupSettings:
     project_name: str = "keepup"
     docs_url: Optional[str] = "/api/docs"
     redoc_url: Optional[str] = "/api/redoc"
+    #: Where the OpenAPI schema is served. None removes it, and the
+    #: documentation pages with it -- they would have nothing to show.
+    #: ``app.openapi()`` builds the schema in code either way.
+    openapi_url: Optional[str] = "/openapi.json"
+    #: Whether the schema answers anybody. False by default: it describes every
+    #: route, the administrative ones too, and is served to administrators
+    #: only. An application that publishes its API on purpose says so here.
+    openapi_public: bool = False
 
     # --- the outside edge -----------------------------------------------
     #: Origins allowed to read answers from a browser. Empty by default: a
