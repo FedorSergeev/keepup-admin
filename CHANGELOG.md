@@ -4,8 +4,29 @@ Notable changes to `keepup-admin`.
 
 ## Unreleased
 
+**Upgrading from 0.2.0.** A user now holds a set of roles (below, *Added*):
+nothing has to be done for an existing database -- the start fills the sets
+from `users.role` -- but code that reads that column reads a deprecated mirror
+that goes in 0.4.0, and should move to `roles`. The set was written after
+0.2.0 had been tagged and its entry stood under 0.2.0 by mistake; the 0.2.0
+wheel does not have it.
+
 ### Added
 
+- **A user holds a set of roles.** `keepup.auth.user_roles` and the `user_roles`
+  table are the truth about who this is, and the panel sections and the plugins
+  of every role held are glued together — each section and each plugin once,
+  in an order that does not depend on the order of the roles. The
+  administrative right is `ADMIN` being in the set: somebody who both rents a
+  machine out and rents one, or an administrator looking at what a client
+  complains about, no longer has to give up one ability to get the other.
+  Roles are granted through `GET`/`PUT /api/admin/users/{id}/roles` and in the
+  panel's Users section; an empty set is refused (access is closed by blocking
+  the account) and so is a role nothing declares — `role_modules` is joined by
+  the exact name, so a role written in another case would look granted and grant
+  nothing. `has_role(user, ROLE_ADMIN)` is how code asks. Read
+  `keepup.modules.get_modules_for_roles()` where `get_modules_for_role()` took
+  one name; the single-name read stays.
 - **`keepup.positional_sql`**: `positional()`, `positional_many()`,
   `insert_returning_id()`, `execute_many()` and `raw_connection()` for statements
   written with `?` placeholders. Three applications kept identical copies of
@@ -228,8 +249,7 @@ Notable changes to `keepup-admin`.
 
 A release about carrying load on several replicas: one way into the database,
 no query on the event loop, caches for what every page asks for, sweeps for
-the journals, and correct counting and publishing across replicas. And one
-change to who a user is: a user holds a set of roles, not one.
+the journals, and correct counting and publishing across replicas.
 
 **Upgrading from 0.1.1.** `keepup.db.DatabaseManager` is gone — move its calls
 to `DatabaseManagerV2` (see *Removed*). Names that moved to their own modules
@@ -237,10 +257,7 @@ to `DatabaseManagerV2` (see *Removed*). Names that moved to their own modules
 from the old ones with a `DeprecationWarning`. `max_upload_bytes` is enforced
 now: a route that takes large bodies through the framework's JSON reading
 should declare `max_body_bytes`; routes that read their own body
-(`is_upload`, `raw_request`) are not limited unless they declare one. A user
-now holds a set of roles: nothing has to be done for an existing database (the
-start fills the sets from `users.role`), but code that reads that column is
-reading a deprecated mirror and should move to `roles` before 0.3.0.
+(`is_upload`, `raw_request`) are not limited unless they declare one.
 
 ### Fixed
 
@@ -290,20 +307,6 @@ reading a deprecated mirror and should move to `roles` before 0.3.0.
 - `DatabaseManagerV2.raw_connection()` — a driver connection out of the pool,
   for code written against a cursor (the application's table hook receives one
   such cursor); `close()` hands it back.
-- **A user holds a set of roles.** `keepup.auth.user_roles` and the `user_roles`
-  table are the truth about who this is, and the panel sections and the plugins
-  of every role held are glued together — each section and each plugin once,
-  in an order that does not depend on the order of the roles. The
-  administrative right is `ADMIN` being in the set: somebody who both rents a
-  machine out and rents one, or an administrator looking at what a client
-  complains about, no longer has to give up one ability to get the other.
-  Roles are granted through `GET`/`PUT /api/admin/users/{id}/roles` and in the
-  panel's Users section; an empty set is refused (access is closed by blocking
-  the account) and so is a role nothing declares — `role_modules` is joined by
-  the exact name, so a role written in another case would look granted and grant
-  nothing. `has_role(user, ROLE_ADMIN)` is how code asks. Read
-  `keepup.modules.get_modules_for_roles()` where `get_modules_for_role()` took
-  one name; the single-name read stays.
 - `AuthProvider.lookup_user(username)` — the synchronous read of an account,
   for callers that cannot await; the local provider reads its table. The
   default keeps a provider that only has `get_user_info()` working.
