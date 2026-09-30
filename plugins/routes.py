@@ -23,6 +23,7 @@ from starlette.requests import ClientDisconnect
 
 from keepup.audit import IncomingRequestLogger, log_api_request
 from keepup.auth.dependencies import get_panel_user
+from keepup.auth.identity import access
 from keepup.auth.websocket import authenticate_websocket
 from keepup.body_limit import declare_limit
 from keepup.plugins import route_mask
@@ -268,7 +269,7 @@ async def json_body(request: Request, path: str = None):
 
 
 def create_wrapper(handler, path, methods, require_auth: bool = True,
-                   is_upload: bool = False, mask=None):
+                   is_upload: bool = False, mask=None, permission: str = None):
     """Build the endpoint FastAPI will call for one declared route.
 
     One implementation rather than one per shape. It used to be eight nearly
@@ -286,6 +287,8 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
         require_auth: whether the framework signs the caller in.
         is_upload: whether the handler is handed the request instead of a body.
         mask: the route's parsed mask, or None.
+        permission: the right the caller must hold, or None
+            (keepup/auth/identity/access.py).
 
     Returns:
         An async endpoint to hand to app.add_api_route().
@@ -325,6 +328,11 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
                 request_data=request_data
         ) as request_id:
             try:
+                if permission is not None:
+                    # Inside the audit, so a refusal is recorded like any other
+                    # answer; before anything of the handler runs.
+                    await access.check(current_user, access.action_of(request, permission))
+
                 params = {}
                 # The query first and the path over it: a value taken from the
                 # address is what the route matched on, and a client that sends
@@ -396,6 +404,17 @@ async def register_plugin_routes(app, manager):
         methods = route['methods']
         require_auth = route.get('require_auth', True)
         is_upload = route.get('is_upload', False)
+        permission = route.get('permission')
+        if permission is not None:
+            # A right needs somebody to hold it: on a route nobody signs in to,
+            # or one that signs itself in, it would be a check that never runs.
+            if not isinstance(permission, str) or not permission.strip():
+                raise ValueError(f"{path}: permission must be a non-empty string")
+            if route.get('raw_request') or not require_auth:
+                raise ValueError(
+                    f"{path}: a route that declares a permission must be signed in by "
+                    "the framework -- drop require_auth: false or raw_request, or the "
+                    "permission")
 
         logger.info(
             f"Registering route {path} - methods: {methods}, auth: {require_auth}, upload: {is_upload}")
@@ -422,7 +441,8 @@ async def register_plugin_routes(app, manager):
             require_auth = False
             wrapper = raw_request_wrapper(handler)
         else:
-            wrapper = create_wrapper(handler, path, methods, require_auth, is_upload, mask)
+            wrapper = create_wrapper(handler, path, methods, require_auth, is_upload, mask,
+                                     permission)
 
         # What the route says about its body: its own limit, or that it reads
         # the body itself (keepup/body_limit.py).

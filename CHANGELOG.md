@@ -13,6 +13,32 @@ wheel does not have it.
 
 ### Added
 
+- **A pluggable identity provider: somebody else's system behind keepup.**
+  For an application installed inside a larger system whose own subsystem
+  knows who everybody is and what they may do, and answers through its own
+  API. A plugin subclasses `keepup.auth.identity.IdentityProvider` and
+  implements what that system can answer: `verify_token` (its tokens),
+  `verify_password` (its passwords, for the panel), `decide` (its rights). The
+  deployment names the plugin in an `identity_provider` section of the
+  authentication file -- `AUTH_CONFIG_PATH`, a configmap -- as `module:Class`
+  or an entry point of the `keepup.identity_providers` group, with settings in
+  which `${ENV}` is substituted, the modes, the policy for new accounts, a
+  role mapping and cache lifetimes; `KeepupSettings.identity_provider` does the
+  same from code. A mistake in the section stops the start. With token mode on,
+  every route that signs the caller in -- the framework's, the plugins', the
+  signed-in sockets -- takes a token the framework does not recognise as its
+  own to the provider; the caller becomes the account matched by (provider,
+  subject), roles in step with the mapping on every request; an unavailable
+  provider is a 503. Such a token is never exchanged for a session here:
+  renewal and the move into the cookie answer 400. Without the section nothing
+  changes.
+- **A route may require a right.** The route key `permission` and the
+  dependency `keepup.auth.identity.require_permission(name)`: decided locally
+  (an administrator, a `user_permissions` row, a right the provider's identity
+  lists) or, with `authorization: provider`, by the provider -- whose silence
+  closes the door with a 503. A permission on a route the framework does not
+  sign in stops the registration.
+
 - **A user holds a set of roles.** `keepup.auth.user_roles` and the `user_roles`
   table are the truth about who this is, and the panel sections and the plugins
   of every role held are glued together — each section and each plugin once,
@@ -151,6 +177,11 @@ wheel does not have it.
 
 ### Fixed
 
+- **An account without a local password answers the sign-in form with no.**
+  The password column of an account an outside identity owns is not a bcrypt
+  hash, and checking a password against it raised -- a 500 on the form instead
+  of a 401.
+
 - **An application without plugins can be signed into.** The framework
   registered sign-in, sign-out and user management only when the application
   passed a plugin manager, so an application with no plugins got a panel
@@ -227,6 +258,10 @@ wheel does not have it.
   failed one. Both report what they dropped.
 
 ### Changed
+
+- **`keepup.auth.permissions.require_permission` decides by the same rule** as
+  the route key: it read `current_user['permissions']`, which nothing fills in,
+  so it refused everybody, administrators included.
 
 - **Signing in and the management of users are separate modules.**
   `keepup.auth.routes` keeps signing in, the panel session, token renewal,

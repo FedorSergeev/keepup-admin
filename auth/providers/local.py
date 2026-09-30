@@ -131,7 +131,16 @@ class LocalAuthProvider(AuthProvider):
             verify_password(password, _stand_in_hash())
             return None
 
-        if not verify_password(password, user["password_hash"]):
+        stored = user.get("password_hash") or ""
+        if not stored.startswith("$2"):
+            # No password here: an account an outside identity owns carries a
+            # value that is not a hash (keepup/auth/external_accounts.py), and
+            # bcrypt raised on it -- a 500 on the sign-in form instead of a no.
+            # The stand-in keeps the answer as slow as a real check.
+            verify_password(password, _stand_in_hash())
+            return None
+
+        if not verify_password(password, stored):
             return None
 
         return user

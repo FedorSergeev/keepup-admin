@@ -11,6 +11,8 @@ from fastapi import HTTPException, status, Depends
 
 from keepup.roles import ROLE_ADMIN
 from keepup.auth.dependencies import get_all_users, get_current_user
+from keepup.auth.identity import access
+from keepup.auth.identity.contract import AccessRequest
 
 
 def require_permission(permission_name: str):
@@ -33,13 +35,11 @@ def require_permission(permission_name: str):
                     detail="Authentication required"
                 )
 
-            permissions = current_user.get('permissions', {})
-
-            if not permissions.get(permission_name, False):
-                raise HTTPException(
-                    status_code=status.HTTP_403_FORBIDDEN,
-                    detail=f"Permission '{permission_name}' required"
-                )
+            # The same rule as a plugin route's `permission` and the
+            # require_permission dependency (keepup/auth/identity/access.py).
+            # It read current_user['permissions'], which nothing fills in, so
+            # it refused everybody -- administrators included (keepup-91).
+            await access.check(current_user, AccessRequest(permission=permission_name))
 
             return await func(*args, **kwargs)
 

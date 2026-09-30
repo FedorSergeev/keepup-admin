@@ -15,13 +15,12 @@ truthful answer.
 
 import asyncio
 import logging
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Tuple
 
 from fastapi import HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
-from keepup.auth.usernames import safe_username
-from keepup.auth import oidc, oidc_policy, panel_session
+from keepup.auth import external_accounts, oidc, oidc_policy, panel_session
 from keepup.auth.dependencies import issue_session_token
 from keepup.db import DatabaseManagerV2
 from keepup.auth import user_roles
@@ -46,80 +45,30 @@ def _refuse(reason: str) -> HTTPException:
 
 # --- the account behind the claims --------------------------------------------
 
-def find_account(issuer: str, subject: str) -> Optional[Dict[str, Any]]:
-    """The account tied to this provider's subject, if there is one.
-
-    Looked up by subject rather than by email: an address at a provider changes
-    hands, and matching on it would let a new employee into the account of the
-    person whose address they inherited.
-    """
-    rows = DatabaseManagerV2.execute(
-        "SELECT id, username, status, role FROM users "
-        "WHERE auth_source = :source AND external_id = :subject",
-        {"source": issuer, "subject": str(subject)},
-    )
-    return dict(rows[0]) if rows else None
+# Found and made the way every outside identity is: keepup/auth/external_accounts.py.
+# The names stay importable from here, and the calls below go through this
+# module's names, so whoever replaces one of them here is still heard.
+find_account = external_accounts.find_account
+free_username = external_accounts.free_username
 
 
 def propose_username(claims: Dict[str, Any]) -> str:
     """A name for the new account, taken from what the provider said."""
-    for claim in ("preferred_username", "email", "sub"):
-        value = claims.get(claim)
-        if value:
-            # Whatever the provider allows, the name here keeps to the plain
-            # shape the panel shows back (keepup-62).
-            return safe_username(str(value).strip().lower())
-    return "user"
-
-
-def free_username(proposed: str) -> str:
-    """The proposed name, or the first free variant of it.
-
-    Names are unique here and come from somewhere else entirely; two providers,
-    or two people at one provider, can propose the same one.
-    """
-    candidate = proposed
-    suffix = 1
-    while DatabaseManagerV2.execute_one(
-            "SELECT id FROM users WHERE username = :name", {"name": candidate}):
-        suffix += 1
-        candidate = f"{proposed}-{suffix}"
-    return candidate
+    return external_accounts.propose_username(
+        *(claims.get(claim) for claim in ("preferred_username", "email", "sub")))
 
 
 def create_account(issuer: str, claims: Dict[str, Any],
                    decision: oidc_policy.AccountDecision) -> Dict[str, Any]:
-    """Create the account the application's policy agreed to.
-
-    The password column is filled with an unusable value rather than left
-    empty: this account has no password here, and a blank one is something a
-    local sign-in might one day accept.
-    """
-    username = free_username(propose_username(claims))
-    DatabaseManagerV2.execute_commit(
-        "INSERT INTO users (username, password_hash, status, role, email, full_name, "
-        "auth_source, external_id, agree_terms) "
-        "VALUES (:username, :password_hash, :status, :role, :email, :full_name, "
-        ":source, :subject, :agree_terms)",
-        {
-            "username": username,
-            "password_hash": "!external",
-            "status": decision.status,
-            "role": decision.role,
-            "email": claims.get("email"),
-            "full_name": claims.get("name"),
-            "source": issuer,
-            "subject": str(claims["sub"]),
-            "agree_terms": False,
-        },
-    )
-    logger.info(f"OIDC account created for {issuer} subject: {username} ({decision.reason})")
-    account = find_account(issuer, claims["sub"])
-    if account is None:
-        raise _refuse("the account was created but cannot be read back")
-    # The roles this account holds, which is what the panel and the plugins are
-    # decided by; the column above is their mirror (keepup/auth/user_roles.py).
-    user_roles.set_roles(account["id"], [decision.role], checked=False)
+    """Create the account the application's policy agreed to."""
+    try:
+        account = external_accounts.create_account(
+            issuer, claims["sub"], propose_username(claims), [decision.role],
+            status=decision.status, email=claims.get("email"),
+            full_name=claims.get("name"))
+    except external_accounts.AccountUnavailable as error:
+        raise _refuse(str(error))
+    logger.info(f"OIDC account for {issuer} subject: {account['username']} ({decision.reason})")
     return account
 
 

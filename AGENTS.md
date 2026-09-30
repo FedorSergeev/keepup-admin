@@ -63,7 +63,7 @@ app = create_app(settings)
 Settings worth knowing: `cors_origins`, `security_headers`, `metrics_public`,
 `max_upload_bytes`, `static_dir`, `static_mounts`, `client_page` (the page at
 `/`), `built_in_themes`, `gated_pages`, `audit_redaction`, `password_rule`,
-`oidc`, `public_config`, `notification_channel`, `on_startup`, `on_shutdown`,
+`oidc`, `identity_provider`, `public_config`, `notification_channel`, `on_startup`, `on_shutdown`,
 `extra_setup`, `remote_log_url`, `disable_http_server`, and `performance` --
 the database pool, the audit buffer and the metrics interval in one object. Each is documented in
 `keepup/settings.py`; a value you would have to edit inside keepup belongs in a
@@ -113,7 +113,9 @@ class ReportsPlugin(BasePlugin):          # plugin_id "reports"
   body -- `is_upload`, `raw_request` -- should say, since the application's
   general limit does not reach it), and `params` -- the request
   mask (`keepup/plugins/route_mask.py`: per parameter a type, `required`,
-  `in`, `choices`, `min`, `max`, `max_length`, `pattern`).
+  `in`, `choices`, `min`, `max`, `max_length`, `pattern`), and `permission` --
+  the right a caller must hold, checked before the handler
+  (`keepup/auth/identity/access.py`; see "Somebody else's identity system").
 - **Handlers take plain arguments**, not FastAPI objects: path and query values
   by name, `current_user` when signed in, and `request` -- the JSON body -- for
   POST, PUT and PATCH. Raise `fastapi.HTTPException` to refuse.
@@ -190,6 +192,44 @@ two are `ADMIN` and `CLIENT`.
   role the mirror names; access is closed by blocking the account.
 - `keepup.modules.get_modules_for_roles()` is the read for a user;
   `get_modules_for_role()` is still there for one role.
+
+## Somebody else's identity system
+
+When the application is installed inside a larger system that already knows
+who everybody is and what they may do, a **provider plugin** puts that system
+behind keepup. Subclass `keepup.auth.identity.IdentityProvider` and override
+what the system can answer:
+
+```python
+from keepup.auth.identity import ExternalIdentity, IdentityProvider, IdentityRejected
+
+class CorpProvider(IdentityProvider):
+    async def verify_token(self, token):              # the system's tokens
+        ...                                           # -> ExternalIdentity(subject=...)
+    async def verify_password(self, username, password):  # its passwords, for the panel
+        ...
+    async def decide(self, identity, user, request):  # its rights -> True / False
+        ...
+```
+
+- **Two ways to say no**: raise `IdentityRejected` when the system answered no,
+  `ProviderUnavailable` when it did not answer (a 503, not a 401). Anything else
+  raised counts as unavailable.
+- **Named by the deployment**, not by the application: an `identity_provider`
+  section in the authentication file (`AUTH_CONFIG_PATH`) with `name`,
+  `plugin` (`module:Class` or an entry point of the group
+  "keepup.identity_providers"), `settings` (`${ENV}` substituted) and the modes. A mistake there
+  stops the start. `KeepupSettings.identity_provider` does the same from code;
+  both at once stop the start.
+- **Accounts stay here**: somebody the provider vouches for is matched to an
+  account by (provider name, subject), and their roles follow `role_mapping`
+  on every request. A route receives them as usual, with `authenticated_by`
+  and `identity` added.
+- **A right** is a route's `permission` key or `Depends(require_permission("x"))`.
+  Who decides is the deployment's `authorization`: `local` (ADMIN, a
+  `user_permissions` row, or the identity's own permissions) or `provider`.
+
+See `doc/external_identity_provider.md` in the repository this package comes from.
 
 ## Several replicas
 

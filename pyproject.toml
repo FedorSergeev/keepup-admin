@@ -114,6 +114,7 @@ packages = [
     "keepup",
     "keepup.auth",
     "keepup.auth.dto",
+    "keepup.auth.identity",
     "keepup.auth.providers",
     "keepup.plugins",
 ]

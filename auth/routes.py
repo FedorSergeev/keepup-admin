@@ -32,8 +32,13 @@ from keepup.auth.dependencies import (
     create_user,
     get_current_user,
     issue_session_token,
+    refuse_foreign_session,
 )
 from keepup.auth.dto.token import Token
+from keepup.auth.external_accounts import AccountUnavailable
+from keepup.auth.identity import access
+from keepup.auth.identity import runtime as identity_runtime
+from keepup.auth.identity.contract import IdentityRejected, ProviderUnavailable
 from keepup.auth.providers.base import ALGORITHM
 from keepup.auth.signing_key import resolve_signing_key
 from keepup.db import DatabaseManagerV2
@@ -190,6 +195,10 @@ async def refresh_access_token(current_user: dict, request: Request = None,
     """
     from keepup.auth import session_lifetime
 
+    # Before the window: a caller with the provider's token has no session
+    # here to renew, and must not be handed one (keepup-91).
+    refuse_foreign_session(current_user)
+
     session_started_at = current_user.get("session_started_at")
     if not session_lifetime.is_renewable(session_started_at):
         raise HTTPException(
@@ -213,6 +222,28 @@ async def refresh_access_token(current_user: dict, request: Request = None,
         "expires_in": issued["expires_in"],
         "success": True
     }
+
+
+async def _provider_sign_in(username: str, password: str):
+    """The account of these credentials if the identity provider vouches for them.
+
+    None when there is no provider, it does not take passwords, or it says no;
+    a 503 when it cannot be asked -- "wrong password" would be untrue.
+    """
+    runtime = identity_runtime.current()
+    if runtime is None or not runtime.config.password_sign_in:
+        return None
+    try:
+        identity = await runtime.identity_for_password(username, password)
+        return await runtime.user_for_identity(identity)
+    except IdentityRejected as refusal:
+        logger.info(f"Identity provider {runtime.config.name} refused a sign-in: {refusal}")
+        return None
+    except (ProviderUnavailable, AccountUnavailable) as error:
+        logger.warning(f"Sign-in through {runtime.config.name} unavailable: "
+                       f"{type(error).__name__}")
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail=access.UNAVAILABLE)
 
 
 async def register(user: UserCreate):
@@ -332,6 +363,11 @@ def register_auth_routes(app, manager):
         # the answer does not say which names are there (keepup-63).
         user = await authenticate(login_data.username, login_data.password)
         if not user:
+            # Not a local password: the other system's, if the deployment lets
+            # people in with it. Local first, so that a local administrator
+            # still gets in while that system is down (keepup-91).
+            user = await _provider_sign_in(login_data.username, login_data.password)
+        if not user:
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",
@@ -411,6 +447,7 @@ def register_auth_routes(app, manager):
         a cookie, and for a panel tab still holding a token from before the cookie.
         The token is not returned: the point is that the page stops holding one.
         """
+        refuse_foreign_session(current_user)
         issued = issue_session_token(current_user["id"], current_user["username"],
                                      sid=current_user.get("session_id"),
                                      session_started_at=current_user.get("session_started_at"))

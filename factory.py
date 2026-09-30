@@ -36,6 +36,7 @@ from keepup.auth import dependencies as auth_dependencies
 from keepup.auth import routes as auth_routes
 from keepup.auth import panel_session, socket_sessions
 from keepup.auth.oidc_routes import register_oidc_routes
+from keepup.auth.identity import runtime as identity_runtime
 from keepup.events import events_retention_background, init_event_manager
 from keepup.events_api import register_event_api_routes
 from keepup.instance import get_instance_id
@@ -293,6 +294,8 @@ def _build_lifespan(settings: KeepupSettings):
         if settings.on_shutdown is not None:
             await settings.on_shutdown(app)
 
+        await identity_runtime.shutdown()
+
         await _stop_notification_bus(bus)
 
         flusher_task.cancel()
@@ -448,6 +451,9 @@ def create_app(settings: KeepupSettings = None) -> FastAPI:
     """
     settings = settings or KeepupSettings()
     apply_settings(settings)
+    # Before any route exists: a provider that cannot be built stops the start
+    # here, and one that can is what the routes below reach (keepup-91).
+    identity_runtime.configure(settings.identity_provider)
 
     if settings.disable_http_server:
         return _create_stripped_app(settings)

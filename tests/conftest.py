@@ -82,3 +82,7 @@ def framework_state_restored():
      audit.redact, log_shipping.PROJECT_NAME, log_shipping.REMOTE_LOG_URL,
      log_shipping.REMOTE_LOG_TOKEN,
      routes.password_rule, routes.record_login, dependencies.pending_documents) = saved
+    # The identity provider too: an application built with one must not hand it
+    # to the next test's application (keepup-91).
+    from keepup.auth.identity import runtime as identity_runtime
+    identity_runtime.install(None)

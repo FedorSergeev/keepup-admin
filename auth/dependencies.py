@@ -24,7 +24,11 @@ from starlette import status
 from keepup.auth.usernames import is_valid_username
 from keepup.auth import panel_session
 from keepup.auth.dto.token import TokenData
+from keepup.auth.external_accounts import AccountUnavailable
 from keepup.auth.factory import AuthProviderFactory
+from keepup.auth.identity import access
+from keepup.auth.identity import runtime as identity_runtime
+from keepup.auth.identity.contract import IdentityRejected, ProviderUnavailable
 from keepup.auth.providers.base import AuthProvider, ALGORITHM, oauth2_scheme
 from keepup.auth.signing_key import resolve_signing_key
 from keepup.auth import user_roles
@@ -368,10 +372,18 @@ async def _get_local_user(token: Optional[str], ignore_empty_user: bool = False)
                 return None
             raise credentials_exception
         token_data = TokenData(username=username)
-    except JWTError:
+    except _OUR_TOKEN_REFUSED:
+        # The signature is ours and the rest is not right: expired, not yet
+        # valid, or missing what every token of ours carries. It is refused
+        # here and never shown to the provider, which has no business seeing
+        # this framework's tokens.
         if ignore_empty_user:
             return None
         raise credentials_exception
+    except JWTError:
+        # Not a token of this framework at all: another signature, another
+        # algorithm, not a JWT. The configured provider may know it.
+        return await _foreign_user(token, credentials_exception, ignore_empty_user)
 
     # Both reads are blocking queries, so they leave the loop together: one hop
     # to a worker thread per request, and the account is read once -- it used
@@ -397,6 +409,68 @@ async def _get_local_user(token: Optional[str], ignore_empty_user: bool = False)
     user["session_id"] = payload.get(panel_session.SESSION_CLAIM)
 
     return user
+
+
+#: Refusals that mean the token is ours: the signature matched and something
+#: else did not. Everything else PyJWT raises means somebody else signed it.
+_OUR_TOKEN_REFUSED = (jwt.ExpiredSignatureError, jwt.ImmatureSignatureError,
+                      jwt.MissingRequiredClaimError)
+
+
+async def _foreign_user(token: str, credentials_exception: HTTPException,
+                        ignore_empty_user: bool = False):
+    """The user of a token some other system issued, through the configured provider.
+
+    Only when the deployment switched the provider's token mode on; otherwise a
+    token that is not ours is simply not a token. Every refusal answers the same
+    as a bad token of ours. An unavailable provider is a 503: a client told its
+    token is bad throws it away, and it must not do that because somebody else's
+    server is down.
+    """
+    runtime = identity_runtime.current()
+    if runtime is None or not runtime.config.accept_tokens:
+        if ignore_empty_user:
+            return None
+        raise credentials_exception
+    try:
+        identity = await runtime.identity_for_token(token)
+        account = await runtime.user_for_identity(identity)
+    except IdentityRejected as refusal:
+        logger.info("Token refused by identity provider %s: %s", runtime.config.name, refusal)
+        if ignore_empty_user:
+            return None
+        raise credentials_exception
+    except (ProviderUnavailable, AccountUnavailable) as error:
+        if isinstance(error, AccountUnavailable):
+            logger.error("Account for identity provider %s unavailable: %s",
+                         runtime.config.name, error)
+        if ignore_empty_user:
+            return None
+        raise HTTPException(status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                            detail=access.UNAVAILABLE)
+
+    if account.get("status") != "active":
+        # Vouched for there is not the same as allowed in here.
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is blocked",
+        )
+    return runtime.signed_in(account, identity)
+
+
+def refuse_foreign_session(current_user: dict) -> None:
+    """Refuse to turn a token of another system into a session of this one.
+
+    Both renewal and the move into the panel cookie issue a session here. For a
+    caller who came with the provider's token that would be a session the
+    other system cannot revoke, outliving the token it was traded for.
+    """
+    source = (current_user or {}).get("authenticated_by")
+    if source:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"This token was issued by {source}; renew it there.",
+        )
 
 
 async def get_optional_user(token: Optional[str]):

@@ -192,6 +192,13 @@ class KeepupSettings:
     #: for it. Ready-made decisions live in keepup.auth.oidc_policy.
     oidc_account_policy: Optional[Callable] = None
 
+    # --- somebody else's identity system --------------------------------
+    #: The identity provider, when the application configures it in code
+    #: (keepup.auth.identity.IdentityProviderConfig). A deployment usually
+    #: names it in the identity_provider section of its authentication file
+    #: instead -- a configmap -- and the two together stop the start.
+    identity_provider: Optional[Any] = None
+
     # --- policies the framework asks about but does not hold -------------
     #: password_rule(password, username) -> problem text or None.
     password_rule: Optional[Callable] = None
