@@ -151,6 +151,11 @@ wheel does not have it.
 
 ### Fixed
 
+- **An application without plugins can be signed into.** The framework
+  registered sign-in, sign-out and user management only when the application
+  passed a plugin manager, so an application with no plugins got a panel
+  nobody could sign into. They are registered always now.
+
 - **A fresh installation reaches PostgreSQL.** The connection address was a
   bare `postgresql://`, which SQLAlchemy 2.1 resolves to psycopg 3; the
   package installs psycopg2, so every fresh installation failed on its first

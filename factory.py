@@ -544,9 +544,11 @@ def create_app(settings: KeepupSettings = None) -> FastAPI:
     register_scheduler_routes(app)
     cluster.register_cluster_routes(app)
     register_theme_routes(app, config_service)
+    # Sign-in is registered whatever the application: one without plugins used
+    # to get a panel nobody could sign into (keepup-89). What needs plugins --
+    # telling them an account was blocked -- has none to tell then.
+    auth_routes.register_auth_routes(app, settings.plugin_manager)
     if settings.plugin_manager is not None:
-        register_auth_routes = auth_routes.register_auth_routes
-        register_auth_routes(app, settings.plugin_manager)
         register_plugin_admin_routes(app, settings.plugin_manager)
 
     return app

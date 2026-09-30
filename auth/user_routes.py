@@ -127,6 +127,8 @@ class UserPasswordUpdate(BaseModel):
     new_password: str = Field(..., min_length=6, description="New password, at least 6 characters")
 async def notify_account_blocked(manager, user_id: int, admin: dict) -> None:
     """Let every plugin that stops something for a blocked account do so."""
+    if manager is None:
+        return
     for plugin_id, plugin in manager.plugins.items():
         handler = (plugin.get_handlers() or {}).get("on_account_blocked") \
             if getattr(plugin, "initialized", False) else None
