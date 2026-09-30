@@ -246,7 +246,14 @@ There is no leader election: a scheduled job that must run once takes a lock.
 ```bash
 python -m pytest tests/ -q                 # the framework's own suite
 python -m pytest path/to/your_tests.py -v  # an application's test, by path
+tests/security_audit_tests/run_security_audit.sh  # the security audit, with a report
 ```
+
+The security audit builds applications on this tree -- with and without
+plugins, OIDC, an identity provider, stripped, behind TLS -- and knocks on
+every route they register. A route that answers without a sign-in must be in
+`PUBLIC_ROUTES` of `tests/security_audit_tests/route_sweep_tests.py`, with the reason;
+adding one there is a decision, not a fix for a red check.
 
 Tests are named `*_tests.py`. A test that needs the browser runs the JavaScript
 under `node` against a stand-in document -- see `tests/header_badge_tests.py`.
