@@ -56,7 +56,7 @@ jobs:
           "
 
       - name: Keep the distributions for the release to reuse
-        uses: actions/upload-artifact@v7
+        uses: actions/upload-artifact@v7.0.1
         with:
           name: distributions
           path: dist/
