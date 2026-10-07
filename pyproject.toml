@@ -88,6 +88,14 @@ test = [
     "pytest>=8",
     "pytest-asyncio>=0.24",
     "pytest-cov>=5",
+    # The suite runs an application on a real port with a real server in front
+    # of it -- the identity-provider integration test and every profile of the
+    # security audit (keepup-91, keepup-94). The distribution itself only reads
+    # uvicorn's version string when somebody else serves it, which is why this
+    # is the suite's need and not a dependency of the package. Without it the
+    # four files that start a server fail to collect on a runner, while a
+    # developer's checkout has uvicorn from elsewhere and never notices.
+    "uvicorn>=0.30",
 ]
 # The bus between replicas listens on PostgreSQL with asyncpg. Optional because
 # a single-process deployment on SQLite runs the in-memory bus instead and has
