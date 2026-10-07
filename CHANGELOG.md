@@ -221,6 +221,13 @@ the policy as a report (`csp_report_only=True`) until it has.
 
 ### Fixed
 
+- **`keepup.tables.auto_id` and `keepup.tables.NOW` are declared public.** The
+  guide has an application write `tables.auto_id()` and `tables.NOW` in a table
+  declaration, and neither stood in the module's `__all__`: by the package's own
+  rule, an application taking them was depending on a name nobody promised. The
+  consumer the public-interface check is run against takes both, which is how
+  the omission showed.
+
 - **The panel's plugin report reads the deployment's own catalogue.**
   `GET /api/admin/plugins`, and the routes that change a plugin's decision,
   read `config/modules.json` whatever path the application had named in

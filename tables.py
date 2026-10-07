@@ -43,6 +43,8 @@ from keepup import db as _db
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
 __all__ = [
+    "NOW",
+    "auto_id",
     "ensure_columns",
     "ensure_tables",
     "foreign_key",

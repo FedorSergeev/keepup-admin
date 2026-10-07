@@ -70,11 +70,24 @@ def declared(module: str):
 def test_there_are_applications_to_check():
     """Otherwise everything below passes by having nothing to look at.
 
-    In the framework's own repository there are none, and then this file has
-    nothing to do -- which is a skip with a reason, not a green run.
+    In the framework's own repository there are none standing beside it, and
+    then this file would have nothing to do -- which is a skip with a reason,
+    not a green run. The consumer in the package's own tests is what keeps it
+    from being that skip (tests/consumer/application.py).
     """
     if not applications():
         pytest.skip("no application in this repository imports the framework")
+
+
+def test_the_consumer_is_an_application_that_builds():
+    """The fixture the checks above lean on has to be one that works.
+
+    ``imports_of_the_framework()`` steps over a file it cannot parse, so a
+    consumer that rotted would leave every check above green and empty.
+    """
+    application = importlib.import_module("consumer.application")
+    app = application.build_app()
+    assert any(getattr(route, "path", None) == "/api/health" for route in app.routes)
 
 
 def test_the_root_of_the_package_declares_its_own():

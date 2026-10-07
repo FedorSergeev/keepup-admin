@@ -72,17 +72,25 @@ def repository_root() -> Path:
     return REPO
 
 
-def applications():
-    """Whatever sits beside the package and imports it.
+#: A consumer of the package that lives in its own tests. The wheel names the
+#: packages it installs and `keepup.tests` is not one of them, so this travels
+#: nowhere; it is what the checks that need a consumer are run against in a
+#: clone of the package, where no application stands beside it and those checks
+#: would otherwise pass by doing nothing.
+CONSUMER = PACKAGE / "tests" / "consumer"
 
-    Found rather than listed, and that is not a nicety: naming an application
-    inside the package is exactly what the framework's boundary forbids, and
-    the names would mean nothing in the framework's own repository anyway.
+
+def applications():
+    """Whatever stands for a consumer here and imports the package.
+
+    The applications beside the package when it sits inside the repository it
+    grew in, and the consumer in the package's own tests always -- a check that
+    needs a consumer must have one rather than skip or pass on nothing.
 
     Returns:
-        The directories beside the package whose code imports it, sorted.
+        The directories whose code imports the package, the consumer first.
     """
-    found = []
+    found = [CONSUMER] if CONSUMER.is_dir() else []
     for candidate in sorted(repository_root().iterdir()):
         if not candidate.is_dir() or candidate.name.startswith("."):
             continue
