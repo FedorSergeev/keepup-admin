@@ -22,7 +22,6 @@ from keepup.auth.identity.config import (
     load_section,
     parse,
     resolve,
-    substitute_environment,
 )
 from keepup.auth.identity.contract import ExternalIdentity, IdentityProvider
 from keepup.auth.identity.loader import build_provider, find_class

@@ -11,7 +11,6 @@ silence closes the door.
 
 import asyncio
 import uuid
-from types import SimpleNamespace
 
 import pytest
 from fastapi import Depends, FastAPI

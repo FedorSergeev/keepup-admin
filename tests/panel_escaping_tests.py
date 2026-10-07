@@ -18,7 +18,6 @@ import subprocess
 from pathlib import Path
 
 import pytest
-from fastapi.testclient import TestClient
 
 from keepup.auth.oidc_routes import propose_username
 from keepup.auth.usernames import is_valid_username, safe_username
