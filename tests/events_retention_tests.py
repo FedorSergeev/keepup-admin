@@ -78,6 +78,16 @@ def test_a_backlog_is_cleared_in_short_passes(monkeypatch):
 
 
 async def test_the_sweep_runs_under_its_lock_and_stops_when_cancelled(monkeypatch):
+    # A sweep of an earlier test in this session may have been cancelled while
+    # holding this lock, and the row it left stands until its own time runs out
+    # -- far longer than this test can wait, so the pass would back off and the
+    # wait would time out. Nothing else runs while this test does, so it starts
+    # from a clean table; what it checks is that its own pass takes the lock and
+    # gives it back.
+    DatabaseManagerV2.execute_commit(
+        "DELETE FROM distributed_locks WHERE lock_name = :n",
+        {"n": events.EVENTS_RETENTION_LOCK})
+
     event_aged(200, "old")
     swept = asyncio.Event()
     real = events.purge_old_events
