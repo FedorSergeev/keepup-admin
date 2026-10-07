@@ -2,7 +2,13 @@
 
 Notable changes to `keepup-admin`.
 
-## Unreleased
+## 0.3.0 — 2026-10-07
+
+A release about the panel's own security: it is served with a
+Content-Security-Policy and carries no JavaScript in its markup any more, the
+security audit after 0.2 is worked through finding by finding, and the
+deployment's catalogue of sections and plugins is read from the file the
+application names.
 
 **Upgrading from 0.2.0.** A user now holds a set of roles (below, *Added*):
 nothing has to be done for an existing database -- the start fills the sets
