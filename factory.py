@@ -184,6 +184,10 @@ def apply_settings(settings: KeepupSettings) -> None:
         login_record=settings.record_login,
     )
     auth_routes.configure_public_config(settings.public_config)
+    # The panel's plugin report reads the deployment's own catalogue, wherever
+    # the application keeps it -- not the default path (keepup-93).
+    from keepup.plugins import admin as plugins_admin
+    plugins_admin.configure(settings.plugins_config_path)
     # Themes are declared here and not when the themes module is imported:
     # there is no application at that point and nothing for it to declare --
     # which is exactly why a declared theme never reached the database. The

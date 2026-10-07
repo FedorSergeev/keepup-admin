@@ -221,6 +221,15 @@ the policy as a report (`csp_report_only=True`) until it has.
 
 ### Fixed
 
+- **The panel's plugin report reads the deployment's own catalogue.**
+  `GET /api/admin/plugins`, and the routes that change a plugin's decision,
+  read `config/modules.json` whatever path the application had named in
+  `plugins_config_path`; a deployment that keeps the file elsewhere -- every
+  test application, and any stand that named another one -- got a 500 from the
+  panel while its plugins came up from the file it did name. The path now
+  reaches `keepup.plugins.admin` the way it already reached
+  `initialize_plugins()`.
+
 - **The panel page is revalidated like the shell's assets.** `GatedStaticFiles`
   tells the browser to revalidate every script and stylesheet it serves, and the
   page those assets belong to was left to the browser's invented freshness --

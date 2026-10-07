@@ -163,3 +163,26 @@ def test_the_manager_looks_where_the_application_told_it_to(tmp_path):
 
     assert manager.load_plugin("good", {}) is True
     assert isinstance(manager.plugins["good"], BasePlugin)
+
+
+def test_the_report_reads_the_application_s_own_catalogue(tmp_path):
+    """The route read the default path while initialize_plugins() read the app's.
+
+    An application that keeps its catalogue anywhere but ``config/modules.json``
+    -- every test application, and any deployment that named another file --
+    answered 500 on ``GET /api/admin/plugins`` while its plugins came up from
+    the file it did name.
+    """
+    from keepup.factory import create_app
+    from keepup.plugins import admin
+    from keepup.settings import KeepupSettings
+
+    elsewhere = tmp_path / "catalogue.json"
+    elsewhere.write_text(json.dumps({"plugins": []}), encoding="utf-8")
+
+    create_app(KeepupSettings(title="Elsewhere", project_name="elsewhere",
+                              plugin_manager=None, plugins_dir=None,
+                              static_mounts=(),
+                              plugins_config_path=str(elsewhere)))
+
+    assert admin.MODULES_CONFIG_PATH == str(elsewhere)

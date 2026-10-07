@@ -42,10 +42,24 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-#: Where this deployment declares its plugins. An application that keeps the
-#: file elsewhere passes its own path to initialize_plugins(); this is the
-#: default, and what the administrative endpoints read.
+#: Where this deployment declares its plugins. The application names the file
+#: in KeepupSettings.plugins_config_path, and configure() is handed that value
+#: when the application is built; this is what a caller that never does reads.
 MODULES_CONFIG_PATH = 'config/modules.json'
+
+
+def configure(path: str = None) -> None:
+    """Where the administrative endpoints read the declared plugins from.
+
+    initialize_plugins() is handed the application's own path, and until this
+    existed the endpoints around it read the default instead: an application
+    that keeps its catalogue anywhere else answered 500 on the panel's plugin
+    report, and said so only in the log (keepup-93's integration test, run from
+    a directory without config/modules.json, is where it showed).
+    """
+    global MODULES_CONFIG_PATH
+    if path:
+        MODULES_CONFIG_PATH = path
 
 
 def read_plugin_overrides():

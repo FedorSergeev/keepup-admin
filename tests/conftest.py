@@ -70,18 +70,21 @@ def framework_state_restored():
     """
     from keepup import audit, log_shipping, web
     from keepup.auth import dependencies, routes
+    from keepup.plugins import admin as plugins_admin
 
     saved = (
         web.STATIC_DIR, web.CLIENT_PAGE, web.VERSION_FILE, web.FAVICON_FILE,
         audit.redact, log_shipping.PROJECT_NAME, log_shipping.REMOTE_LOG_URL,
         log_shipping.REMOTE_LOG_TOKEN,
         routes.password_rule, routes.record_login, dependencies.pending_documents,
+        plugins_admin.MODULES_CONFIG_PATH,
     )
     yield
     (web.STATIC_DIR, web.CLIENT_PAGE, web.VERSION_FILE, web.FAVICON_FILE,
      audit.redact, log_shipping.PROJECT_NAME, log_shipping.REMOTE_LOG_URL,
      log_shipping.REMOTE_LOG_TOKEN,
-     routes.password_rule, routes.record_login, dependencies.pending_documents) = saved
+     routes.password_rule, routes.record_login, dependencies.pending_documents,
+     plugins_admin.MODULES_CONFIG_PATH) = saved
     # The identity provider too: an application built with one must not hand it
     # to the next test's application (keepup-91).
     from keepup.auth.identity import runtime as identity_runtime
