@@ -60,17 +60,6 @@ def test_no_inline_script_is_left_in_the_pages(path):
     assert remaining == [], f"inline scripts, which the policy refuses: {remaining}"
 
 
-@pytest.mark.parametrize("path", PAGES, ids=lambda path: path.name)
-def test_the_layout_bootstrap_is_a_file_the_pages_load(path):
-    """It used to be a <script> in the head of every theme page.
-
-    A file survives the policy; a hash of an inline script changes with every
-    edit and with every application that copies the page (keepup-93).
-    """
-    assert (STATIC / "js" / "layout_bootstrap.js").is_file()
-    assert "/keepup-static/js/layout_bootstrap.js" in read(path)
-
-
 def test_every_action_in_the_markup_is_one_that_is_registered():
     """A renamed action would leave a dead button, and only in a browser."""
     registered = set()

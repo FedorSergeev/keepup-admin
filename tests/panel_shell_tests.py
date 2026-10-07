@@ -127,5 +127,21 @@ def test_every_asset_a_theme_page_asks_for_exists_in_the_package(asset):
     assert (SHELL / asset).is_file()
 
 
+@pytest.mark.parametrize("page", ["index_new.html", "index_nebula.html"])
+def test_a_theme_page_bootstraps_the_narrow_layout(page):
+    """A theme that links main_new.css has to publish the narrow layout.
+
+    The class the adaptive rules match on is set before the first paint -- a
+    page that forgot it would render the desktop layout on a phone, with no
+    error anywhere to say why. A file since keepup-93 rather than a script in
+    the page, because the panel is served with a Content-Security-Policy and
+    inline script is what it refuses.
+    """
+    markup = (SHELL / page).read_text(encoding="utf-8")
+    assert "js/layout_bootstrap.js" in markup, (
+        f"{page} links main_new.css but does not bootstrap the narrow layout")
+    assert (SHELL / "js" / "layout_bootstrap.js").is_file()
+
+
 # --- the build ------------------------------------------------------------------
 
