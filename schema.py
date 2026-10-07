@@ -242,13 +242,16 @@ def _hook_types():
             "boolean_type": "BOOLEAN", "text_type": "TEXT", "real_type": "REAL"}
 
 
-def init_db(app_tables=None, extra_setup=None, plugins_dir=None):
+def init_db(app_tables=None, extra_setup=None, plugins_dir=None, plugins_config_path=None):
     """Create the core tables, on both SQLite and PostgreSQL.
 
     ``app_tables(cursor, types, db_config)`` is the application's own schema
     step, handed the connection this function opens and run after the core
     tables exist. ``extra_setup()`` is for the application's table modules that
     open their own connection, run before this one is opened.
+    ``plugins_config_path`` is the catalogue of panel sections and plugins this
+    deployment declares; without it the path the application named in
+    KeepupSettings is used, and failing that the default (keepup-98).
     """
     try:
         init_login_attempts_table()
@@ -303,7 +306,7 @@ def init_db(app_tables=None, extra_setup=None, plugins_dir=None):
     # file paths are corrected on a deployment that has been running since
     # before they moved into it (keepup-4).
     sync_framework_sections()
-    sync_new_modules_from_json()
+    sync_new_modules_from_json(plugins_config_path)
 
     if plugins_dir:
         os.makedirs(plugins_dir, exist_ok=True)

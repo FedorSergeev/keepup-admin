@@ -27,7 +27,7 @@ from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from keepup import audit, cluster, logging_setup, notification_bus, web
+from keepup import audit, cluster, logging_setup, modules, notification_bus, web
 from keepup.api_docs import register_api_documentation
 from keepup.api_versions import ApiVersionMiddleware
 from keepup.audit import (audit_retention_background, background_buffer_flusher,
@@ -188,6 +188,9 @@ def apply_settings(settings: KeepupSettings) -> None:
     # the application keeps it -- not the default path (keepup-93).
     from keepup.plugins import admin as plugins_admin
     plugins_admin.configure(settings.plugins_config_path)
+    # The catalogue of panel sections and their grants is seeded from the same
+    # file, which until keepup-98 was only the default one.
+    modules.configure(settings.plugins_config_path)
     # Themes are declared here and not when the themes module is imported:
     # there is no application at that point and nothing for it to declare --
     # which is exactly why a declared theme never reached the database. The
@@ -256,6 +259,15 @@ def _build_lifespan(settings: KeepupSettings):
         # Table creation is a round of statements against the database; off the
         # loop, where the tasks started above already run (keepup-54).
         await asyncio.to_thread(init_incoming_requests_table)
+
+        # The catalogue the application named reaches the panel here as well as
+        # in init_db(): an application calls init_db() itself, usually before
+        # create_app() and with no path, so its sections were seeded from
+        # config/modules.json -- which need not be there at all -- and the
+        # panel came up with the framework's own sections only (keepup-98).
+        # Idempotent: only rows the database has never seen are written.
+        await asyncio.to_thread(modules.sync_new_modules_from_json,
+                                settings.plugins_config_path)
         flusher_task = asyncio.create_task(background_buffer_flusher())
         # The audit table had no sweep at all while snapshots and events both
         # had one, so it grew for as long as the deployment ran (keepup-11).

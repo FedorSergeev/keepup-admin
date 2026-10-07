@@ -68,7 +68,7 @@ def framework_state_restored():
     is its. In a test session there are dozens, and the last one built would
     otherwise decide how the rest of the run behaves.
     """
-    from keepup import audit, log_shipping, web
+    from keepup import audit, log_shipping, modules, web
     from keepup.auth import dependencies, routes
     from keepup.plugins import admin as plugins_admin
 
@@ -77,14 +77,14 @@ def framework_state_restored():
         audit.redact, log_shipping.PROJECT_NAME, log_shipping.REMOTE_LOG_URL,
         log_shipping.REMOTE_LOG_TOKEN,
         routes.password_rule, routes.record_login, dependencies.pending_documents,
-        plugins_admin.MODULES_CONFIG_PATH,
+        plugins_admin.MODULES_CONFIG_PATH, modules.MODULES_CONFIG_PATH,
     )
     yield
     (web.STATIC_DIR, web.CLIENT_PAGE, web.VERSION_FILE, web.FAVICON_FILE,
      audit.redact, log_shipping.PROJECT_NAME, log_shipping.REMOTE_LOG_URL,
      log_shipping.REMOTE_LOG_TOKEN,
      routes.password_rule, routes.record_login, dependencies.pending_documents,
-     plugins_admin.MODULES_CONFIG_PATH) = saved
+     plugins_admin.MODULES_CONFIG_PATH, modules.MODULES_CONFIG_PATH) = saved
     # The identity provider too: an application built with one must not hand it
     # to the next test's application (keepup-91).
     from keepup.auth.identity import runtime as identity_runtime

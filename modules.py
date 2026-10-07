@@ -44,6 +44,20 @@ logger = logging.getLogger(__name__)
 MODULES_CONFIG_PATH = 'config/modules.json'
 
 
+def configure(path: str = None) -> None:
+    """Where this deployment keeps its catalogue of sections and plugins.
+
+    The application names the file in KeepupSettings.plugins_config_path and
+    create_app() hands it here. Until this existed only initialize_plugins()
+    was given that path: the catalogue was seeded from the default file, so a
+    deployment that named another one came up with the framework's own sections
+    and none of its own, and nothing said why (keepup-98).
+    """
+    global MODULES_CONFIG_PATH
+    if path:
+        MODULES_CONFIG_PATH = path
+
+
 class ModuleCreate(BaseModel):
     """A panel section being declared."""
 
@@ -403,7 +417,7 @@ def sync_framework_sections(path: str = FRAMEWORK_SECTIONS) -> Dict[str, int]:
     return counted
 
 
-def sync_new_modules_from_json(path: str = MODULES_CONFIG_PATH) -> Dict[str, int]:
+def sync_new_modules_from_json(path: str = None) -> Dict[str, int]:
     """Add what the file declares and the database has never seen; change nothing else.
 
     The catalogue of panel sections lives in the database, and the file is only its
@@ -415,7 +429,12 @@ def sync_new_modules_from_json(path: str = MODULES_CONFIG_PATH) -> Dict[str, int
     So only rows that do not exist at all are written: a module whose id has no row,
     a grant whose (role, module) pair has no row. A section an administrator switched
     off or took away from a role keeps its row, and stays the way he left it.
+
+    Args:
+        path: the catalogue to read; the deployment's own by default, which is
+            the path the application named (configure()).
     """
+    path = path or MODULES_CONFIG_PATH
     added = {"modules": 0, "grants": 0}
     try:
         with open(path, 'r', encoding='utf-8') as f:

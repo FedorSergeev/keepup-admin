@@ -221,6 +221,18 @@ the policy as a report (`csp_report_only=True`) until it has.
 
 ### Fixed
 
+- **The catalogue of panel sections comes from the file the application named.**
+  `init_db()` seeded `frontend_modules` and the role grants from
+  `config/modules.json` whatever path the application had given in
+  `plugins_config_path`, while its plugins came up from the file it did name: a
+  deployment that keeps its catalogue elsewhere started with the framework's
+  eight sections and none of its own, and said nothing. The path now reaches
+  `keepup.modules` the way it reaches `keepup.plugins.admin` and
+  `initialize_plugins()`; `init_db()` takes it as an argument for an application
+  that calls it before `create_app()`; and the start seeds the catalogue from
+  the settings again -- off the event loop, and idempotent, so what an
+  administrator changed stays as they left it.
+
 - **`keepup.tables.auto_id` and `keepup.tables.NOW` are declared public.** The
   guide has an application write `tables.auto_id()` and `tables.NOW` in a table
   declaration, and neither stood in the module's `__all__`: by the package's own
