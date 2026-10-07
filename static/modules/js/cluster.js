@@ -103,7 +103,7 @@ function createClusterSection() {
                 </h2>
                 <div class="flex flex-wrap items-center gap-3">
                     <span id="cluster-summary" class="text-sm text-gray-500"></span>
-                    <button onclick="loadCluster()"
+                    <button data-action="cluster.refresh"
                             class="px-4 py-2 bg-gray-200 rounded-lg hover:bg-gray-300 flex items-center">
                         <i data-feather="refresh-cw" class="w-4 h-4 mr-2"></i>
                         Refresh
@@ -273,8 +273,11 @@ function clusterButton(member, action, enabled, reason) {
     const css = action === 'stop' ? 'bg-yellow-500 hover:bg-yellow-600 text-white'
         : action === 'start' ? 'bg-green-600 hover:bg-green-700 text-white'
         : 'bg-blue-600 hover:bg-blue-700 text-white';
+    // The table is rebuilt on every refresh, so the button names its action and
+    // carries its arguments as data instead of an inline handler: a handler
+    // written into the markup is what the policy refuses (keepup-93).
     return `<button class="px-3 py-1 rounded text-sm ${enabled ? css : 'bg-gray-200 text-gray-400 cursor-not-allowed'}"
-                ${enabled ? `onclick="sendClusterCommand(${keepupJsArg(member.instance_id)}, ${keepupJsArg(action)})"` : 'disabled'}
+                ${enabled ? `data-action="cluster.command" data-instance-id="${keepupEscapeHtml(member.instance_id)}" data-command="${keepupEscapeHtml(action)}"` : 'disabled'}
                 ${reason ? `title="${escapeClusterHtml(reason)}"` : ''}>${CLUSTER_ACTION_LABELS[action]}</button>`;
 }
 
@@ -360,3 +363,12 @@ function renderCluster() {
     `;
     if (window.feather) feather.replace();
 }
+
+// The actions this section's markup asks the shell to take (keepup-93). The
+// values travel in data attributes and a name nothing registered does nothing;
+// the command buttons live here rather than bound one by one because the table
+// is rebuilt on every refresh.
+KeepupActions.register({
+    'cluster.refresh': () => loadCluster(),
+    'cluster.command': (element) => sendClusterCommand(element.dataset.instanceId, element.dataset.command),
+});

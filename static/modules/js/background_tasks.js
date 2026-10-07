@@ -148,7 +148,7 @@ class BackgroundTasksPlugin {
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800">Background Tasks and Locks</h2>
                 <div class="flex space-x-2">
-                    <button onclick="backgroundTasksPlugin.refreshAllData()" 
+                    <button data-action="background_tasks.refresh" 
                             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
                         <i data-feather="refresh-cw" class="w-4 h-4 mr-2"></i>
                         Refresh
@@ -211,7 +211,7 @@ class BackgroundTasksPlugin {
             <div class="mb-6">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-lg font-semibold text-gray-800">Scheduler Jobs</h3>
-                    <button onclick="backgroundTasksPlugin.triggerAllJobs()" 
+                    <button data-action="background_tasks.trigger-all" 
                             class="px-3 py-1 bg-green-600 text-white rounded text-sm hover:bg-green-700 flex items-center">
                         <i data-feather="play" class="w-3 h-3 mr-1"></i>
                         Run all
@@ -232,12 +232,12 @@ class BackgroundTasksPlugin {
                     Warning: these actions are available only to system administrators
                 </p>
                 <div class="flex space-x-2">
-                    <button onclick="backgroundTasksPlugin.forceCleanLocks()" 
+                    <button data-action="background_tasks.clear-locks" 
                             class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center">
                         <i data-feather="trash-2" class="w-4 h-4 mr-2"></i>
                         Clear all locks
                     </button>
-                    <button onclick="backgroundTasksPlugin.restartScheduler()" 
+                    <button data-action="background_tasks.restart-scheduler" 
                             class="px-4 py-2 bg-purple-600 text-white rounded-lg hover:bg-purple-700 flex items-center">
                         <i data-feather="refresh-cw" class="w-4 h-4 mr-2"></i>
                         Restart scheduler
@@ -362,7 +362,7 @@ class BackgroundTasksPlugin {
                         <p class="text-sm text-gray-600">Instance: ${keepupEscapeHtml(lock.instance_id)}</p>
                     </div>
                     <div class="flex space-x-2">
-                        <button onclick="backgroundTasksPlugin.forceReleaseLock(${keepupJsArg(lock.lock_name)})"
+                        <button data-action="background_tasks.release-lock" data-lock-name="${keepupEscapeHtml(lock.lock_name)}"
                                 class="px-3 py-1 bg-red-100 text-red-700 rounded text-sm hover:bg-red-200 flex items-center">
                             <i data-feather="unlock" class="w-3 h-3 mr-1"></i>
                             Release
@@ -413,7 +413,7 @@ class BackgroundTasksPlugin {
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">${keepupEscapeHtml(job.trigger)}</td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                <button onclick="backgroundTasksPlugin.triggerJob(${keepupJsArg(job.id)})"
+                                <button data-action="background_tasks.trigger-job" data-job-id="${keepupEscapeHtml(job.id)}"
                                         class="text-blue-600 hover:text-blue-900 bg-blue-100 px-3 py-1 rounded text-sm flex items-center">
                                     <i data-feather="play" class="w-3 h-3 mr-1"></i>
                                     Run
@@ -606,6 +606,11 @@ class BackgroundTasksPlugin {
         } else {
             // Simple fallback when the global function is not available
             const notification = document.createElement('div');
+            // The box the dismiss button removes is named as data rather than
+            // found by walking up from the button, and the button names the
+            // section's dismiss action like every other button here
+            // (keepup-93).
+            notification.dataset.notification = '';
             notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${
                 type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
                 type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
@@ -616,14 +621,14 @@ class BackgroundTasksPlugin {
                     <i data-feather="${type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info'}"
                        class="w-5 h-5 mr-2"></i>
                     <span>${message}</span>
-                    <button onclick="this.parentElement.parentElement.remove()"
+                    <button type="button" data-action="background_tasks.dismiss-notification"
                             class="ml-4 text-gray-500 hover:text-gray-700">
                         <i data-feather="x" class="w-4 h-4"></i>
                     </button>
                 </div>
             `;
             document.body.appendChild(notification);
-            
+
             if (typeof feather !== 'undefined') {
                 feather.replace();
             }
@@ -655,3 +660,20 @@ function initBackgroundTasks() {
     console.log('Starting background tasks plugin initialization...');
     return window.backgroundTasksPlugin.initialize();
 }
+
+// The actions this section's markup asks the shell to take (keepup-93). The
+// locks and the job rows are rebuilt on every load, so each button names its
+// action and carries the value the handler needs as data; the plugin is reached
+// through window so the methods keep the `this` an inline handler gave them.
+KeepupActions.register({
+    'background_tasks.refresh': () => window.backgroundTasksPlugin.refreshAllData(),
+    'background_tasks.trigger-all': () => window.backgroundTasksPlugin.triggerAllJobs(),
+    'background_tasks.clear-locks': () => window.backgroundTasksPlugin.forceCleanLocks(),
+    'background_tasks.restart-scheduler': () => window.backgroundTasksPlugin.restartScheduler(),
+    'background_tasks.release-lock': (element) => window.backgroundTasksPlugin.forceReleaseLock(element.dataset.lockName),
+    'background_tasks.trigger-job': (element) => window.backgroundTasksPlugin.triggerJob(element.dataset.jobId),
+    'background_tasks.dismiss-notification': (element) => {
+        const box = element.closest('[data-notification]');
+        if (box) box.remove();
+    },
+});

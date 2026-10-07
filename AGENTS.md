@@ -60,7 +60,8 @@ settings = KeepupSettings(
 app = create_app(settings)
 ```
 
-Settings worth knowing: `cors_origins`, `security_headers`, `metrics_public`,
+Settings worth knowing: `cors_origins`, `security_headers`,
+`content_security_policy`, `csp_report_only`, `metrics_public`,
 `max_upload_bytes`, `static_dir`, `static_mounts`, `client_page` (the page at
 `/`), `built_in_themes`, `gated_pages`, `audit_redaction`, `password_rule`,
 `oidc`, `identity_provider`, `openapi_url`, `openapi_public`, `public_config`, `notification_channel`, `on_startup`, `on_shutdown`,
@@ -168,6 +169,14 @@ At start-up the framework copies sections and grants that the database lacks
 - **The theme owns the chrome**: sidebar, navigation, header. A section styles
   only what is inside its own section element. Never style `#sidebar`,
   `.nav-item`, `.main-content` from a section.
+- **A section puts no JavaScript in its markup.** The panel is served with a
+  Content-Security-Policy (`keepup/security.py`) that refuses an inline handler,
+  so a section registers what its buttons do with
+  `KeepupActions.register({'users.edit': (element, event) => ...})` and names
+  the action in the markup -- `data-action="users.edit"`, with the values the
+  handler needs in `data-*` attributes. Inline handlers in an application's own
+  sections keep working only while its policy is sent as a report
+  (`csp_report_only`).
 - **The narrow layout is the `is-narrow` class**, not a media query. Tables opt
   into the shared helper with `class="responsive-table"`; grids are
   `grid-cols-1 md:grid-cols-N`.

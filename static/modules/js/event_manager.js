@@ -125,10 +125,11 @@ function showNotification(message, type = 'info') {
             type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
             'bg-blue-100 text-blue-800 border border-blue-200'
         }`;
+        notification.setAttribute('data-notification', '');
         notification.innerHTML = `
             <div class="flex items-center">
                 <span>${escapeHtml(message)}</span>
-                <button onclick="this.parentElement.parentElement.remove()"
+                <button data-action="events.dismiss-notification"
                         class="ml-4 text-gray-500 hover:text-gray-700">
                     ✕
                 </button>
@@ -296,7 +297,7 @@ function displayAuditEvents(events) {
             <div class="text-center py-12">
                 <i data-feather="inbox" class="w-12 h-12 text-gray-400 mx-auto mb-3"></i>
                 <p class="text-gray-500">No events to display</p>
-                <button onclick="resetAuditFilters()" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
+                <button data-action="events.reset-filters" class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     Reset filters
                 </button>
             </div>
@@ -353,7 +354,8 @@ function createAuditEventElement(event) {
 
         ${eventData && eventData !== '—' ? `
         <div class="mt-3">
-            <button onclick="toggleEventData(${event.id})"
+            <button data-action="events.toggle-data"
+                    data-event-id="${keepupEscapeHtml(event.id)}"
                     class="text-sm text-blue-600 hover:text-blue-800 flex items-center">
                 <i data-feather="chevron-down" class="w-4 h-4 mr-1" id="chevron-${event.id}"></i>
                 Show data
@@ -398,7 +400,7 @@ function displayAuditError(message) {
         <div class="text-center py-12">
             <i data-feather="alert-triangle" class="w-12 h-12 text-red-400 mx-auto mb-3"></i>
             <p class="text-red-500 mb-4">${escapeHtml(message)}</p>
-            <button onclick="refreshAuditEvents()"
+            <button data-action="events.refresh-list"
                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 Try again
             </button>
@@ -466,7 +468,7 @@ function displayAuditStats() {
                     <p class="font-semibold">${escapeHtml(auditStats.current_instance?.name)}</p>
                     <p class="text-xs text-yellow-600">ID: ${escapeHtml(auditStats.current_instance?.id)}</p>
                 </div>
-                <button onclick="refreshAuditStats()" class="text-yellow-800 hover:text-yellow-900">
+                <button data-action="events.refresh-stats" class="text-yellow-800 hover:text-yellow-900">
                     <i data-feather="refresh-cw" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -531,7 +533,7 @@ function updateFilterInfo() {
             <div class="flex items-center space-x-2 text-sm text-gray-600">
                 <span>Active filters:</span>
                 ${activeFilters.map(f => `<span class="bg-gray-100 px-2 py-1 rounded">${escapeHtml(f)}</span>`).join('')}
-                <button onclick="resetAuditFilters()" class="text-red-600 hover:text-red-800 text-sm">Reset all</button>
+                <button data-action="events.reset-filters" class="text-red-600 hover:text-red-800 text-sm">Reset all</button>
             </div>
         `;
     } else {
@@ -579,7 +581,8 @@ function updateAuditPagination() {
 
     // "Back" button
     paginationHtml += `
-        <button onclick="goToAuditPage(${auditCurrentPage - 1})"
+        <button data-action="events.page"
+                data-page="${keepupEscapeHtml(auditCurrentPage - 1)}"
                 ${auditCurrentPage === 1 ? 'disabled' : ''}
                 class="px-3 py-2 border rounded-lg ${auditCurrentPage === 1 ? 'bg-gray-100 text-gray-400' : 'hover:bg-gray-50'}">
             ← Back
@@ -592,7 +595,8 @@ function updateAuditPagination() {
 
     for (let i = startPage; i <= endPage; i++) {
         paginationHtml += `
-            <button onclick="goToAuditPage(${i})"
+            <button data-action="events.page"
+                    data-page="${keepupEscapeHtml(i)}"
                     class="px-3 py-2 border rounded-lg ${i === auditCurrentPage ? 'bg-blue-600 text-white' : 'hover:bg-gray-50'}">
                 ${i}
             </button>
@@ -601,7 +605,8 @@ function updateAuditPagination() {
 
     // "Next" button
     paginationHtml += `
-        <button onclick="goToAuditPage(${auditCurrentPage + 1})"
+        <button data-action="events.page"
+                data-page="${keepupEscapeHtml(auditCurrentPage + 1)}"
                 ${auditCurrentPage === auditTotalPages ? 'disabled' : ''}
                 class="px-3 py-2 border rounded-lg ${auditCurrentPage === auditTotalPages ? 'bg-gray-100 text-gray-400' : 'hover:bg-gray-50'}">
             Next →
@@ -729,17 +734,17 @@ function createAuditSection() {
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800">Event audit</h2>
                 <div class="flex space-x-2">
-                    <button onclick="exportEventsToCSV()"
+                    <button data-action="events.export-csv"
                             class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
                         <i data-feather="download" class="w-4 h-4 mr-2"></i>
                         Export CSV
                     </button>
-                    <button onclick="cleanupOldEvents()"
+                    <button data-action="events.cleanup-old"
                             class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center">
                         <i data-feather="trash-2" class="w-4 h-4 mr-2"></i>
                         Clean up old
                     </button>
-                    <button onclick="refreshAuditEvents()"
+                    <button data-action="events.refresh-list"
                             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
                         <i data-feather="refresh-cw" class="w-4 h-4 mr-2"></i>
                         Refresh
@@ -778,11 +783,11 @@ function createAuditSection() {
                 <div class="flex justify-between items-center mt-4">
                     <div id="filter-info"></div>
                     <div class="flex space-x-2">
-                        <button onclick="applyAuditFilters()"
+                        <button data-action="events.apply-filters"
                                 class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                             Apply
                         </button>
-                        <button onclick="resetAuditFilters()"
+                        <button data-action="events.reset-filters"
                                 class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
                             Reset
                         </button>
@@ -980,4 +985,23 @@ document.addEventListener('DOMContentLoaded', function() {
             initAuditModule();
         }
     }, 100);
+});
+
+// The actions this section's markup asks the shell to take (keepup-93). The
+// event list, its pagination and the filter info are rebuilt, so their controls
+// name an action and carry the id or the page they were built with; the
+// notification dismisses the notification it sits in, as the shell's own does.
+KeepupActions.register({
+    'events.export-csv': () => exportEventsToCSV(),
+    'events.cleanup-old': () => cleanupOldEvents(),
+    'events.refresh-list': () => refreshAuditEvents(),
+    'events.refresh-stats': () => refreshAuditStats(),
+    'events.apply-filters': () => applyAuditFilters(),
+    'events.reset-filters': () => resetAuditFilters(),
+    'events.toggle-data': (element) => toggleEventData(Number(element.dataset.eventId)),
+    'events.page': (element) => goToAuditPage(Number(element.dataset.page)),
+    'events.dismiss-notification': (element) => {
+        const notification = element.closest('[data-notification]');
+        if (notification) notification.remove();
+    },
 });

@@ -118,18 +118,18 @@ this.name = "Integration Log";
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800">Integration Log</h2>
                 <div class="flex space-x-2">
-                    <button onclick="window.integrationLogsPlugin.loadStats()"
+                    <button data-action="logs.stats"
                             class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
                         <i data-feather="bar-chart-2" class="w-4 h-4 mr-2"></i>
                         Statistics
                     </button>
-                    <button onclick="window.integrationLogsPlugin.exportLogs()"
+                    <button data-action="logs.export"
                             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
                         <i data-feather="download" class="w-4 h-4 mr-2"></i>
                         Export
                     </button>
                     ${currentUser && currentUser.role === 'ADMIN' ? `
-                    <button onclick="window.integrationLogsPlugin.cleanupLogs()"
+                    <button data-action="logs.cleanup"
                             class="px-4 py-2 bg-red-600 text-white rounded-lg hover:bg-red-700 flex items-center">
                         <i data-feather="trash-2" class="w-4 h-4 mr-2"></i>
                         Cleanup
@@ -180,12 +180,12 @@ this.name = "Integration Log";
                     </div>
                 </div>
                 <div class="flex justify-between">
-                    <button onclick="window.integrationLogsPlugin.applyFilters()"
+                    <button data-action="logs.apply-filters"
                             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
                         <i data-feather="filter" class="w-4 h-4 mr-2"></i>
                         Apply filters
                     </button>
-                    <button onclick="window.integrationLogsPlugin.resetFilters()"
+                    <button data-action="logs.reset-filters"
                             class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center">
                         <i data-feather="refresh-cw" class="w-4 h-4 mr-2"></i>
                         Reset
@@ -219,7 +219,7 @@ this.name = "Integration Log";
             <div class="bg-white rounded-lg p-6 w-full max-w-4xl max-h-[90vh] overflow-y-auto">
                 <div class="flex justify-between items-center mb-4">
                     <h3 class="text-xl font-bold text-gray-800">Request details</h3>
-                    <button onclick="window.integrationLogsPlugin.closeDetailModal()"
+                    <button data-action="logs.close-detail"
                             class="text-gray-500 hover:text-gray-700">
                         <i data-feather="x" class="w-6 h-6"></i>
                     </button>
@@ -375,7 +375,8 @@ this.name = "Integration Log";
                                 ${log.duration_ms ? `${log.duration_ms}ms` : 'N/A'}
                             </td>
                             <td class="px-6 py-4 whitespace-nowrap text-sm">
-                                <button onclick="window.integrationLogsPlugin.showLogDetail(${Number(log.id)})"
+                                <button data-action="logs.show-detail"
+                                        data-log-id="${keepupEscapeHtml(log.id)}"
                                         class="text-blue-600 hover:text-blue-900 bg-blue-100 px-3 py-1 rounded text-sm flex items-center">
                                     <i data-feather="eye" class="w-3 h-3 mr-1"></i>
                                     Details
@@ -413,7 +414,8 @@ this.name = "Integration Log";
                 Showing ${((this.currentPage - 1) * this.limit) + 1}-${Math.min(this.currentPage * this.limit, totalCount)} of ${totalCount} records
             </div>
             <div class="flex space-x-2">
-                <button onclick="window.integrationLogsPlugin.loadLogs(${this.currentPage - 1})"
+                <button data-action="logs.page"
+                        data-page="${keepupEscapeHtml(this.currentPage - 1)}"
                         ${this.currentPage <= 1 ? 'disabled' : ''}
                         class="px-3 py-1 border border-gray-300 rounded text-sm ${this.currentPage <= 1 ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}">
                     Back
@@ -421,7 +423,8 @@ this.name = "Integration Log";
                 <span class="px-3 py-1 text-sm text-gray-700">
                     Page ${this.currentPage} of ${totalPages}
                 </span>
-                <button onclick="window.integrationLogsPlugin.loadLogs(${this.currentPage + 1})"
+                <button data-action="logs.page"
+                        data-page="${keepupEscapeHtml(this.currentPage + 1)}"
                         ${this.currentPage >= totalPages ? 'disabled' : ''}
                         class="px-3 py-1 border border-gray-300 rounded text-sm ${this.currentPage >= totalPages ? 'opacity-50 cursor-not-allowed' : 'hover:bg-gray-50'}">
                     Next
@@ -775,3 +778,18 @@ if (!window.integrationLogsPlugin) {
         return Promise.resolve(true);
     }
 }
+
+// The actions this section's markup asks the shell to take (keepup-93). The log
+// rows and the pagination are rebuilt on every load, so they name an action and
+// carry the id or the page they were built with; every handler is resolved
+// against the plugin instance, whose methods rely on `this`.
+KeepupActions.register({
+    'logs.stats': () => window.integrationLogsPlugin.loadStats(),
+    'logs.export': () => window.integrationLogsPlugin.exportLogs(),
+    'logs.cleanup': () => window.integrationLogsPlugin.cleanupLogs(),
+    'logs.apply-filters': () => window.integrationLogsPlugin.applyFilters(),
+    'logs.reset-filters': () => window.integrationLogsPlugin.resetFilters(),
+    'logs.close-detail': () => window.integrationLogsPlugin.closeDetailModal(),
+    'logs.show-detail': (element) => window.integrationLogsPlugin.showLogDetail(Number(element.dataset.logId)),
+    'logs.page': (element) => window.integrationLogsPlugin.loadLogs(Number(element.dataset.page)),
+});

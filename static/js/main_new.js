@@ -85,6 +85,75 @@ function currentUserIsAdmin() {
 window.AppRoles = { of: userRolesOf, has: userHasRole };
 // --- end of the roles a user holds ----------------------------------------------
 
+/* ==========================================================================
+   What a section asks the shell to do (keepup-93).
+
+   A section used to put JavaScript in its markup -- an onclick attribute that
+   called editUser(7) -- and a browser served the panel with a
+   Content-Security-Policy refuses to run that at all (keepup/security.py): an
+   attribute is a script the page did not load, and it is exactly what a
+   stored-XSS hole (keepup-62) needs in order to become a running one. A section
+   now names an action it registered here and carries the values its handler
+   needs in data-* attributes:
+
+       <button data-action="users.edit" data-user-id="7">Edit</button>
+
+       KeepupActions.register({
+           'users.edit': (element) => editUser(Number(element.dataset.userId)),
+       });
+
+   One listener per event kind on the document serves every section, including
+   the ones loaded later: nothing is bound per render, so a rebuilt table needs
+   no rebinding. Only a registered name is ever called -- markup can name an
+   action, never a function -- and a name nothing registered does nothing.
+   ========================================================================== */
+// --- what a section asks the shell to do (keepup-93)
+const KEEPUP_ACTION_ATTRIBUTE = 'data-action';
+
+//: The elements whose action belongs to a change or a submit, not to a click.
+//: A click on the button of a form whose action sits on the form itself would
+//: otherwise run the same handler twice -- once for the click and once for the
+//: submit it causes. A form answers its submit, a field its change.
+const KEEPUP_CONTROL_TAGS = ['FORM', 'INPUT', 'SELECT', 'TEXTAREA', 'OPTION'];
+
+const KeepupActions = (function () {
+    const handlers = new Map();
+
+    function register(name, handler) {
+        if (name && typeof name === 'object') {
+            Object.keys(name).forEach(function (key) { handlers.set(key, name[key]); });
+            return;
+        }
+        handlers.set(name, handler);
+    }
+
+    function actionOf(target) {
+        if (!target || typeof target.closest !== 'function') return null;
+        const element = target.closest('[' + KEEPUP_ACTION_ATTRIBUTE + ']');
+        return element && handlers.has(element.getAttribute(KEEPUP_ACTION_ATTRIBUTE))
+            ? element : null;
+    }
+
+    function handle(event) {
+        const element = actionOf(event.target);
+        if (!element) return;
+        if (event.type === 'click' && KEEPUP_CONTROL_TAGS.indexOf(element.tagName) !== -1) return;
+        const handler = handlers.get(element.getAttribute(KEEPUP_ACTION_ATTRIBUTE));
+        // A form is answered here rather than sent, and a link that only names
+        // an action is a button wearing an anchor.
+        if (event.type === 'submit' || element.tagName === 'A') event.preventDefault();
+        handler(element, event);
+    }
+
+    document.addEventListener('click', handle);
+    document.addEventListener('change', handle);
+    document.addEventListener('submit', handle);
+
+    return { register: register };
+})();
+window.KeepupActions = KeepupActions;
+// --- end of what a section asks the shell to do --------------------------------
+
 
 /* ==========================================================================
    Adaptive layout.
@@ -1677,6 +1746,10 @@ window.keepupJsArg = keepupJsArg;
 
 function showNotification(message, type = 'info') {
     const notification = document.createElement('div');
+    // The box the dismiss button removes, named as data rather than found by
+    // walking up from the button: the markup is the section's, the relationship
+    // is the shell's (keepup-93).
+    notification.dataset.notification = '';
     notification.className = `fixed top-4 right-4 p-4 rounded-lg shadow-lg z-50 ${type === 'success' ? 'bg-green-100 text-green-800 border border-green-200' :
         type === 'error' ? 'bg-red-100 text-red-800 border border-red-200' :
             'bg-blue-100 text-blue-800 border border-blue-200'
@@ -1686,7 +1759,7 @@ function showNotification(message, type = 'info') {
                     <i data-feather="${type === 'success' ? 'check-circle' : type === 'error' ? 'alert-circle' : 'info'}"
                        class="w-5 h-5 mr-2"></i>
                     <span data-notification-text></span>
-                    <button onclick="this.parentElement.parentElement.remove()"
+                    <button type="button" data-action="shell.dismiss-notification"
                             class="ml-4 text-gray-500 hover:text-gray-700">
                         <i data-feather="x" class="w-4 h-4"></i>
                     </button>
@@ -1927,6 +2000,22 @@ function closeTermsModal() {
         document.body.style.overflow = '';
     }, 300);
 }
+
+// The actions of the shell's own markup: the sidebar, the sign-in block, the
+// version panel and the terms modal carry data-action instead of an inline
+// handler, and the names below are the whole list the shell registers
+// (keepup-93). A section registers its own under its own prefix.
+KeepupActions.register({
+    'shell.logout': () => logout(),
+    'shell.toggle-password': (element) => togglePasswordVisibility(element.dataset.input),
+    'shell.open-terms': () => openTermsModal(),
+    'shell.close-terms': () => closeTermsModal(),
+    'shell.hide-version-panel': () => hideVersionPanel(),
+    'shell.dismiss-notification': (element) => {
+        const notification = element.closest('[data-notification]');
+        if (notification) notification.remove();
+    },
+});
 
 // Close on click outside the content
 document.addEventListener('DOMContentLoaded', function() {

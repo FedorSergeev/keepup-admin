@@ -181,12 +181,12 @@ function addModulesSection() {
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800">Module management</h2>
                 <div class="flex space-x-2">
-                    <button onclick="showImportExportModal()"
+                    <button data-action="modules.import-export"
                             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
                         <i data-feather="download" class="w-4 h-4 mr-2"></i>
                         Import/Export
                     </button>
-                    <button onclick="showAddModuleModal()"
+                    <button data-action="modules.add"
                             class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
                         <i data-feather="plus" class="w-4 h-4 mr-2"></i>
                         Add module
@@ -263,7 +263,7 @@ function addModulesSection() {
                         A change takes effect after a restart.
                     </p>
                 </div>
-                <button onclick="loadBackendPlugins()"
+                <button data-action="modules.refresh-plugins"
                         class="px-4 py-2 bg-gray-600 text-white rounded-lg hover:bg-gray-700 flex items-center">
                     <i data-feather="refresh-cw" class="w-4 h-4 mr-2"></i>
                     Refresh
@@ -313,7 +313,7 @@ function addModulesModals() {
         <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-hidden flex flex-col">
             <div class="flex justify-between items-center p-6 border-b">
                 <h3 class="text-xl font-bold text-gray-800" id="module-modal-title">Add module</h3>
-                <button onclick="closeModuleModal()" class="text-gray-500 hover:text-gray-700 p-2">
+                <button data-close-module-modal class="text-gray-500 hover:text-gray-700 p-2">
                     <i data-feather="x" class="w-6 h-6"></i>
                 </button>
             </div>
@@ -388,11 +388,11 @@ function addModulesModals() {
             </div>
 
             <div class="flex justify-end space-x-2 p-6 border-t bg-gray-50">
-                <button onclick="closeModuleModal()"
+                <button data-close-module-modal
                         class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
                     Cancel
                 </button>
-                <button onclick="saveModule()"
+                <button data-save-module
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
                     <i data-feather="save" class="w-4 h-4 mr-2"></i>
                     Save
@@ -409,7 +409,7 @@ function addModulesModals() {
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
             <div class="flex justify-between items-center p-6 border-b">
                 <h3 class="text-xl font-bold text-gray-800" id="roles-modal-title">Role settings</h3>
-                <button onclick="closeRolesModal()" class="text-gray-500 hover:text-gray-700 p-2">
+                <button data-close-roles-modal class="text-gray-500 hover:text-gray-700 p-2">
                     <i data-feather="x" class="w-6 h-6"></i>
                 </button>
             </div>
@@ -421,11 +421,11 @@ function addModulesModals() {
             </div>
 
             <div class="flex justify-end space-x-2 p-6 border-t bg-gray-50">
-                <button onclick="closeRolesModal()"
+                <button data-close-roles-modal
                         class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
                     Cancel
                 </button>
-                <button onclick="saveRoleModules()"
+                <button data-save-role-modules
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
                     <i data-feather="save" class="w-4 h-4 mr-2"></i>
                     Save
@@ -442,7 +442,7 @@ function addModulesModals() {
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-hidden flex flex-col">
             <div class="flex justify-between items-center p-6 border-b">
                 <h3 class="text-xl font-bold text-gray-800">Import/Export modules</h3>
-                <button onclick="closeImportExportModal()" class="text-gray-500 hover:text-gray-700 p-2">
+                <button data-close-import-export class="text-gray-500 hover:text-gray-700 p-2">
                     <i data-feather="x" class="w-6 h-6"></i>
                 </button>
             </div>
@@ -451,7 +451,7 @@ function addModulesModals() {
                 <div class="bg-blue-50 border border-blue-200 rounded-lg p-4">
                     <h4 class="font-semibold text-blue-800 mb-2">Export to JSON</h4>
                     <p class="text-blue-700 text-sm mb-3">Export the current module configuration to a file</p>
-                    <button onclick="exportModulesToJson()"
+                    <button data-export-modules
                             class="w-full px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center justify-center">
                         <i data-feather="download" class="w-4 h-4 mr-2"></i>
                         Export to JSON
@@ -461,7 +461,7 @@ function addModulesModals() {
                 <div class="bg-green-50 border border-green-200 rounded-lg p-4">
                     <h4 class="font-semibold text-green-800 mb-2">Import from JSON</h4>
                     <p class="text-green-700 text-sm mb-3">Import configuration from a JSON file</p>
-                    <button onclick="importModulesFromJson()"
+                    <button data-import-modules
                             class="w-full px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center justify-center">
                         <i data-feather="upload" class="w-4 h-4 mr-2"></i>
                         Import from JSON
@@ -478,7 +478,7 @@ function addModulesModals() {
             </div>
 
             <div class="flex justify-end p-6 border-t bg-gray-50">
-                <button onclick="closeImportExportModal()"
+                <button data-close-import-export
                         class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
                     Close
                 </button>
@@ -489,6 +489,27 @@ function addModulesModals() {
     document.body.appendChild(moduleModal);
     document.body.appendChild(rolesModal);
     document.body.appendChild(importExportModal);
+
+    // The controls of these three modals are bound where they were put in the
+    // page: each modal is created once and appended once, so the registry would
+    // only add an indirection (keepup-93). The tables rebuild themselves, and
+    // those rows name an action instead.
+    moduleModal.querySelectorAll('[data-close-module-modal]').forEach(button =>
+        button.addEventListener('click', () => closeModuleModal()));
+    const saveModuleButton = moduleModal.querySelector('[data-save-module]');
+    if (saveModuleButton) saveModuleButton.addEventListener('click', () => saveModule());
+
+    rolesModal.querySelectorAll('[data-close-roles-modal]').forEach(button =>
+        button.addEventListener('click', () => closeRolesModal()));
+    const saveRoleModulesButton = rolesModal.querySelector('[data-save-role-modules]');
+    if (saveRoleModulesButton) saveRoleModulesButton.addEventListener('click', () => saveRoleModules());
+
+    importExportModal.querySelectorAll('[data-close-import-export]').forEach(button =>
+        button.addEventListener('click', () => closeImportExportModal()));
+    const exportModulesButton = importExportModal.querySelector('[data-export-modules]');
+    if (exportModulesButton) exportModulesButton.addEventListener('click', () => exportModulesToJson());
+    const importModulesButton = importExportModal.querySelector('[data-import-modules]');
+    if (importModulesButton) importModulesButton.addEventListener('click', () => importModulesFromJson());
 
     feather.replace();
 }
@@ -591,11 +612,15 @@ function pluginSwitch(row) {
     const target = !row.desired_enabled;
     const label = target ? 'Enable' : 'Disable';
     const colour = target ? 'bg-green-600 hover:bg-green-700' : 'bg-gray-600 hover:bg-gray-700';
+    // The plugin id and the wanted state travel in data attributes, not in a
+    // script built into the markup: the row is rebuilt on every reload, and a
+    // name that came from the configuration must never run as code (keepup-93).
     const reset = row.desired_source === 'panel'
-        ? `<button onclick="clearPluginOverride(${keepupJsArg(row.id)})"
+        ? `<button data-action="modules.plugin-clear-override" data-plugin-id="${keepupEscapeHtml(row.id)}"
                    class="ml-2 px-2 py-1 text-xs text-gray-600 underline">from file</button>`
         : '';
-    return `<button onclick="setPluginEnabled(${keepupJsArg(row.id)}, ${target})"
+    return `<button data-action="modules.plugin-set-enabled" data-plugin-id="${keepupEscapeHtml(row.id)}"
+                    data-enabled="${target}"
                     class="px-3 py-1 ${colour} text-white rounded text-xs">${label}</button>${reset}`;
 }
 
@@ -667,7 +692,7 @@ function displayModules(modules, rolesData) {
                 <td colspan="6" class="px-6 py-8 text-center text-gray-500">
                     <i data-feather="package" class="w-12 h-12 mx-auto mb-3 text-gray-400"></i>
                     <p>No modules found</p>
-                    <button onclick="showAddModuleModal()"
+                    <button data-action="modules.add"
                             class="mt-2 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 text-sm">
                         Add the first module
                     </button>
@@ -720,17 +745,17 @@ function displayModules(modules, rolesData) {
                 </td>
                 <td class="px-6 py-4 whitespace-nowrap text-sm font-medium">
                     <div class="flex space-x-2">
-                        <button onclick="editModule(${keepupJsArg(module.module_id)})"
+                        <button data-action="modules.edit" data-module-id="${keepupEscapeHtml(module.module_id)}"
                                 class="text-blue-600 hover:text-blue-900 bg-blue-100 px-3 py-1 rounded text-sm flex items-center">
                             <i data-feather="edit" class="w-3 h-3 mr-1"></i>
                             Edit
                         </button>
-                        <button onclick="manageModuleRoles(${keepupJsArg(module.module_id)})"
+                        <button data-action="modules.roles" data-module-id="${keepupEscapeHtml(module.module_id)}"
                                 class="text-purple-600 hover:text-purple-900 bg-purple-100 px-3 py-1 rounded text-sm flex items-center">
                             <i data-feather="users" class="w-3 h-3 mr-1"></i>
                             Roles
                         </button>
-                        <button onclick="deleteModule(${keepupJsArg(module.module_id)})"
+                        <button data-action="modules.delete" data-module-id="${keepupEscapeHtml(module.module_id)}"
                                 class="text-red-600 hover:text-red-900 bg-red-100 px-3 py-1 rounded text-sm flex items-center">
                             <i data-feather="trash-2" class="w-3 h-3 mr-1"></i>
                             Delete
@@ -1083,4 +1108,21 @@ function setupGlobalRouter() {
 // Initialize on load
 document.addEventListener('DOMContentLoaded', function() {
     handleUrlChange();
+});
+
+// The actions this section's markup asks the shell to take (keepup-93). The
+// tables and the plugin rows are rebuilt on every reload, so they carry a name
+// and their values in data attributes instead of a script; the modals, built
+// once and appended, bind their own controls directly (see addModulesModals).
+KeepupActions.register({
+    'modules.add': () => showAddModuleModal(),
+    'modules.import-export': () => showImportExportModal(),
+    'modules.refresh-plugins': () => loadBackendPlugins(),
+    'modules.edit': (element) => editModule(element.dataset.moduleId),
+    'modules.roles': (element) => manageModuleRoles(element.dataset.moduleId),
+    'modules.delete': (element) => deleteModule(element.dataset.moduleId),
+    // data-enabled is a string; the handler used to receive a boolean.
+    'modules.plugin-set-enabled': (element) =>
+        setPluginEnabled(element.dataset.pluginId, element.dataset.enabled === 'true'),
+    'modules.plugin-clear-override': (element) => clearPluginOverride(element.dataset.pluginId),
 });

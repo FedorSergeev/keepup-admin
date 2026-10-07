@@ -28,6 +28,8 @@ SECTIONS = PACKAGE / "static" / "modules" / "js"
 SHELL = PACKAGE / "static" / "js" / "main_new.js"
 NODE = shutil.which("node")
 HOSTILE = "<img src=x onerror=alert(1)>');alert('x"
+ACTIONS_START = "// --- what a section asks the shell to do (keepup-93)"
+ACTIONS_END = "// --- end of what a section asks the shell to do"
 
 needs_node = pytest.mark.skipif(NODE is None, reason="needs node: the panel is JavaScript")
 
@@ -48,13 +50,20 @@ global.window = global;
 global.document = {
   getElementById: element,
   createElement: (tag) => element('created:' + tag + ':' + Object.keys(elements).length),
-  addEventListener() {}, body: { appendChild() {} },
+  addEventListener(type, fn) { this.listeners = this.listeners || {}; this.listeners[type] = fn; },
+  body: { appendChild() {} },
 };
 global.feather = { replace() {} };
 global.ROLE_ADMIN = 'ADMIN';
 global.currentUser = null;
 const vm = require('vm');
 """
+
+
+def shell_actions() -> str:
+    """The shell's action dispatcher, which a section's markup now goes through."""
+    source = SHELL.read_text(encoding="utf-8")
+    return source[source.index(ACTIONS_START):source.index(ACTIONS_END)]
 
 
 def run_node(script: str, env=None) -> str:
@@ -65,16 +74,25 @@ def run_node(script: str, env=None) -> str:
 @needs_node
 def test_a_hostile_name_is_shown_as_text_and_never_becomes_a_handler():
     script = STAND_IN + r"""
-vm.runInThisContext(require('fs').readFileSync(process.env.USERS_JS, 'utf8'));
-displayUsersList([{ id: 7, username: process.env.HOSTILE, status: 'active',
-                    roles: ['CLIENT'], created_at: '2026-09-29T00:00:00Z' }]);
-const body = element('usersListBody');
-let opened = null;
-global.showUserRolesModal = (id, name) => { opened = [id, name]; };
-body.listeners.click({ target: { closest: () => ({ dataset: { userAction: 'roles', userId: '7' } }) } });
-console.log(JSON.stringify({ html: body.innerHTML, opened }));
-"""
-    out = json.loads(run_node(script, {"USERS_JS": str(SECTIONS / "users.js"), "HOSTILE": HOSTILE}))
+    vm.runInThisContext(process.env.ACTIONS_JS, {filename: 'main_new.js'});
+    vm.runInThisContext(require('fs').readFileSync(process.env.USERS_JS, 'utf8'));
+    displayUsersList([{ id: 7, username: process.env.HOSTILE, status: 'active',
+                        roles: ['CLIENT'], created_at: '2026-09-29T00:00:00Z' }]);
+    const body = element('usersListBody');
+    let opened = null;
+    global.showUserRolesModal = (id, name) => { opened = [id, name]; };
+    const button = {
+        tagName: 'BUTTON', dataset: {userId: '7'},
+        getAttribute: (name) => (name === 'data-action' ? 'users.roles' : null),
+        closest: () => button,
+        preventDefault() {},
+    };
+    document.listeners.click({type: 'click', target: button});
+    console.log(JSON.stringify({ html: body.innerHTML, opened }));
+    """
+    out = json.loads(run_node(script, {"USERS_JS": str(SECTIONS / "users.js"),
+                                       "ACTIONS_JS": shell_actions(),
+                                       "HOSTILE": HOSTILE}))
     assert "<img" not in out["html"]
     assert "&lt;img src=x onerror=alert(1)&gt;" in out["html"]
     assert "onclick" not in out["html"]

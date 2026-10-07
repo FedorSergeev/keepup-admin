@@ -14,6 +14,8 @@ belong to the application.
 from dataclasses import dataclass, field
 from typing import Any, Callable, Dict, Optional, Sequence
 
+from keepup.security import DEFAULT_CONTENT_SECURITY_POLICY
+
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
 __all__ = [
@@ -134,6 +136,18 @@ class KeepupSettings:
     #: Response headers the framework adds. The panel is a page, so without
     #: X-Frame-Options it can be framed by anybody.
     security_headers: bool = True
+    #: The Content-Security-Policy the panel is served with (keepup-93). The
+    #: framework's policy (``keepup.security.DEFAULT_CONTENT_SECURITY_POLICY``)
+    #: describes the panel as it ships: scripts from this address only, no
+    #: inline handler. An application whose own sections still carry inline
+    #: handlers replaces the string -- extending the default -- or turns the
+    #: policy into a report with ``csp_report_only`` below. None sends none.
+    content_security_policy: Optional[str] = DEFAULT_CONTENT_SECURITY_POLICY
+    #: Send the policy as Content-Security-Policy-Report-Only: the browser
+    #: reports what it would have refused and refuses nothing. For an
+    #: application that is not yet ready to have its own sections held to the
+    #: policy (keepup-93).
+    csp_report_only: bool = False
     #: An application's own limit for routes whose body the framework reads,
     #: when it wants one other than ``max_json_bytes``. None -- the default --
     #: leaves ``max_json_bytes`` in charge. A route that reads its own body --

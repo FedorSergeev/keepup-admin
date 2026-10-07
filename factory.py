@@ -91,13 +91,19 @@ class SecurityHeadersMiddleware:
     these headers at all, which for a package installed on a public address is
     a default rather than an omission.
 
+    The Content-Security-Policy arrives here already written -- the framework's
+    own or the application's (``KeepupSettings.content_security_policy``,
+    keepup-93) -- and is sent as a policy or, with ``csp_report_only``, as a
+    report the browser does not act on. A response that carries a policy of its
+    own keeps it, like every other header here.
+
     Plain ASGI: it only adds headers to the start of a response. Written on
     BaseHTTPMiddleware it ran every request through a task and a body stream
     of its own, the most expensive kind of middleware Starlette has (keepup-88).
     A header the response already carries is left as it is.
     """
 
-    def __init__(self, app, https=False):
+    def __init__(self, app, https=False, csp=None, csp_report_only=False):
         self.app = app
         headers = [(b"x-frame-options", b"SAMEORIGIN"),
                    (b"x-content-type-options", b"nosniff"),
@@ -106,6 +112,11 @@ class SecurityHeadersMiddleware:
             # Only over TLS: sent over plain HTTP it would be ignored, and a
             # deployment on a local network without TLS must stay reachable.
             headers.append((b"strict-transport-security", b"max-age=31536000"))
+        if csp:
+            name = (b"content-security-policy-report-only" if csp_report_only
+                    else b"content-security-policy")
+            # Headers travel as latin-1 in ASGI; a policy is written in ASCII.
+            headers.append((name, csp.encode("latin-1", "replace")))
         self.headers = headers
 
     async def __call__(self, scope, receive, send):
@@ -528,7 +539,9 @@ def create_app(settings: KeepupSettings = None) -> FastAPI:
 
     if settings.security_headers:
         app.add_middleware(SecurityHeadersMiddleware,
-                           https=os.getenv("SSL_ENABLED", "false").lower() == "true")
+                           https=os.getenv("SSL_ENABLED", "false").lower() == "true",
+                           csp=settings.content_security_policy,
+                           csp_report_only=settings.csp_report_only)
 
     # A panel signed in before the CSRF value was bound to the session gets the
     # bound one on its next read (keepup/auth/panel_session.py, keepup-72).

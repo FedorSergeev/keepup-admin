@@ -29,6 +29,7 @@ SHELL_FILES = (
     "index_new.html",
     "index_nebula.html",
     "js/main_new.js",
+    "js/layout_bootstrap.js",
     "js/tailwind.js",
     "js/feather-icons.js",
     "js/aos.js",

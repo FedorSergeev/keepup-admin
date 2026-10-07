@@ -9,7 +9,11 @@ nothing has to be done for an existing database -- the start fills the sets
 from `users.role` -- but code that reads that column reads a deprecated mirror
 that goes in 0.4.0, and should move to `roles`. The set was written after
 0.2.0 had been tagged and its entry stood under 0.2.0 by mistake; the 0.2.0
-wheel does not have it.
+wheel does not have it. The panel is also served with a
+Content-Security-Policy now (below, *Security*): the framework's own pages and
+sections carry no inline handler and no inline script, and an application whose
+own theme page or sections still do either converts them the same way or sends
+the policy as a report (`csp_report_only=True`) until it has.
 
 ### Added
 
@@ -60,6 +64,30 @@ wheel does not have it.
   deletes its copy.
 
 ### Security
+
+- **The panel is served with a Content-Security-Policy.** Every answer now
+  carries one, and the policy is written for the panel as the framework ships
+  it: `script-src 'self'`, so a script the page did not load itself does not run
+  at all. That is the general answer to the stored XSS of keepup-62 -- an
+  escaping mistake becomes a broken button rather than a running script -- and
+  it is only possible because the framework's own front end no longer puts
+  JavaScript in its markup. The shell, both theme pages and the eight framework
+  sections (Users, Panel sections, Themes, Cluster, Metrics, Event log,
+  Integration logs, Background tasks) register what their buttons do with
+  `KeepupActions` and name it in a `data-action` attribute, and the adaptive
+  layout bootstrap moved out of the head of every theme page into
+  `js/layout_bootstrap.js`, which both pages load. The action is always one the
+  section registered: markup can name an action, never a function, and a name
+  nothing registered does nothing. `KeepupSettings.content_security_policy`
+  replaces the policy
+  (`keepup.security.DEFAULT_CONTENT_SECURITY_POLICY` is the default and is
+  public so that an application can extend it), `csp_report_only=True` sends it
+  as `Content-Security-Policy-Report-Only` and refuses nothing, and `None`
+  sends no policy. A policy the response sets itself is kept, as with the other
+  security headers. **Upgrading:** an application whose own theme page or
+  sections still carry inline handlers is held to the policy from the first
+  start after the upgrade -- `csp_report_only=True` is the way to see what it
+  would refuse without breaking the panel while its sections are converted.
 
 - **The API schema answers an administrator only.** `/openapi.json` described
   every route, the administrative ones with their parameters, to anybody, and no
@@ -192,6 +220,14 @@ wheel does not have it.
   longer reads a body just to log its size.
 
 ### Fixed
+
+- **The panel page is revalidated like the shell's assets.** `GatedStaticFiles`
+  tells the browser to revalidate every script and stylesheet it serves, and the
+  page those assets belong to was left to the browser's invented freshness --
+  10% of the age of the file, which for a stand that has been up for months is
+  days. A page cached before this release carries the inline handlers the
+  Content-Security-Policy now refuses, so it is served with `Cache-Control:
+  no-cache` too.
 
 - **The security headers cost what they are.** `SecurityHeadersMiddleware` was
   a BaseHTTPMiddleware, which runs every request through a task and a body

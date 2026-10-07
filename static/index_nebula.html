@@ -37,22 +37,11 @@
          token to Tailwind, so the md: utilities the sections use switch at the
          same width as the chrome instead of at Tailwind's own 768px. From here
          on main_new.js owns the class. Kept in every theme that links
-         main_new.css -- checked by tests/frontend_mobile_layout_tests.py. -->
-    <script>
-        (function () {
-            var declared = getComputedStyle(document.documentElement)
-                .getPropertyValue('--layout-breakpoint');
-            var breakpoint = parseFloat(declared) || 768;
-            if (window.matchMedia('(max-width: ' + (breakpoint - 0.02) + 'px)').matches) {
-                document.documentElement.classList.add('is-narrow');
-            }
-            if (window.tailwind) {
-                window.tailwind.config = {
-                    theme: { extend: { screens: { md: breakpoint + 'px' } } }
-                };
-            }
-        })();
-    </script>
+         main_new.css -- checked by tests/frontend_mobile_layout_tests.py.
+         A file, not an inline script: the panel is served with a
+         Content-Security-Policy and inline script is what it refuses
+         (keepup-93). -->
+    <script src="/keepup-static/js/layout_bootstrap.js"></script>
 </head>
 
 <body class="bg-gray-50">
@@ -125,7 +114,7 @@
             <label class="block text-sm font-medium text-gray-700 mb-2">Password *</label>
             <input type="password" id="registerPassword" required
                    class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10">
-            <button type="button" onclick="togglePasswordVisibility('registerPassword')"
+            <button type="button" data-action="shell.toggle-password" data-input="registerPassword"
                     id="registerPasswordToggle"
                     class="absolute right-3 top-9 transform text-gray-500 hover:text-gray-700">
                 <i data-feather="eye" class="w-4 h-4"></i>
@@ -136,7 +125,7 @@
             <label class="block text-sm font-medium text-gray-700 mb-2">Confirm password *</label>
             <input type="password" id="registerPasswordConfirm" required
                    class="w-full border border-gray-300 rounded-lg px-4 py-3 focus:outline-none focus:ring-2 focus:ring-blue-500 pr-10">
-            <button type="button" onclick="togglePasswordVisibility('registerPasswordConfirm')"
+            <button type="button" data-action="shell.toggle-password" data-input="registerPasswordConfirm"
                     id="registerPasswordConfirmToggle"
                     class="absolute right-3 top-9 transform text-gray-500 hover:text-gray-700">
                 <i data-feather="eye" class="w-4 h-4"></i>
@@ -147,7 +136,7 @@
             <input type="checkbox" id="registerAgreeTerms" required
                    class="h-4 w-4 text-blue-600 focus:ring-blue-500 border-gray-300 rounded">
             <label for="registerAgreeTerms" class="ml-2 block text-sm text-gray-700">
-                I agree to the <a href="#" onclick="openTermsModal(); return false;" class="text-blue-600 hover:text-blue-800 underline">terms of use</a>
+                I agree to the <a href="#" data-action="shell.open-terms" class="text-blue-600 hover:text-blue-800 underline">terms of use</a>
             </label>
         </div>
 
@@ -224,7 +213,7 @@
         </div>
     </div>
 
-    <button onclick="logout()"
+    <button type="button" data-action="shell.logout"
             class="ml-4 p-2 text-gray-600 rounded-full hover:bg-gray-100 hover:text-red-600 transition-colors duration-150">
         <i data-feather="log-out" class="w-4 h-4"></i>
     </button>
@@ -260,7 +249,7 @@
                 <span><strong>Build:</strong> <span id="versionBuildNumber">-</span></span>
                 <span><strong>Built:</strong> <span id="versionBuildDate">-</span></span>
             </div>
-            <button onclick="hideVersionPanel()" class="text-gray-400 hover:text-white">
+            <button type="button" data-action="shell.hide-version-panel" class="text-gray-400 hover:text-white">
                 <i data-feather="x" class="w-3 h-3"></i>
             </button>
         </div>
@@ -273,7 +262,7 @@
         <div class="modal-content">
             <div class="modal-header">
                 <h2 class="modal-title">Terms of use</h2>
-                <button class="close-btn" onclick="closeTermsModal()">
+                <button type="button" class="close-btn" data-action="shell.close-terms">
                     <i data-feather="x" class="w-5 h-5 lg:w-6 lg:h-6"></i>
                 </button>
             </div>

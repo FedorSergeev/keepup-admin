@@ -106,7 +106,7 @@ function displayThemes(themes) {
             <div class="text-center py-12">
                 <i data-feather="layout" class="w-12 h-12 text-gray-400 mx-auto mb-3"></i>
                 <p class="text-gray-500">No themes created yet</p>
-                <button onclick="showCreateThemeModal()"
+                <button data-action="themes.create"
                         class="mt-4 px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     Create first theme
                 </button>
@@ -163,17 +163,18 @@ function createThemeElement(theme) {
 
         <div class="flex flex-wrap gap-2 mt-4 pt-4 border-t">
             ${!isActive ? `
-            <button onclick="activateTheme(${id})"
+            <button data-action="themes.activate" data-theme-id="${keepupEscapeHtml(id)}"
                     class="theme-action-btn bg-green-600 hover:bg-green-700 text-white px-3 py-2 rounded text-sm flex items-center">
                 <i data-feather="check-circle" class="w-4 h-4 mr-1"></i>Activate
             </button>
             ` : ''}
-            <button onclick="showEditThemeModal(${id})"
+            <button data-action="themes.edit" data-theme-id="${keepupEscapeHtml(id)}"
                     class="theme-action-btn bg-blue-600 hover:bg-blue-700 text-white px-3 py-2 rounded text-sm flex items-center">
                 <i data-feather="edit-2" class="w-4 h-4 mr-1"></i>Edit
             </button>
             ${!isActive ? `
-            <button onclick="deleteTheme(${id}, ${keepupJsArg(theme.theme_name)})"
+            <button data-action="themes.delete" data-theme-id="${keepupEscapeHtml(id)}"
+                    data-theme-name="${keepupEscapeHtml(theme.theme_name)}"
                     class="theme-action-btn bg-red-600 hover:bg-red-700 text-white px-3 py-2 rounded text-sm flex items-center">
                 <i data-feather="trash-2" class="w-4 h-4 mr-1"></i>Delete
             </button>
@@ -192,7 +193,7 @@ function displayThemesError(message) {
         <div class="col-span-full text-center py-12">
             <i data-feather="alert-triangle" class="w-12 h-12 text-red-400 mx-auto mb-3"></i>
             <p class="text-red-500 mb-4">${escapeHtml(message)}</p>
-            <button onclick="refreshThemes()"
+            <button data-action="themes.refresh"
                     class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                 Try again
             </button>
@@ -325,13 +326,13 @@ function showCreateThemeModal() {
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center p-6 border-b">
                 <h3 class="text-xl font-bold text-gray-800">Create new theme</h3>
-                <button onclick="closeThemeModal()" class="text-gray-500 hover:text-gray-700 p-2">
+                <button data-close-theme-modal class="text-gray-500 hover:text-gray-700 p-2">
                     <i data-feather="x" class="w-6 h-6"></i>
                 </button>
             </div>
 
             <div class="p-6">
-                <form id="theme-form" onsubmit="handleThemeFormSubmit(event)">
+                <form id="theme-form" data-action="themes.create-submit">
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -364,7 +365,7 @@ function showCreateThemeModal() {
             </div>
 
             <div class="flex justify-end space-x-3 p-6 border-t bg-gray-50">
-                <button onclick="closeThemeModal()"
+                <button data-close-theme-modal
                         class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
                     Cancel
                 </button>
@@ -377,6 +378,11 @@ function showCreateThemeModal() {
     `;
 
     document.body.appendChild(modal);
+    // Created once per opening and appended once, so the close buttons are bound
+    // here; the form itself names an action, because a submit that carried its
+    // handler in the markup is exactly what the policy refuses (keepup-93).
+    modal.querySelectorAll('[data-close-theme-modal]').forEach(button =>
+        button.addEventListener('click', () => closeThemeModal()));
     feather.replace();
 }
 
@@ -397,13 +403,13 @@ function showEditThemeModal(themeId) {
         <div class="bg-white rounded-lg shadow-xl w-full max-w-md max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center p-6 border-b">
                 <h3 class="text-xl font-bold text-gray-800">Edit theme</h3>
-                <button onclick="closeThemeModal()" class="text-gray-500 hover:text-gray-700 p-2">
+                <button data-close-theme-modal class="text-gray-500 hover:text-gray-700 p-2">
                     <i data-feather="x" class="w-6 h-6"></i>
                 </button>
             </div>
 
             <div class="p-6">
-                <form id="theme-form" onsubmit="handleThemeUpdateSubmit(event, ${themeId})">
+                <form id="theme-form" data-action="themes.update-submit" data-theme-id="${keepupEscapeHtml(themeId)}">
                     <div class="space-y-4">
                         <div>
                             <label class="block text-sm font-medium text-gray-700 mb-1">
@@ -435,7 +441,7 @@ function showEditThemeModal(themeId) {
             </div>
 
             <div class="flex justify-end space-x-3 p-6 border-t bg-gray-50">
-                <button onclick="closeThemeModal()"
+                <button data-close-theme-modal
                         class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
                     Cancel
                 </button>
@@ -448,6 +454,8 @@ function showEditThemeModal(themeId) {
     `;
 
     document.body.appendChild(modal);
+    modal.querySelectorAll('[data-close-theme-modal]').forEach(button =>
+        button.addEventListener('click', () => closeThemeModal()));
     feather.replace();
 }
 
@@ -503,11 +511,11 @@ function createThemesSection() {
                     <p class="text-gray-600 mt-1">Manage the interface's look and feel</p>
                 </div>
                 <div class="flex space-x-2">
-                    <button onclick="refreshThemes()"
+                    <button data-action="themes.refresh"
                             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
                         <i data-feather="refresh-cw" class="w-4 h-4 mr-2"></i>Refresh
                     </button>
-                    <button onclick="showCreateThemeModal()"
+                    <button data-action="themes.create"
                             class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
                         <i data-feather="plus" class="w-4 h-4 mr-2"></i>Create theme
                     </button>
@@ -651,3 +659,26 @@ if (document.readyState === 'loading') {
 } else {
     initThemesModule();
 }
+
+// The actions this section's markup asks the shell to take (keepup-93). The
+// theme cards are rebuilt on every load and the two modal forms are submitted
+// from markup, so each names an action and carries its values in data
+// attributes. A theme id was a number when it stood in the markup as an
+// argument, and showEditThemeModal compares it with ===, so it is read back as
+// one; a data attribute is always a string.
+function themesIdFromElement(element) {
+    return Number(element.dataset.themeId);
+}
+
+KeepupActions.register({
+    'themes.refresh': () => refreshThemes(),
+    'themes.create': () => showCreateThemeModal(),
+    'themes.activate': (element) => activateTheme(themesIdFromElement(element)),
+    'themes.edit': (element) => showEditThemeModal(themesIdFromElement(element)),
+    'themes.delete': (element) => deleteTheme(themesIdFromElement(element), element.dataset.themeName),
+    // The dispatcher has already called preventDefault() for a submit; the
+    // handlers keep their own call, which is harmless.
+    'themes.create-submit': (element, event) => handleThemeFormSubmit(event),
+    'themes.update-submit': (element, event) =>
+        handleThemeUpdateSubmit(event, themesIdFromElement(element)),
+});

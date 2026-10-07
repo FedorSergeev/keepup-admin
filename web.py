@@ -88,6 +88,19 @@ def theme_page():
     return path
 
 
+#: The panel pages are revalidated like the shell's assets (GatedStaticFiles
+#: says the same for them): without it a browser invents a freshness lifetime
+#: and keeps serving the page it cached before the upgrade -- and a page cached
+#: before keepup-93 carries inline handlers, which the Content-Security-Policy
+#: it is now served with refuses.
+PAGE_HEADERS = {"Cache-Control": "no-cache"}
+
+
+def page_response(path):
+    """A panel page, with the revalidation its assets already carry."""
+    return FileResponse(path, headers=PAGE_HEADERS)
+
+
 def configure(static_dir=None, client_page=None, version_file=None, favicon_file=None):
     """Supply the application's front-end paths."""
     global STATIC_DIR, CLIENT_PAGE, VERSION_FILE, FAVICON_FILE
@@ -107,13 +120,13 @@ def register_web_routes(app):
 
     @app.get("/", response_class=FileResponse)
     async def read_root():
-        return FileResponse(os.path.join(STATIC_DIR, CLIENT_PAGE))
+        return page_response(os.path.join(STATIC_DIR, CLIENT_PAGE))
     @app.get("/selfcare", response_class=FileResponse)
     async def read_root_selfcare():
         """Return the main page of the active visual theme."""
         file_path = theme_page()
         logger.debug(f"Serving {file_path} for selfcare page")
-        return FileResponse(file_path)
+        return page_response(file_path)
     @app.get("/api/version", response_class=FileResponse)
     async def get_version():
         return FileResponse(os.path.join(STATIC_DIR, VERSION_FILE))
@@ -122,7 +135,7 @@ def register_web_routes(app):
         """Serve every path under /modules to the frontend."""
         file_path = theme_page()
         logger.debug(f"Serving {file_path} for selfcare page")
-        return FileResponse(file_path)
+        return page_response(file_path)
     @app.get("/favicon.ico", include_in_schema=False)
     async def favicon():
         return FileResponse(os.path.join(STATIC_DIR, FAVICON_FILE))

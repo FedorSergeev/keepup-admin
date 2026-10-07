@@ -149,7 +149,7 @@ function addUsersSection() {
         <div class="bg-white rounded-lg shadow-sm p-6 mb-6">
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800">User management</h2>
-                <button onclick="loadAllUsers()" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
+                <button type="button" data-action="users.refresh" class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
                     <i data-feather="refresh-cw" class="w-4 h-4 mr-2"></i>
                     Refresh list
                 </button>
@@ -257,22 +257,20 @@ const USER_ACTIONS = {
     password: (user) => showPasswordModal(user.id, user.username),
 };
 
-function usersBindActions(usersListBody) {
-    if (usersListBody.dataset.actionsBound) return;
-    usersListBody.dataset.actionsBound = '1';
-    usersListBody.addEventListener('click', (event) => {
-        const button = event.target.closest('[data-user-action]');
-        if (!button) return;
-        const user = usersById.get(button.dataset.userId);
-        const action = USER_ACTIONS[button.dataset.userAction];
-        if (user && action) action(user);
-    });
+/** Runs a row's action against the account the row names.
+
+    The button carries the action's name and the account's id; the action is
+    taken from USER_ACTIONS and the account from the list as it was drawn, so
+    neither a function nor a name reaches the click from the markup
+    (keepup-62, keepup-93). */
+function usersRowAction(element, action) {
+    const user = usersById.get(element.dataset.userId);
+    if (user && action) action(user);
 }
 
 function displayUsersList(users) {
     const usersListBody = document.getElementById('usersListBody');
     if (!usersListBody) return;
-    usersBindActions(usersListBody);
 
     if (users.length === 0) {
         usersListBody.innerHTML = `
@@ -308,15 +306,15 @@ function displayUsersList(users) {
                 <div class="user-actions flex flex-col space-y-2">
                     <div class="flex space-x-2">
                         ${user.status === 'active' ?
-                            `<button data-user-action="block" data-user-id="${usersEscapeHtml(user.id)}" class="user-action-btn btn-block text-xs px-2 py-1">Block</button>` :
-                            `<button data-user-action="unblock" data-user-id="${usersEscapeHtml(user.id)}" class="user-action-btn btn-activate text-xs px-2 py-1">Activate</button>`
+                            `<button data-action="users.block" data-user-id="${usersEscapeHtml(user.id)}" class="user-action-btn btn-block text-xs px-2 py-1">Block</button>` :
+                            `<button data-action="users.unblock" data-user-id="${usersEscapeHtml(user.id)}" class="user-action-btn btn-activate text-xs px-2 py-1">Activate</button>`
                         }
-                        <button data-user-action="history" data-user-id="${usersEscapeHtml(user.id)}" class="user-action-btn text-xs px-2 py-1">Block log</button>
-                        <button data-user-action="roles" data-user-id="${usersEscapeHtml(user.id)}"
+                        <button data-action="users.history" data-user-id="${usersEscapeHtml(user.id)}" class="user-action-btn text-xs px-2 py-1">Block log</button>
+                        <button data-action="users.roles" data-user-id="${usersEscapeHtml(user.id)}"
                                 class="user-action-btn btn-make-admin text-xs px-2 py-1">Roles</button>
                     </div>
                     <div class="flex space-x-2">
-                        <button data-user-action="password" data-user-id="${usersEscapeHtml(user.id)}"
+                        <button data-action="users.password" data-user-id="${usersEscapeHtml(user.id)}"
                                 class="user-action-btn btn-change-password text-xs px-2 py-1">
                             Change password
                         </button>
@@ -339,7 +337,7 @@ function showPasswordModal(userId, username) {
         <div class="bg-white rounded-lg p-6 w-full max-w-md">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-semibold">Change password for ${usersEscapeHtml(username)}</h3>
-                <button onclick="closeModal()" class="text-gray-500 hover:text-gray-700">
+                <button type="button" data-close-modal class="text-gray-500 hover:text-gray-700">
                     <i data-feather="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -357,7 +355,7 @@ function showPasswordModal(userId, username) {
                                minlength="6"
                                required>
                         <button type="button"
-                                onclick="togglePasswordVisibility('newPasswordInput')"
+                                data-toggle-password="newPasswordInput"
                                 class="absolute right-3 top-2 text-gray-500 hover:text-gray-700">
                             <i data-feather="eye" class="w-5 h-5"></i>
                         </button>
@@ -379,7 +377,7 @@ function showPasswordModal(userId, username) {
                                minlength="6"
                                required>
                         <button type="button"
-                                onclick="togglePasswordVisibility('confirmPasswordInput')"
+                                data-toggle-password="confirmPasswordInput"
                                 class="absolute right-3 top-2 text-gray-500 hover:text-gray-700">
                             <i data-feather="eye" class="w-5 h-5"></i>
                         </button>
@@ -400,7 +398,7 @@ function showPasswordModal(userId, username) {
                         <div class="flex justify-between items-center mb-2">
                             <span class="font-medium text-gray-700">Generated password:</span>
                             <button type="button"
-                                    onclick="copyToClipboard('generatedPasswordText')"
+                                    data-copy-password
                                     class="text-blue-600 hover:text-blue-800 text-sm">
                                 <i data-feather="copy" class="w-4 h-4"></i>
                             </button>
@@ -423,12 +421,12 @@ function showPasswordModal(userId, username) {
             </div>
 
             <div class="flex justify-end space-x-3 mt-6">
-                <button onclick="generateRandomPassword()"
+                <button type="button" data-generate-password
                         class="px-4 py-2 bg-gray-200 text-gray-700 rounded-lg hover:bg-gray-300 flex items-center">
                     <i data-feather="refresh-cw" class="w-4 h-4 mr-2"></i>
                     Generate
                 </button>
-                <button onclick="closeModal()"
+                <button type="button" data-close-modal
                         class="px-4 py-2 text-gray-600 hover:text-gray-800">
                     Cancel
                 </button>
@@ -572,6 +570,16 @@ function showPasswordModal(userId, username) {
     document.body.appendChild(modal);
     modal.querySelector('[data-save-password]')
         .addEventListener('click', () => changeUserPassword(userId, username));
+    // The buttons of this modal, bound where it was put in the page: it is
+    // created once per opening, so delegation would only add an indirection.
+    modal.querySelectorAll('[data-close-modal]').forEach(button =>
+        button.addEventListener('click', () => window.closeModal()));
+    modal.querySelectorAll('[data-toggle-password]').forEach(button =>
+        button.addEventListener('click', () => window.togglePasswordVisibility(button.dataset.togglePassword)));
+    const copyButton = modal.querySelector('[data-copy-password]');
+    if (copyButton) copyButton.addEventListener('click', () => window.copyToClipboard('generatedPasswordText'));
+    const generateButton = modal.querySelector('[data-generate-password]');
+    if (generateButton) generateButton.addEventListener('click', () => window.generateRandomPassword());
     feather.replace();
 
     // Handler for the generation checkbox
@@ -728,11 +736,13 @@ function renderUserBlockHistory(username, blocks) {
                 </table>`
             : '<p class="text-gray-500">This account has never been blocked.</p>'}
             <div class="flex justify-end mt-4">
-                <button class="px-4 py-2 bg-gray-200 rounded-lg" onclick="this.closest('.fixed').remove()">Close</button>
+                <button type="button" class="px-4 py-2 bg-gray-200 rounded-lg" data-close-history>Close</button>
             </div>
         </div>
     `;
     document.body.appendChild(modal);
+    const closeHistory = modal.querySelector('[data-close-history]');
+    if (closeHistory) closeHistory.addEventListener('click', () => modal.remove());
 }
 
 function escapeUserHtml(value) {
@@ -798,7 +808,7 @@ async function showUserRolesModal(userId, username) {
         <div class="bg-white rounded-lg p-6 w-full max-w-md">
             <div class="flex justify-between items-center mb-4">
                 <h3 class="text-lg font-semibold">Roles of ${usersEscapeText(username)}</h3>
-                <button onclick="closeRolesModal()" class="text-gray-500 hover:text-gray-700">
+                <button type="button" data-close-roles class="text-gray-500 hover:text-gray-700">
                     <i data-feather="x" class="w-5 h-5"></i>
                 </button>
             </div>
@@ -808,10 +818,10 @@ async function showUserRolesModal(userId, username) {
             </p>
             <div id="userRolesChoices" class="space-y-2 mb-4"></div>
             <div class="flex justify-end space-x-3">
-                <button onclick="closeRolesModal()" class="px-4 py-2 text-gray-600 hover:text-gray-800">
+                <button type="button" data-close-roles class="px-4 py-2 text-gray-600 hover:text-gray-800">
                     Cancel
                 </button>
-                <button onclick="saveUserRoles(${userId})"
+                <button type="button" data-save-roles
                         class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700">
                     Save roles
                 </button>
@@ -868,5 +878,21 @@ async function showUserRolesModal(userId, username) {
     };
 
     document.body.appendChild(modal);
+    modal.querySelectorAll('[data-close-roles]').forEach(button =>
+        button.addEventListener('click', () => window.closeRolesModal()));
+    const saveRoles = modal.querySelector('[data-save-roles]');
+    if (saveRoles) saveRoles.addEventListener('click', () => window.saveUserRoles(userId));
     feather.replace();
 }
+
+// The actions this section's markup asks the shell to take (keepup-93). The
+// row actions are named here and resolved against the account the row carries;
+// a name nothing registered does nothing.
+KeepupActions.register({
+    'users.refresh': () => loadAllUsers(),
+    'users.block': (element) => usersRowAction(element, USER_ACTIONS.block),
+    'users.unblock': (element) => usersRowAction(element, USER_ACTIONS.unblock),
+    'users.history': (element) => usersRowAction(element, USER_ACTIONS.history),
+    'users.roles': (element) => usersRowAction(element, USER_ACTIONS.roles),
+    'users.password': (element) => usersRowAction(element, USER_ACTIONS.password),
+});

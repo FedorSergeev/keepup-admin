@@ -185,12 +185,12 @@ function addMetricsSection() {
             <div class="flex justify-between items-center mb-6">
                 <h2 class="text-2xl font-bold text-gray-800">System Monitoring</h2>
                 <div class="flex space-x-2">
-                    <button id="refreshMetricsBtn" onclick="loadMetricsData()"
+                    <button id="refreshMetricsBtn" data-action="metrics.refresh"
                             class="px-4 py-2 bg-blue-600 text-white rounded-lg hover:bg-blue-700 flex items-center">
                         <i data-feather="refresh-cw" class="w-4 h-4 mr-2"></i>
                         Refresh
                     </button>
-                    <button id="autoRefreshToggle" onclick="toggleAutoRefresh()"
+                    <button id="autoRefreshToggle" data-action="metrics.toggle-auto-refresh"
                             class="px-4 py-2 bg-green-600 text-white rounded-lg hover:bg-green-700 flex items-center">
                         <i data-feather="play" class="w-4 h-4 mr-2"></i>
                         Auto-refresh
@@ -216,7 +216,7 @@ function addMetricsSection() {
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-800">CPU Load (%)</h3>
                         <div class="flex space-x-2">
-                            <select id="cpuTimeRange" onchange="updateMetricsCharts()"
+                            <select id="cpuTimeRange" data-action="metrics.update-charts"
                                     class="text-sm border rounded px-2 py-1">
                                 <option value="1">1 hour</option>
                                 <option value="6">6 hours</option>
@@ -235,7 +235,7 @@ function addMetricsSection() {
                     <div class="flex justify-between items-center mb-4">
                         <h3 class="text-lg font-semibold text-gray-800">RAM Usage (MB)</h3>
                         <div class="flex space-x-2">
-                            <select id="ramTimeRange" onchange="updateMetricsCharts()"
+                            <select id="ramTimeRange" data-action="metrics.update-charts"
                                     class="text-sm border rounded px-2 py-1">
                                 <option value="1">1 hour</option>
                                 <option value="6">6 hours</option>
@@ -536,11 +536,13 @@ function updateInstancesStatus(instances) {
                 ${instance.is_online ? `
                     <div class="mt-3 pt-3 border-t border-gray-200">
                         <div class="flex space-x-2">
-                            <button onclick="restartInstance(${keepupJsArg(instance.instance_id)})"
+                            <button data-action="metrics.restart"
+                                    data-instance-id="${keepupEscapeHtml(instance.instance_id)}"
                                     class="flex-1 px-2 py-1 bg-blue-100 text-blue-700 text-xs rounded hover:bg-blue-200">
                                 Restart
                             </button>
-                            <button onclick="showInstanceDetails(${keepupJsArg(instance.instance_id)})"
+                            <button data-action="metrics.show-details"
+                                    data-instance-id="${keepupEscapeHtml(instance.instance_id)}"
                                     class="flex-1 px-2 py-1 bg-gray-100 text-gray-700 text-xs rounded hover:bg-gray-200">
                                 Details
                             </button>
@@ -763,7 +765,7 @@ function showInstanceDetailsModal(instance) {
         <div class="bg-white rounded-lg shadow-xl w-full max-w-2xl max-h-[90vh] overflow-y-auto">
             <div class="flex justify-between items-center p-6 border-b">
                 <h3 class="text-xl font-bold text-gray-800">Instance Details: ${keepupEscapeHtml(instance.instance_id)}</h3>
-                <button onclick="closeInstanceDetailsModal()" class="text-gray-500 hover:text-gray-700 p-2">
+                <button data-close-details class="text-gray-500 hover:text-gray-700 p-2">
                     <i data-feather="x" class="w-6 h-6"></i>
                 </button>
             </div>
@@ -826,7 +828,7 @@ function showInstanceDetailsModal(instance) {
             </div>
 
             <div class="flex justify-end p-6 border-t bg-gray-50">
-                <button onclick="closeInstanceDetailsModal()" class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
+                <button data-close-details class="px-4 py-2 bg-gray-300 text-gray-700 rounded-lg hover:bg-gray-400">
                     Close
                 </button>
             </div>
@@ -834,6 +836,11 @@ function showInstanceDetailsModal(instance) {
     `;
 
     document.body.appendChild(modal);
+    // The buttons of this modal, bound where it was put in the page: it is
+    // created once per opening, so delegation would only add an indirection
+    // (keepup-93).
+    modal.querySelectorAll('[data-close-details]').forEach(button =>
+        button.addEventListener('click', () => closeInstanceDetailsModal()));
     feather.replace();
 }
 
@@ -907,4 +914,16 @@ function addMetricsStyles() {
 
 document.addEventListener('DOMContentLoaded', function() {
     addMetricsStyles();
+});
+
+// The actions this section's markup asks the shell to take (keepup-93). The
+// instance cards are rebuilt on every refresh, so their buttons name an action
+// and carry the instance's id instead of a script built into the markup; a
+// name nothing registered does nothing.
+KeepupActions.register({
+    'metrics.refresh': () => loadMetricsData(),
+    'metrics.toggle-auto-refresh': () => toggleAutoRefresh(),
+    'metrics.update-charts': () => updateMetricsCharts(),
+    'metrics.restart': (element) => restartInstance(element.dataset.instanceId),
+    'metrics.show-details': (element) => showInstanceDetails(element.dataset.instanceId),
 });
