@@ -23,6 +23,7 @@ from pathlib import Path
 import pytest
 
 from keepup import audit, cluster, locks
+from keepup.tests.repository import is_not_the_package
 from keepup.db import DatabaseManagerV2
 from keepup.events import event_manager
 from keepup.schema import init_db
@@ -65,7 +66,7 @@ def blocking_calls_in_coroutines(path: Path):
 def test_no_coroutine_of_the_framework_queries_the_database_on_the_loop():
     offenders = []
     for path in sorted(PACKAGE.rglob("*.py")):
-        if {"tests", "dist", "static"} & set(path.relative_to(PACKAGE).parts):
+        if "tests" in path.parts or is_not_the_package(path):
             continue
         offenders += [f"{path.relative_to(PACKAGE)}:{line} {name}() calls {call}"
                       for line, name, call in blocking_calls_in_coroutines(path)]

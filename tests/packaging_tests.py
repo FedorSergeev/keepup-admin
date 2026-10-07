@@ -19,9 +19,11 @@ Run by path, like the other *_tests.py files:
 import ast
 import os
 import re
+import shutil
 import subprocess
 import sys
 import venv
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -235,9 +237,24 @@ def test_an_installed_package_builds_an_application_with_nothing_of_ours_around_
     absent, which is the point.
     """
     dist = tmp_path / "dist"
-    subprocess.run([sys.executable, "-m", "build", "--wheel", "--outdir", str(dist),
-                    str(PACKAGE)], check=True, capture_output=True)
+    # setuptools builds through build/ inside the package, and what it leaves
+    # there is a copy of the sources: every check that walks the package would
+    # report its findings twice until somebody deleted it (keepup-28). The
+    # wheel itself is written outside the package.
+    try:
+        subprocess.run([sys.executable, "-m", "build", "--wheel", "--outdir", str(dist),
+                        str(PACKAGE)], check=True, capture_output=True)
+    finally:
+        shutil.rmtree(PACKAGE / "build", ignore_errors=True)
     [wheel] = list(dist.glob("keepup_admin-*.whl"))
+
+    # Nothing of the repository travels in it either -- not the package's own
+    # tests, and not the consumer they run the public-interface checks against
+    # (keepup-7): a distribution carries the framework, not its fixtures.
+    shipped = zipfile.ZipFile(wheel).namelist()
+    strays = sorted(name for name in shipped
+                    if name.startswith(("tests/", "consumer/")) or "/tests/" in name)
+    assert strays == [], f"the wheel carries what is not the framework: {strays}"
 
     environment = tmp_path / "env"
     venv.create(environment, with_pip=True)

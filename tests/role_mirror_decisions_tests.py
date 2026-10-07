@@ -18,6 +18,7 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from keepup.auth import dependencies, user_roles
+from keepup.tests.repository import is_not_the_package
 from keepup.auth.dependencies import get_current_admin
 from keepup.db import DatabaseManagerV2
 from keepup.locks import register_lock_routes
@@ -48,7 +49,9 @@ def test_no_framework_decision_reads_the_mirror():
     offenders = []
     for path in sorted(PACKAGE.rglob("*.py")):
         relative = path.relative_to(PACKAGE).as_posix()
-        if relative.split("/")[0] in {"tests", "dist", "static"} or relative in READERS:
+        # A build output is a copy of the sources and a local environment is
+        # not the package: both would report every finding twice (keepup-28).
+        if "tests" in path.parts or is_not_the_package(path) or relative in READERS:
             continue
         offenders += [f"{relative}:{line}" for line in mirror_reads(path)]
     assert offenders == []
