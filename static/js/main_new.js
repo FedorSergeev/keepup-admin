@@ -13,7 +13,11 @@ let currentUser = null;
    which the wrapper below adds to every same-origin request that is not a read.
    ========================================================================== */
 const SESSION_MARKER = 'cookie';
-const CSRF_COOKIE = 'ss_csrf';
+// The CSRF cookie carries the __Host- prefix over HTTPS (keepup-92): that name
+// belongs to this exact host, so a sibling subdomain cannot plant it. The plain
+// name is what a panel signed in before this release holds and is read for one
+// release; the prefixed value wins when both are there.
+const CSRF_COOKIES = ['__Host-ss_csrf', 'ss_csrf'];
 const CSRF_HEADER = 'X-CSRF-Token';
 const CSRF_SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
 
@@ -23,6 +27,14 @@ function readCookie(name) {
         .map(part => part.trim())
         .find(part => part.startsWith(prefix));
     return found ? decodeURIComponent(found.slice(prefix.length)) : null;
+}
+
+function readCsrfCookie() {
+    for (const name of CSRF_COOKIES) {
+        const value = readCookie(name);
+        if (value) return value;
+    }
+    return null;
 }
 
 function isSameOriginUrl(url) {
@@ -42,7 +54,7 @@ function installCsrfFetch(target) {
         const request = typeof Request !== 'undefined' && input instanceof Request ? input : null;
         const method = String((init && init.method) || (request && request.method) || 'GET').toUpperCase();
         const url = request ? request.url : String(input);
-        const csrf = readCookie(CSRF_COOKIE);
+        const csrf = readCsrfCookie();
         if (csrf && !CSRF_SAFE_METHODS.includes(method) && isSameOriginUrl(url)) {
             const headers = new Headers((init && init.headers) || (request && request.headers) || undefined);
             if (!headers.has(CSRF_HEADER)) {

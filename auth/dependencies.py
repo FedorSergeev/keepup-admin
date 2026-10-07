@@ -530,7 +530,7 @@ def configure_panel_gate(pending=None):
 
 def _authenticated_by_cookie(request: Request) -> bool:
     return panel_session.real_bearer(_bearer_of(request)) is None \
-        and bool(request.cookies.get(panel_session.SESSION_COOKIE))
+        and bool(panel_session.session_token_in(request.cookies))
 
 
 def _bearer_of(request: Request) -> Optional[str]:

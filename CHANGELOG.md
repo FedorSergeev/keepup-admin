@@ -19,7 +19,10 @@ wheel does not have it. The panel is also served with a
 Content-Security-Policy now (below, *Security*): the framework's own pages and
 sections carry no inline handler and no inline script, and an application whose
 own theme page or sections still do either converts them the same way or sends
-the policy as a report (`csp_report_only=True`) until it has.
+the policy as a report (`csp_report_only=True`) until it has. Over HTTPS the
+session cookie is named `__Host-ss_session` rather than `ss_session` (below,
+*Security*): an application that reads that cookie by string reads the
+published name instead (`keepup.auth.panel_session.cookie_names`).
 
 ### Added
 
@@ -70,6 +73,20 @@ the policy as a report (`csp_report_only=True`) until it has.
   deletes its copy.
 
 ### Security
+
+- **The panel's cookies belong to the host that set them.** Over HTTPS the
+  session and CSRF cookies are named `__Host-ss_session` and `__Host-ss_csrf`:
+  a browser accepts a `__Host-` cookie only from the exact host, only with
+  `Secure`, only with `Path=/`, and never with a `Domain` -- so a sibling
+  subdomain, or a hop over plain HTTP, can no longer plant a cookie with the
+  name the server reads (audit finding 13, keepup-92). The plain names are
+  still read for one release, so a panel signed in before the upgrade stays
+  signed in and its value moves to the prefixed name on the next read; over
+  plain HTTP the names are unchanged, because a `__Host-` cookie without
+  `Secure` is one a browser refuses to keep. The names are published
+  (`keepup.auth.panel_session.cookie_names`, `session_token_in`) for an
+  application that reads them itself: one that looks up `ss_session` by string
+  stops seeing the session on an HTTPS stand and moves to the published names.
 
 - **The panel is served with a Content-Security-Policy.** Every answer now
   carries one, and the policy is written for the panel as the framework ships

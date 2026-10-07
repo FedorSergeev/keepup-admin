@@ -22,7 +22,7 @@ from fastapi.routing import APIRoute
 from starlette.routing import Mount, Route, WebSocketRoute
 from starlette.websockets import WebSocketDisconnect
 
-from keepup.auth import dependencies
+from keepup.auth import dependencies, panel_session
 
 import audit_actors
 from audit_profiles import (
@@ -281,6 +281,12 @@ def test_answers_carry_the_protective_headers(start, profile_name):
 
 
 def test_the_session_cookie_is_out_of_the_page_s_reach_and_tls_only_on_tls(start):
+    """Out of the page's reach on both schemes, and named for its host over TLS.
+
+    Over HTTPS the name carries the `__Host-` prefix (keepup-92), which is what
+    keeps a sibling subdomain from planting a cookie the server would read; the
+    plain name is what a panel signed in before the upgrade still holds.
+    """
     for profile_name, secure in (("bare", False), ("https", True)):
         running = start(profile_name)
         actor = audit_actors.client_actor()
@@ -289,9 +295,12 @@ def test_the_session_cookie_is_out_of_the_page_s_reach_and_tls_only_on_tls(start
         assert answer.status_code == 200, answer.text
         cookies = [value.lower() for key, value in answer.headers.multi_items()
                    if key.lower() == "set-cookie"]
-        session = next(c for c in cookies if c.startswith("ss_session="))
+        session_name, _ = panel_session.cookie_names(secure)
+        session = next(c for c in cookies if c.startswith(f"{session_name.lower()}="))
         assert "httponly" in session and "samesite=lax" in session
         assert ("secure" in session.split(";")[-1] or "; secure" in session) is secure, session
+        if secure:
+            assert "domain" not in session and "path=/" in session, session
         running.client.cookies.clear()
 
 

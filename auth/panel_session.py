@@ -6,10 +6,13 @@ one browser, and a copied token stayed good for a day. Now a session is a row,
 the token names it (`sid`), and every request looks the row up -- so a logout, a
 password change or a block takes effect on every replica at once.
 
-The browser never sees the token: it sits in `ss_session` (HttpOnly). The panel
-keeps the non-secret marker `cookie` where the token used to be, so the many
-sections that check "is there a token" and send `Bearer <token>` keep working;
-the server reads such a header as no header at all and falls back to the cookie.
+The browser never sees the token: it sits in `ss_session` (HttpOnly). Over
+HTTPS that name carries the `__Host-` prefix, which ties the cookie to the exact
+host that set it; the plain name is still read for one release, so an open panel
+survives the upgrade (keepup-92). The panel keeps the non-secret marker `cookie`
+where the token used to be, so the many sections that check "is there a token"
+and send `Bearer <token>` keep working; the server reads such a header as no
+header at all and falls back to the cookie.
 
 A cookie is sent by the browser on its own, so a request authenticated by it must
 also prove it came from the panel: the double-submit `ss_csrf` cookie, readable by
@@ -24,7 +27,7 @@ import logging
 import os
 import secrets
 from datetime import datetime, timedelta
-from typing import Optional
+from typing import Optional, Tuple
 from urllib.parse import urlparse
 
 from fastapi import HTTPException, Request
@@ -36,11 +39,63 @@ from keepup.db import DatabaseManagerV2
 
 logger = logging.getLogger(__name__)
 
+#: What an application may import from this module. Everything else is
+#: internal and may change without notice -- see doc/keepup.md.
+__all__ = [
+    "CSRF_COOKIE",
+    "CSRF_HEADER",
+    "HOST_PREFIX",
+    "SESSION_COOKIE",
+    "clear_cookies",
+    "cookie_names",
+    "is_https",
+    "session_token_in",
+    "set_cookies",
+]
+
 TABLE = "auth_session"
 SESSION_CLAIM = "sid"
 SESSION_COOKIE = "ss_session"
 CSRF_COOKIE = "ss_csrf"
 CSRF_HEADER = "X-CSRF-Token"
+
+#: The prefix that ties a cookie to one host. A browser accepts a `__Host-`
+#: cookie only from the host that set it, only with Secure, only with Path=/,
+#: and never with a Domain -- so a sibling subdomain, or a plain-HTTP hop, can
+#: no longer plant one under this name (keepup-92).
+HOST_PREFIX = "__Host-"
+
+
+def cookie_names(secure: bool) -> Tuple[str, str]:
+    """The session and CSRF cookie names of a request over TLS, or not.
+
+    Over HTTPS both names carry the `__Host-` prefix; over plain HTTP they stay
+    as they were, because a browser refuses a `__Host-` cookie that is not
+    Secure and a deployment on a local network without TLS would never stay
+    signed in.
+
+    Args:
+        secure: whether the browser reached this server over HTTPS
+            (:func:`is_https`).
+
+    Returns:
+        The session cookie name and the CSRF cookie name.
+    """
+    if secure:
+        return f"{HOST_PREFIX}{SESSION_COOKIE}", f"{HOST_PREFIX}{CSRF_COOKIE}"
+    return SESSION_COOKIE, CSRF_COOKIE
+
+
+def session_token_in(cookies) -> Optional[str]:
+    """The session token a request carries, under either name.
+
+    The plain name is what a panel signed in before this release holds, and it
+    is read for one release so that upgrading does not sign everybody out. The
+    prefixed name wins when both are there: over HTTPS it is the one a sibling
+    subdomain cannot have set.
+    """
+    cookies = cookies or {}
+    return cookies.get(HOST_PREFIX + SESSION_COOKIE) or cookies.get(SESSION_COOKIE)
 
 #: What the panel keeps in localStorage instead of the token, and the values a
 #: section sends when it had nothing there. None of them is a credential.
@@ -156,7 +211,7 @@ def token_from_request(request: Request, bearer: Optional[str]) -> Optional[str]
     token = real_bearer(bearer)
     if token:
         return token
-    token = request.cookies.get(SESSION_COOKIE)
+    token = session_token_in(request.cookies)
     if not token:
         return None
     if request.method.upper() not in SAFE_METHODS and not csrf_matches(request):
@@ -202,13 +257,13 @@ def csrf_matches(request: Request) -> bool:
     presented = request.headers.get(CSRF_HEADER)
     if not presented:
         return False
-    expected = csrf_for(request.cookies.get(SESSION_COOKIE))
+    expected = csrf_for(session_token_in(request.cookies))
     return bool(expected) and secrets.compare_digest(expected, presented)
 
 
 def websocket_token(query_token: Optional[str], cookies) -> Optional[str]:
     """A websocket has no CSRF header to send; `same_origin` stands in for it."""
-    return real_bearer(query_token) or (cookies or {}).get(SESSION_COOKIE)
+    return real_bearer(query_token) or session_token_in(cookies)
 
 
 def same_origin(headers) -> bool:
@@ -260,13 +315,21 @@ def is_https(request: Request) -> bool:
 
 def set_cookies(response, request: Request, token: str, max_age: int) -> str:
     secure = is_https(request)
-    response.set_cookie(SESSION_COOKIE, token, max_age=max_age, path="/",
+    session_name, csrf_name = cookie_names(secure)
+    response.set_cookie(session_name, token, max_age=max_age, path="/",
                         httponly=True, secure=secure, samesite="lax")
     # The session's own value: new with every sign-in, the same across renewals,
     # so a panel tab holding it keeps working (keepup-72).
     csrf = csrf_for(token) or secrets.token_urlsafe(32)
-    response.set_cookie(CSRF_COOKIE, csrf, max_age=max_age, path="/",
+    response.set_cookie(csrf_name, csrf, max_age=max_age, path="/",
                         httponly=False, secure=secure, samesite="lax")
+    if secure:
+        # The plain names are what a sibling subdomain could plant, so a sign-in
+        # over HTTPS puts out only the names that belong to this host. The old
+        # session cookie is still read here for one release (session_token_in),
+        # which is what keeps an open panel signed in across the upgrade.
+        response.delete_cookie(SESSION_COOKIE, path="/")
+        response.delete_cookie(CSRF_COOKIE, path="/")
     return csrf
 
 
@@ -289,16 +352,22 @@ class CsrfCookieRefresh:
             await self.app(scope, receive, send)
             return
         request = Request(scope)
-        token = request.cookies.get(SESSION_COOKIE)
+        token = session_token_in(request.cookies)
         expected = csrf_for(token) if token else None
-        if expected is None or request.cookies.get(CSRF_COOKIE) == expected:
+        secure = is_https(request)
+        _, csrf_name = cookie_names(secure)
+        if expected is None or request.cookies.get(csrf_name) == expected:
             await self.app(scope, receive, send)
             return
 
         from starlette.responses import Response
         carrier = Response()
-        carrier.set_cookie(CSRF_COOKIE, expected, path="/", httponly=False,
-                           secure=is_https(request), samesite="lax")
+        carrier.set_cookie(csrf_name, expected, path="/", httponly=False,
+                           secure=secure, samesite="lax")
+        if secure:
+            # The value moves to the name that belongs to this host; the plain
+            # one a panel signed in earlier holds stops being written.
+            carrier.delete_cookie(CSRF_COOKIE, path="/")
         cookie = [(name, value) for name, value in carrier.raw_headers
                   if name == b"set-cookie"]
 
@@ -311,5 +380,7 @@ class CsrfCookieRefresh:
 
 
 def clear_cookies(response) -> None:
-    response.delete_cookie(SESSION_COOKIE, path="/")
-    response.delete_cookie(CSRF_COOKIE, path="/")
+    """Signing out clears the cookies of either scheme and of both releases."""
+    for name in (f"{HOST_PREFIX}{SESSION_COOKIE}", SESSION_COOKIE,
+                 f"{HOST_PREFIX}{CSRF_COOKIE}", CSRF_COOKIE):
+        response.delete_cookie(name, path="/")
