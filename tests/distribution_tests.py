@@ -99,9 +99,17 @@ def keepup_sources():
 #: file red with output that pointed at build/lib (keepup-28).
 BUILD_OUTPUT = {"build", "dist", "static.min", "__pycache__", ".pytest_cache"}
 
+#: Directories a working copy carries that are not the package at all: a local
+#: environment, an editor's, and the build tracker kept next to the framework.
+#: The tracker is data of the build -- Russian, and naming the applications the
+#: framework serves -- and it is deliberately not shipped, so the rules of the
+#: distribution do not reach it.
+WORKING_COPY = {".git", ".venv", "venv", ".idea", ".vscode", "ci"}
+
 
 def _is_build_output(path):
-    return any(part in BUILD_OUTPUT or part.endswith(".egg-info")
+    return any(part in BUILD_OUTPUT or part in WORKING_COPY
+               or part.endswith(".egg-info")
                for part in path.relative_to(KEEPUP).parts)
 
 
@@ -184,7 +192,7 @@ def keepup_assets():
             continue
         if any(str(path).endswith(name) for name in VENDORED):
             continue
-        if _is_build_output(path) or ".git" in path.relative_to(KEEPUP).parts:
+        if _is_build_output(path):
             continue
         found.append(path)
     return found

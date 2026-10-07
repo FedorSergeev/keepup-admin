@@ -29,3 +29,9 @@ venv/
 .idea/
 .vscode/
 .DS_Store
+
+# The keepup region of the build tracker: the framework's own tasks, releases
+# and their acceptance. Kept next to the framework so the tasks travel with it,
+# and deliberately not tracked -- the tracker is data of the build, and the
+# repository carries the code, the tests and the OpenSpec change.
+ci/keepup/
