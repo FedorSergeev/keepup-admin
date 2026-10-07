@@ -12,6 +12,7 @@ skip with a reason is a check that could not run; a check that quietly walks an
 empty list is a check that is not there at all, and looks green either way.
 """
 
+import subprocess
 from pathlib import Path
 
 import pytest
@@ -22,6 +23,53 @@ REPO = PACKAGE.parent
 #: Directories beside the package that are never an application: the package
 #: itself, and the places a repository keeps things that import nothing.
 NOT_AN_APPLICATION = {"tests", "doc", "config", "static", "openspec", "ci"}
+
+#: Directories a working copy carries that are not the package at all: a local
+#: environment, an editor's, the build tracker kept beside the framework, and
+#: what a build leaves behind. A check that walks the package has to step over
+#: them, or it reports findings about code nobody ships -- a `.venv` inside the
+#: checkout was enough to fail the distribution and packaging checks with the
+#: names of pip's vendored modules.
+NOT_THE_PACKAGE = {
+    ".git", ".venv", "venv", ".idea", ".vscode", "ci", "openspec",
+    "build", "dist", "static.min", "__pycache__", ".pytest_cache",
+}
+
+
+def is_not_the_package(path: Path) -> bool:
+    """Whether a path below the package is outside what the package is.
+
+    Args:
+        path: a path below ``PACKAGE``.
+
+    Returns:
+        True for a local environment, an editor's directory, the tracker, and
+        build output.
+    """
+    return any(part in NOT_THE_PACKAGE or part.endswith(".egg-info")
+               for part in path.relative_to(PACKAGE).parts)
+
+
+def repository_root() -> Path:
+    """The checkout the package sits in, as git sees it.
+
+    ``REPO`` -- the directory above the package -- is the repository root only
+    in the repository the package grew in, where an application stands beside
+    it. In a clone of the package that directory is wherever somebody put it,
+    and walking it finds other people's projects that merely import keepup: the
+    public-interface check then judges the framework by a neighbour's code, and
+    takes minutes doing it. Git says where the checkout ends; a package with no
+    git around it keeps the old answer.
+    """
+    try:
+        answer = subprocess.run(
+            ["git", "-C", str(PACKAGE), "rev-parse", "--show-toplevel"],
+            capture_output=True, text=True, timeout=10)
+    except (OSError, subprocess.SubprocessError):
+        return REPO
+    if answer.returncode == 0 and answer.stdout.strip():
+        return Path(answer.stdout.strip())
+    return REPO
 
 
 def applications():
@@ -35,10 +83,12 @@ def applications():
         The directories beside the package whose code imports it, sorted.
     """
     found = []
-    for candidate in sorted(REPO.iterdir()):
+    for candidate in sorted(repository_root().iterdir()):
         if not candidate.is_dir() or candidate.name.startswith("."):
             continue
-        if candidate == PACKAGE or candidate.name in NOT_AN_APPLICATION:
+        if candidate == PACKAGE or PACKAGE in candidate.parents:
+            continue
+        if candidate.name in NOT_AN_APPLICATION:
             continue
         for path in candidate.rglob("*.py"):
             if "__pycache__" in path.parts:
@@ -80,7 +130,7 @@ def alongside(*relative):
     Raises:
         Skipped: when the path is not there.
     """
-    path = REPO.joinpath(*relative)
+    path = repository_root().joinpath(*relative)
     if not path.exists():
         pytest.skip(f"{'/'.join(relative)} belongs to the repository the package "
                     f"grew in, and is not in this one")

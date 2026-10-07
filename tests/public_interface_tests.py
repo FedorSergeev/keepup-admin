@@ -25,7 +25,7 @@ from pathlib import Path
 
 import pytest
 
-from keepup.tests.repository import applications
+from keepup.tests.repository import applications, is_not_the_package
 
 PACKAGE = Path(__file__).resolve().parents[1]
 REPO = PACKAGE.parent
@@ -136,7 +136,7 @@ def test_no_private_name_is_taken_by_an_application():
 def declaring_modules():
     found = []
     for path in sorted(PACKAGE.rglob("*.py")):
-        if "tests" in path.parts:
+        if "tests" in path.parts or is_not_the_package(path):
             continue
         if "__all__" in path.read_text(encoding="utf-8"):
             found.append("keepup." + ".".join(path.relative_to(PACKAGE).with_suffix("").parts))

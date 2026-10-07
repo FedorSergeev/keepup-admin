@@ -26,7 +26,7 @@ from pathlib import Path
 
 import pytest
 
-from keepup.tests.repository import alongside
+from keepup.tests.repository import alongside, is_not_the_package
 
 PACKAGE = Path(__file__).resolve().parents[1]
 REPO = PACKAGE.parent
@@ -61,8 +61,9 @@ def framework_imports():
     for path in PACKAGE.rglob("*.py"):
         # The package's dependencies are what the package imports. Its tests
         # import pytest and whatever they need to pretend with; that is the
-        # test environment's business, not the distribution's (keepup-6).
-        if (PACKAGE / "tests") in path.parents:
+        # test environment's business, not the distribution's (keepup-6), and a
+        # local environment or a build output is not the package at all.
+        if (PACKAGE / "tests") in path.parents or is_not_the_package(path):
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):
@@ -127,9 +128,9 @@ def test_every_subpackage_is_declared():
         "keepup." + str(path.parent.relative_to(PACKAGE)).replace("/", ".")
         for path in PACKAGE.rglob("__init__.py")
         # `python -m build` leaves a copy of the package under build/ beside
-        # pyproject.toml -- that is output, not a subpackage.
-        if path.parent != PACKAGE
-        and not {"build", "dist", "__pycache__"} & set(path.parts)
+        # pyproject.toml, and a working copy carries its own .venv: both are
+        # something other than the package's subpackages.
+        if path.parent != PACKAGE and not is_not_the_package(path)
     }
     missing = sorted(name for name in on_disk if f'"{name}"' not in text)
     assert missing == [], f"not declared in pyproject.toml: {missing}"

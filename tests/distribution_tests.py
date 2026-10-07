@@ -22,6 +22,8 @@ import ast
 import re
 from pathlib import Path
 
+from keepup.tests.repository import is_not_the_package
+
 PACKAGE = Path(__file__).resolve().parents[1]
 REPO = PACKAGE.parent
 KEEPUP = PACKAGE
@@ -90,27 +92,15 @@ def keepup_sources():
         A sorted list of paths.
     """
     return sorted(path for path in KEEPUP.rglob("*.py")
-                  if TESTS not in path.parents and not _is_build_output(path))
+                  if TESTS not in path.parents and not is_not_the_package(path))
 
 
-#: Directories a local build leaves inside the package. They hold copies of
-#: the sources, so scanning them reports every finding twice and names a path
-#: nobody edits -- and one `python -m build` was enough to turn this whole
-#: file red with output that pointed at build/lib (keepup-28).
-BUILD_OUTPUT = {"build", "dist", "static.min", "__pycache__", ".pytest_cache"}
-
-#: Directories a working copy carries that are not the package at all: a local
-#: environment, an editor's, and the build tracker kept next to the framework.
-#: The tracker is data of the build -- Russian, and naming the applications the
-#: framework serves -- and it is deliberately not shipped, so the rules of the
-#: distribution do not reach it.
-WORKING_COPY = {".git", ".venv", "venv", ".idea", ".vscode", "ci"}
-
-
-def _is_build_output(path):
-    return any(part in BUILD_OUTPUT or part in WORKING_COPY
-               or part.endswith(".egg-info")
-               for part in path.relative_to(KEEPUP).parts)
+#: A local build leaves copies of the sources inside the package, and a working
+#: copy carries a `.venv`, an editor's directory and the build tracker: none of
+#: them is the package, and scanning them reports every finding about code
+#: nobody ships. One `python -m build` was enough to turn this whole file red
+#: with output that pointed at build/lib (keepup-28); one `.venv` inside the
+#: checkout did the same with the names of pip's vendored modules.
 
 
 def keepup_tests():
@@ -192,7 +182,7 @@ def keepup_assets():
             continue
         if any(str(path).endswith(name) for name in VENDORED):
             continue
-        if _is_build_output(path):
+        if is_not_the_package(path):
             continue
         found.append(path)
     return found

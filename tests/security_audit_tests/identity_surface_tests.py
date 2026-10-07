@@ -65,13 +65,33 @@ def local_admin_named(name, email=None):
     return uid
 
 
+def forget_the_account_named(name):
+    """Leave no account of this name behind, of either kind.
+
+    The test below is about a collision of names -- a local administrator called
+    like somebody in the other system must stay theirs -- and another suite in
+    the same session signs that very person in, leaving the account it made for
+    her in the database. As a leftover it is read as the local victim, and then
+    the check answers by the order the files happened to run in: it passed when
+    this file ran alone and failed in the whole suite. The test makes its own
+    account instead.
+    """
+    row = DatabaseManagerV2.execute_one(
+        "SELECT id FROM users WHERE username = :name", {"name": name})
+    if not row:
+        return
+    for table in ("user_roles", "user_permissions"):
+        DatabaseManagerV2.execute_commit(
+            f"DELETE FROM {table} WHERE user_id = :id", {"id": row["id"]})
+    DatabaseManagerV2.execute_commit("DELETE FROM users WHERE id = :id", {"id": row["id"]})
+
+
 # --- whose account a foreign token opens ------------------------------------------------
 
 def test_a_foreign_token_does_not_take_over_a_local_account_by_name(identity):
     """A local administrator called like somebody in the other system stays theirs."""
-    existing = dependencies.get_user_by_username("anna")
-    victim = existing["id"] if existing and not existing.get("auth_source") \
-        else local_admin_named("anna")
+    forget_the_account_named("anna")
+    victim = local_admin_named("anna")
     token = session_there(identity, "anna", "anna-as-pass")
     me = identity.client.get("/api/auth/me", headers=bearer(token))
     assert me.status_code == 200
