@@ -35,3 +35,8 @@ venv/
 # and deliberately not tracked -- the tracker is data of the build, and the
 # repository carries the code, the tests and the OpenSpec change.
 ci/keepup/
+
+# What the framework writes at run time when it is started from the repository
+# itself: the application log, and the SQLite file of a local database.
+logs/
+data/
