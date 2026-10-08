@@ -68,24 +68,30 @@ So the move of a capability's code and the removal of its library from the base'
 `dependencies` are one change, not two, and the entry in `pyproject.toml` is where
 the two meet.
 
-## The two things found by trying to move a module
+## What trying to move a module found
 
-The first attempt at moving `keepup.db` into `keepup-db` (keepup-124) was reverted,
-and it left two findings that have to be settled *before* the move is repeated --
-neither of them is visible until a module with thirty importers actually moves:
+Moving `keepup.db` into `keepup-db` (keepup-124) was attempted twice and reverted
+both times. Each attempt turned an unknown into a named piece of work; none of it
+is about the module being moved, which transfers cleanly.
 
-1. **A moved module exports more than its new package declares.** `keepup.db` was
-   taken apart by checks that read `__file__` and by callers of private helpers,
-   and `public_interface_tests.py` refuses a name an application takes that the
-   interface does not declare. Either the declared interface grows to what the
-   module really offers, or the module stops offering it -- and that is a decision
-   about the application's interface, not about the move (keepup-125).
-2. **Resolving an old name must not drag the distribution into an import.** With
-   `keepup.db` answering through the compatibility layer, importing a module that
-   merely mentions the database began to load the distribution, and
-   `themes_tests.py` refuses exactly that: several modules are careful to touch no
-   database on import. The stand-in has to answer on attribute access, never on
-   import (keepup-126).
-
-Both are checked: `tests/distribution_layout_tests.py` holds this section to
-naming them, so the next attempt cannot quietly forget what the last one learned.
+1. **The stand-in answers for the declaration, and answers lazily.** Two of the
+   first attempt's failures were the compatibility layer's own: it was created
+   empty, so the public-interface check found a module declaring nothing and
+   reported every name taken from `keepup.db` as undeclared (keepup-125), and it
+   resolved its destination eagerly, which dragged the distribution into an
+   import that only mentioned the database (keepup-126). Both are fixed and
+   checked.
+2. **Importing the framework must not load a database.** What is left is real
+   code: `keepup.events`, `keepup.log_shipping`, `keepup.metrics` and
+   `keepup.themes` import the manager at module level, so with the module moved,
+   importing any of them loads the distribution. Four checks refuse exactly that
+   today -- `events_split_tests.py`, `log_shipping_split_tests.py`,
+   `metrics_split_tests.py`, `themes_tests.py` -- and they are right: a release
+   whose point is that the base carries no database library cannot have an import
+   that reaches for one. Those imports move inside the functions that use them
+   (keepup-127).
+3. **Checks that read the moved module by path follow the name.** Four checks
+   parse `db.py` or measure what it exports; they are mechanical and belong to
+   the move itself (keepup-125): `db_leftovers_tests.py`,
+   `leftovers_tests.py`, `one_database_manager_tests.py`, and the compatibility
+   check that knows which names have moved.
