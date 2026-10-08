@@ -10,6 +10,14 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The positional-parameter helper joins the abstraction (keepup-124).** It
+  exists only because of how the manager takes parameters -- the pool wants
+  `:name` and code written for a driver uses `?` -- so it belongs beside the
+  manager rather than in the base package. It now lives in
+  `packages/keepup-db/keepup_db/positional_sql.py`, takes the manager from its own
+  distribution, and `keepup.positional_sql` is in the map of moved names, so
+  anything importing it keeps working and is told where it went.
+
 - **The table language moves into `keepup-db`, and the stand-in forwards writes
   (keepup-124).** The language for declaring a table is what the abstraction
   exists for, and it kept SQLAlchemy in the base package alongside the manager.

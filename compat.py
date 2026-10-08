@@ -34,6 +34,7 @@ MOVED: Dict[str, str] = {
     "keepup.db": "keepup_db",
     "keepup.tables": "keepup_db.tables",
     "keepup.schema": "keepup_db.schema",
+    "keepup.positional_sql": "keepup_db.positional_sql",
     "keepup.audit": "keepup_audit",
     "keepup.events": "keepup_audit.events",
     "keepup.admin_trail": "keepup_audit.trail",

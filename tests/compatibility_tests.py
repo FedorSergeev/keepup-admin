@@ -157,8 +157,9 @@ def test_only_the_names_whose_module_is_gone_are_stood_in():
     the base package, and standing in for it would be a lie.
     """
     installed = compat.install()
-    assert {"keepup.db", "keepup.tables"} <= set(installed)
+    moved = {"keepup.db", "keepup.tables", "keepup.positional_sql"}
+    assert moved <= set(installed)
     for name in installed:
-        assert name in ("keepup.db", "keepup.tables"), (
+        assert name in moved, (
             f"{name} was stood in while its module is still in the base package")
     assert "keepup.auth" not in compat.installed()

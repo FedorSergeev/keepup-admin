@@ -87,7 +87,7 @@ def insert_returning_id(query: str, params: Optional[Sequence[Any]] = None) -> O
     What the removed manager's ``execute_commit`` answered; the query carries no RETURNING
     of its own -- DatabaseManagerV2 adds it on PostgreSQL.
     """
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
 
     row = DatabaseManagerV2.execute_commit_returning(*positional(query, params), "id")
     return row["id"] if row else None
@@ -102,7 +102,7 @@ def execute_many(query: str, rows: Sequence[Sequence[Any]]) -> bool:
     if not rows:
         return True
     try:
-        from keepup.db import DatabaseManagerV2
+        from keepup_db import DatabaseManagerV2
 
         DatabaseManagerV2.execute_many(*positional_many(query, rows))
         return True
@@ -118,7 +118,7 @@ def raw_connection():
     The statements run on it are the driver's own: ``?`` on SQLite, ``%s`` on
     PostgreSQL, with no conversion.
     """
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
 
     with DatabaseManagerV2.get_session() as session:
         engine = session.get_bind()
