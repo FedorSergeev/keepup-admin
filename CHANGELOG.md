@@ -10,6 +10,18 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The import debt is two jobs, and one list hid that (keepup-127, keepup-124).**
+  Twenty-one of the modules that load a database while being imported declare
+  tables or take SQLAlchemy directly, so no lazy import can help them: their
+  answer is that they move into their capability's distribution with their
+  declarations, which is keepup-124's work, and the check now names the
+  distribution for each. Nine reach the database only inside functions -- the
+  cluster, locks, metrics, the metrics API, the section catalogue, the
+  notification bus, the plugin decisions, the positional-SQL helper and the
+  pages -- and those are what keepup-127 owns, one module at a time, with the
+  entry struck off in the same change. Keeping the two in one list made the task
+  look unclosable when it was only misattributed.
+
 - **The third import comes off the debt list (keepup-127).** `integrations.py`
   took the database manager at module level and used it in four places, all of
   them inside functions; the import moved into each of them and the module can be

@@ -17,42 +17,48 @@ from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parents[1]
 
-#: Who still takes the database while being imported, and why. The list may only
-#: shrink: a module that stops needing it is struck off in the same change, and a
-#: module that starts is a change to the specification first. It was thirty
-#: modules when it was written, which is the real size of what keepup-127 and
-#: keepup-124 have left to do -- the kernel itself (keepup/kernel) is not on it.
-AT_IMPORT_TIME = {
-    "audit.py": "its capability keeps its own table",
-    "auth/dependencies.py": "the sign-in owns its sessions, attempts and roles",
-    "auth/external_accounts.py": "the sign-in owns its sessions, attempts and roles",
-    "auth/identity/access.py": "the sign-in owns its sessions, attempts and roles",
-    "auth/login_throttle.py": "the sign-in owns its sessions, attempts and roles",
-    "auth/oidc_routes.py": "the sign-in owns its sessions, attempts and roles",
-    "auth/panel_session.py": "the sign-in owns its sessions, attempts and roles",
-    "auth/providers/base.py": "the sign-in owns its sessions, attempts and roles",
-    "auth/providers/local.py": "the sign-in owns its sessions, attempts and roles",
-    "auth/routes.py": "the sign-in owns its sessions, attempts and roles",
-    "auth/socket_sessions.py": "the sign-in owns its sessions, attempts and roles",
-    "auth/user_roles.py": "the sign-in owns its sessions, attempts and roles",
-    "auth/user_routes.py": "the sign-in owns its sessions, attempts and roles",
-    "builtin/db.py": "it is the capability itself, which a database deployment installs",
-    "builtin/postgres.py": "it is the capability itself, which a database deployment installs",
-    "builtin/sqlite.py": "it is the capability itself, which a database deployment installs",
-    "cluster.py": "its capability keeps its own table",
-    "db.py": "it is the database, or the root that wires it in (keepup-124 moves these)",
-    "events.py": "its capability keeps its own table",
-    "locks.py": "its capability keeps its own table",
-    "metrics.py": "its capability keeps its own table",
-    "metrics_api.py": "its capability keeps its own table",
-    "modules.py": "its capability keeps its own table",
-    "notification_bus.py": "its capability keeps its own table",
-    "plugins/admin.py": "its capability keeps its own table",
-    "positional_sql.py": "it is the database, or the root that wires it in (keepup-124 moves these)",
-    "schema.py": "it is the database, or the root that wires it in (keepup-124 moves these)",
-    "tables.py": "it is the database, or the root that wires it in (keepup-124 moves these)",
-    "themes.py": "its capability keeps its own table",
-    "web.py": "its capability keeps its own table",
+#: Modules that declare tables, so they need SQLAlchemy to be imported at all.
+#: They cannot be made lazy: their resolution is that they *move* into the
+#: distribution of the capability they belong to, with their declarations
+#: (keepup-124). Named here so the reason is on the record rather than in
+#: somebody's head.
+MOVES_WITH_ITS_CAPABILITY = {
+    "audit.py": "keepup-audit",
+    "auth/login_throttle.py": "keepup-auth",
+    "auth/panel_session.py": "keepup-auth",
+    "auth/user_roles.py": "keepup-users",
+    "builtin/db.py": "keepup-db",
+    "builtin/postgres.py": "keepup-postgres",
+    "builtin/sqlite.py": "keepup-sqlite",
+    "db.py": "keepup-db",
+    "events.py": "keepup-audit",
+    "schema.py": "the declarations themselves, until each owner takes its own",
+    "tables.py": "the table language, which is keepup-db's whole subject",
+    "themes.py": "keepup-ui",
+    "auth/dependencies.py": "keepup-auth",
+    "auth/external_accounts.py": "keepup-auth",
+    "auth/identity/access.py": "keepup-auth",
+    "auth/oidc_routes.py": "keepup-auth",
+    "auth/providers/base.py": "keepup-auth",
+    "auth/providers/local.py": "keepup-auth",
+    "auth/routes.py": "keepup-auth",
+    "auth/socket_sessions.py": "keepup-auth",
+    "auth/user_routes.py": "keepup-auth",
+}
+
+#: Modules whose import can be made lazy here and now: they reach the database
+#: only inside functions, so the import belongs there. This is keepup-127's own
+#: work, and it is finite -- nine of them.
+CAN_BE_MADE_LAZY = {
+    "cluster.py": "its routes are the administrator's",
+    "locks.py": "its routes are the administrator's",
+    "metrics.py": "the collector reads the pool when it is asked to",
+    "metrics_api.py": "the panel's view reads the database per request",
+    "modules.py": "the section catalogue is read per request",
+    "notification_bus.py": "it signs what replicas send, not what they store",
+    "plugins/admin.py": "the plugin decisions are read per request",
+    "positional_sql.py": "it builds a statement for a caller to run",
+    "web.py": "the pages read the database per request",
 }
 
 #: What "takes the database" means.
@@ -96,6 +102,11 @@ def top_level_database_imports(path):
     return found
 
 
+def owed():
+    """What keepup-127 still owes: the modules that can be made lazy."""
+    return CAN_BE_MADE_LAZY
+
+
 def offenders():
     """Every module that takes the database while being imported, by name."""
     found = {}
@@ -109,7 +120,8 @@ def offenders():
 def test_only_the_named_modules_take_the_database_while_being_imported():
     """A new one is a deployment that loads SQLAlchemy to import a helper."""
     known = offenders()
-    unknown = sorted(name for name in known if name not in AT_IMPORT_TIME)
+    known_names = set(MOVES_WITH_ITS_CAPABILITY) | set(CAN_BE_MADE_LAZY)
+    unknown = sorted(name for name in known if name not in known_names)
     assert unknown == [], (
         f"these load the database while being imported: {unknown}. Reach the "
         "manager inside the function that needs it, or say why here -- a stand "
@@ -118,9 +130,17 @@ def test_only_the_named_modules_take_the_database_while_being_imported():
     )
 
 
-def test_the_list_of_modules_that_still_do_only_shrinks():
-    """An entry nobody needs is a claim about the boundary that is no longer true."""
-    stale = sorted(name for name in AT_IMPORT_TIME if name not in offenders())
+def test_the_debt_of_keepup_127_is_nine_modules_and_only_shrinks():
+    """The work this task owns, told apart from the work another task owns.
+
+    `keepup-127` is "make the import lazy"; a module that declares tables cannot
+    have a lazy import, and its answer is that it moves into a distribution
+    (keepup-124). Keeping the two in one list made this task look unclosable when
+    it is simply two jobs.
+    """
+    assert len(CAN_BE_MADE_LAZY) <= 9, "the debt of 127 grows by decision, not by accident"
+    listed = set(MOVES_WITH_ITS_CAPABILITY) | set(CAN_BE_MADE_LAZY)
+    stale = sorted(name for name in listed if name not in offenders())
     assert stale == [], (
         f"these no longer take the database while being imported: {stale}. Strike "
         "them off in the same change: shrinking this list is the work (keepup-127)."
