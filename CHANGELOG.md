@@ -10,6 +10,16 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The sign-in declares its own tables (keepup-124).** The panel's sessions and
+  the attempts that throttle a guesser were declared in the base package's
+  `auth/panel_session.py` and `auth/login_throttle.py`; they now live in
+  `packages/keepup-auth/keepup_auth/tables.py`, and those modules re-export them
+  so the path that predates the catalogue still creates them. The session
+  declaration named its table with a constant defined beside it, and the constant
+  travelled with it -- the checks reported exactly that name missing before
+  anything else ran. Five capabilities now declare their own tables: the log, the
+  accounts, the snapshots, the audit and the sign-in.
+
 - **The audit declares its own tables (keepup-124).** The incoming calls and the
   events the application decided about were declared in the base package's
   `audit.py` and `events.py`; they now live in

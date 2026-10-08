@@ -15,10 +15,14 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional
 
-from sqlalchemy import Column, DateTime, Integer, String, Text, text
+from sqlalchemy import text
 
 from keepup import tables
 from keepup.db import DatabaseManagerV2
+
+# Declared by the sign-in declares its own tables (keepup-124); re-exported here so the path that predates
+# the catalogue still creates it.
+from keepup_auth.tables import LOGIN_ATTEMPTS  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -49,12 +53,6 @@ def lockout_window(environ=None) -> timedelta:
     return timedelta(minutes=minutes if minutes > 0 else DEFAULT_LOCKOUT_MINUTES)
 
 
-LOGIN_ATTEMPTS = tables.table(
-    "login_attempts",
-    Column("username", String(255).with_variant(Text(), "sqlite"), primary_key=True, nullable=True),
-    Column("failures", Integer, nullable=False, server_default=tables.sql_text("0")),
-    Column("last_failure_at", DateTime),
-)
 
 
 def init_login_attempts_table() -> None:

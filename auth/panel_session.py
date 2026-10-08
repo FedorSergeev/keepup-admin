@@ -31,11 +31,14 @@ from typing import Optional, Tuple
 from urllib.parse import urlparse
 
 from fastapi import HTTPException, Request
-from sqlalchemy import Column, DateTime, Index, Integer, String, Text
 from starlette import status
 
 from keepup import tables
 from keepup.db import DatabaseManagerV2
+
+# Declared by the sign-in declares its own tables (keepup-124); re-exported here so the path that predates
+# the catalogue still creates it.
+from keepup_auth.tables import AUTH_SESSION  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -107,16 +110,6 @@ REASON_PASSWORD_CHANGED = "password_changed"
 REASON_ACCOUNT_BLOCKED = "account_blocked"
 
 
-AUTH_SESSION = tables.table(
-    TABLE,
-    Column("sid", String(64).with_variant(Text(), "sqlite"), primary_key=True, nullable=True),
-    Column("user_id", Integer, nullable=False),
-    Column("created_at", DateTime, nullable=False),
-    Column("expires_at", DateTime, nullable=False),
-    Column("revoked_at", DateTime),
-    Column("revoked_reason", String(64).with_variant(Text(), "sqlite")),
-    Index(f"idx_{TABLE}_user", "user_id"),
-)
 
 
 def init_table() -> None:
