@@ -113,6 +113,20 @@ def test_installing_a_stand_in_imports_nothing(monkeypatch):
     assert calls == ["keepup_fake_lazy_target"]
 
 
+def test_a_stand_in_declares_what_the_module_declared():
+    """A check that reads `__all__` must learn the interface, not nothing."""
+    import sys
+
+    target = types.ModuleType("keepup_fake_declared")
+    target.__all__ = ["DatabaseManagerV2", "db_config"]
+    sys.modules["keepup_fake_declared"] = target
+    try:
+        stand_in = compat.shim("keepup.fake_declared", "keepup_fake_declared")
+        assert stand_in.__all__ == ["DatabaseManagerV2", "db_config"]
+    finally:
+        sys.modules.pop("keepup_fake_declared", None)
+
+
 def test_a_name_that_did_not_move_needs_no_stand_in():
     """The layer does not invent history for a module that is where it was."""
     with pytest.raises(KeyError):

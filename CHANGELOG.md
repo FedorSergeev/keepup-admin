@@ -10,6 +10,16 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **A stand-in answers for the declaration of the module it replaced
+  (keepup-125).** The first attempt at moving `keepup.db` was refused by the
+  public-interface check, and the reason was not the module's interface: the
+  compatibility layer's stand-in was created empty, so a check that reads
+  `module.__all__` to learn what an application may take found a module declaring
+  nothing and reported every name taken from `keepup.db` as undeclared. The
+  stand-in now answers for the moved module's `__all__` while keeping its own
+  docstring -- it has something to say the moved module did not -- and the check
+  that reads declarations sees an interface rather than an absence.
+
 - **A stand-in imports nothing, and a distribution re-exports what is declared
   (keepup-126).** Two of the reasons the first attempt at moving `keepup.db`
   failed were about laziness. Installing a stand-in imports nothing -- the

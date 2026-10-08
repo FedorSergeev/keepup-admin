@@ -114,6 +114,11 @@ class _Moved(types.ModuleType):
     def __init__(self, name: str, destination: str):
         super().__init__(name)
         self.__dict__["_destination"] = destination
+        # The stand-in keeps its own docstring -- it has something to say the
+        # moved module did not -- but it must answer for the declaration: a check
+        # that reads `module.__all__` to learn the interface found nothing here
+        # and reported every name the application takes as undeclared
+        # (keepup-125).
 
     def _target(self):
         """The module this name now lives in.
@@ -141,7 +146,7 @@ class _Moved(types.ModuleType):
         # module that moved exported names a distribution's __init__ does not
         # re-export -- its private helpers, its `__file__` -- and code that used
         # them has to keep working for the release.
-        if item in ("__file__", "__path__", "__spec__", "__loader__"):
+        if item in ("__file__", "__path__", "__spec__", "__loader__", "__all__"):
             return getattr(self._target(), item)
         if item.startswith("__") and item.endswith("__"):
             raise AttributeError(item)
