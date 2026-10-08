@@ -10,6 +10,15 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The fourth import comes off the debt list (keepup-127).** `web.py` took the
+  database manager at module level and used it in the two health checks, each
+  inside its route handler; the import moved into them, and the module can be
+  imported by a stand with no database. Four of the nine modules keepup-127 owns
+  are paid -- retention, metrics retention, integrations, web -- and five remain
+  (cluster, locks, metrics, the metrics API, the section catalogue, the
+  notification bus, the plugin decisions and the positional-SQL helper, of which
+  the first four are the next ones).
+
 - **The import debt is two jobs, and one list hid that (keepup-127, keepup-124).**
   Twenty-one of the modules that load a database while being imported declare
   tables or take SQLAlchemy directly, so no lazy import can help them: their

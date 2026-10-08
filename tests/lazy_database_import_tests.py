@@ -58,7 +58,6 @@ CAN_BE_MADE_LAZY = {
     "notification_bus.py": "it signs what replicas send, not what they store",
     "plugins/admin.py": "the plugin decisions are read per request",
     "positional_sql.py": "it builds a statement for a caller to run",
-    "web.py": "the pages read the database per request",
 }
 
 #: What "takes the database" means.

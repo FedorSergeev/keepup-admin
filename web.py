@@ -19,7 +19,6 @@ from keepup import cluster
 from keepup.api_versions import describe
 from keepup.audit import incoming_requests_buffer
 from keepup.auth.dependencies import get_current_admin
-from keepup.db import DatabaseManagerV2
 from keepup.instance import get_instance_id
 from keepup.themes import config_service
 
@@ -158,6 +157,10 @@ def register_web_routes(app):
                 "timestamp": datetime.utcnow().isoformat(),
             })
         try:
+            # Taken here, not at the top of the module: importing the framework
+            # must not load a database (keepup-127).
+            from keepup.db import DatabaseManagerV2
+
             db_status = DatabaseManagerV2.test_connection()
         except Exception as e:
             db_status = {"success": False, "error": str(e)}
@@ -182,6 +185,10 @@ def register_web_routes(app):
     def admin_health_check(admin: dict = Depends(get_current_admin)):
         """The full picture for an administrator: database, its version and settings."""
         try:
+            # Taken here, not at the top of the module: importing the framework
+            # must not load a database (keepup-127).
+            from keepup.db import DatabaseManagerV2
+
             db_status = DatabaseManagerV2.test_connection()
         except Exception as e:
             db_status = {"success": False, "error": str(e)}
