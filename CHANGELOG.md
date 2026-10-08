@@ -10,6 +10,18 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **A stand-in answers for a module, not only for a package (keepup-124).** The
+  first attempt at moving `db.py` into `keepup-db` failed at test collection, and
+  the failure was worth keeping: the compatibility layer stood in for a *package*
+  while what moves is a *module*. The old module exported things the
+  distribution's `__init__` does not re-export -- its private helpers, its
+  `__file__` -- so code that used them stopped working. A stand-in now answers
+  for a module: dunders come from the target, a name the package does not
+  re-export is looked up in the modules inside the distribution (already imported
+  or discovered), and a name that is nowhere gives a refusal naming the name and
+  its new home. The move of `db.py` itself is the next step, and the shim is
+  ready for it now rather than after it.
+
 - **The base declares no distribution, and a moved name says what to install
   (keepup-124).** The order written down a moment ago had the base re-export from
   a distribution and declare it as a dependency, which cannot work: every

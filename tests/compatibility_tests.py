@@ -65,6 +65,28 @@ def test_a_missing_home_names_the_distribution_to_install():
     assert "install keepup-nothing-here" in str(missing.value)
 
 
+def test_a_stand_in_answers_for_a_module_not_only_a_package():
+    """A moved module exported names its new package does not re-export."""
+    import sys
+
+    package = types.ModuleType("keepup_fake_package")
+    package.__path__ = []
+    package.__file__ = "/nowhere/__init__.py"
+    inner = types.ModuleType("keepup_fake_package.inner")
+    inner._private_helper = "kept"
+    inner.__file__ = "/nowhere/inner.py"
+    sys.modules["keepup_fake_package"] = package
+    sys.modules["keepup_fake_package.inner"] = inner
+    package.inner = inner
+    try:
+        stand_in = compat.shim("keepup.fake_module", "keepup_fake_package")
+        assert stand_in.__file__ == "/nowhere/__init__.py"
+        assert stand_in._private_helper == "kept"
+    finally:
+        sys.modules.pop("keepup_fake_package", None)
+        sys.modules.pop("keepup_fake_package.inner", None)
+
+
 def test_a_name_that_did_not_move_needs_no_stand_in():
     """The layer does not invent history for a module that is where it was."""
     with pytest.raises(KeyError):

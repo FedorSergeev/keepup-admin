@@ -55,6 +55,24 @@ _said: set = set()
 _installed: Dict[str, types.ModuleType] = {}
 
 
+def _submodules(package) -> list:
+    """The modules inside a distribution, so an old name finds what it exported."""
+    import pkgutil
+
+    prefix = package.__name__ + "."
+    found = [module for name, module in list(sys.modules.items())
+             if name.startswith(prefix) and isinstance(module, types.ModuleType)]
+    for module in pkgutil.iter_modules(getattr(package, "__path__", [])):
+        name = f"{package.__name__}.{module.name}"
+        if name in sys.modules:
+            continue
+        try:
+            found.append(importlib.import_module(name))
+        except Exception:  # noqa: BLE001 - a module that will not import is not this one
+            continue
+    return found
+
+
 def destination_of(name: str) -> Optional[str]:
     """Where a moved name went, or None when it did not move.
 
@@ -119,10 +137,25 @@ class _Moved(types.ModuleType):
             ) from missing
 
     def __getattr__(self, item):
+        # A stand-in has to answer for a module, not only for a package: the
+        # module that moved exported names a distribution's __init__ does not
+        # re-export -- its private helpers, its `__file__` -- and code that used
+        # them has to keep working for the release.
+        if item in ("__file__", "__path__", "__spec__", "__loader__"):
+            return getattr(self._target(), item)
         if item.startswith("__") and item.endswith("__"):
             raise AttributeError(item)
         warn_moved(self.__name__, self.__dict__["_destination"])
-        return getattr(self._target(), item)
+        target = self._target()
+        if hasattr(target, item):
+            return getattr(target, item)
+        for module in _submodules(target):
+            if hasattr(module, item):
+                return getattr(module, item)
+        raise AttributeError(
+            f"{self.__name__} moved to {self.__dict__['_destination']}, which has "
+            f"no {item}"
+        )
 
 
 def shim(name: str, destination: Optional[str] = None) -> types.ModuleType:
