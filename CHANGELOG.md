@@ -10,6 +10,21 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **System metrics as a capability, and the two route keys it needed
+  (keepup-112).** Collecting this replica's numbers, answering Prometheus and
+  showing the panel what the fleet is doing were three modules of the kernel
+  that every deployment paid for, whether or not it wanted a collector.
+  `builtin/metrics.py` owns all three now, and it is the capability that needed
+  what keepup-102 added: `/metrics` declares `response_media_type: text/plain`
+  and `audit: false`, because a scrape every fifteen seconds per replica is not
+  an audit, and a scrape without a registry answers an empty document rather
+  than a 500. The panel's replica list comes from the table itself --
+  `system_metrics.app_instance` within a freshness window -- so the cluster is a
+  soft requirement: metrics report on replicas and do not fail to start for want
+  of the registry they report on, and the report marks the plugin `degraded`
+  with the names of what is missing. `metrics.collect()` is how another
+  capability publishes numbers of its own.
+
 - **The integration log, finished and built from the constructor
   (keepup-110).** Writing to the log has worked for years and showing it never
   did: the panel's section calls `/api/integration-logs`, `/{id}`, `/stats` and
