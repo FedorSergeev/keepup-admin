@@ -10,6 +10,18 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **Every table has an owner, and the map is checked (keepup-124).** A
+  declaration leaves the kernel's `schema.py` together with the module that keeps
+  it, so the move needs a map that says where each one goes -- and a map nobody
+  checks drifts within a week. `doc/table-ownership.md` names the distribution
+  that will hold each declared table, including the three whose capability is
+  0.5.0 work (`keepup-tasks`, `keepup-cluster`, `keepup-modules`) and the four
+  that have already moved next to their code: sessions and login attempts with
+  `keepup-auth`, incoming requests and application events with `keepup-audit`. A
+  check fails when a table is declared without an owner, when the map names a
+  table that does not exist, when an owner is neither a distribution nor named
+  later work, and when a table that has moved is still declared in the kernel.
+
 - **Nobody decides by the role mirror (keepup-83).** `users.role` is the
   deprecated mirror of the set in `user_roles`: ADMIN when it is held, otherwise
   the first role granted. It is written in one transaction with the set and is
