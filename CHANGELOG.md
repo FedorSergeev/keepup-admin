@@ -10,6 +10,17 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The import debt is measured, not estimated (keepup-127).** `doc/distributions.md`
+  named four modules whose import pulls the database in; the check written from
+  that list found thirty-three. That is the real size of the release's promise
+  that the base carries no database library: while importing any of them loads
+  the database, a stand without storage cannot be assembled and there is nowhere
+  to move the module to. The thirty-three are now named, each with its reason, in
+  a list that may only shrink -- a module outside it fails the check, and so does
+  an entry that no longer takes the database, which is the work itself
+  (keepup-127, keepup-124). The kernel is on neither side of the list: it takes
+  no database in any module, which is what made the constructor possible.
+
 - **What a second attempt at moving the module found (keepup-124, keepup-125,
   keepup-127).** The move of `keepup.db` was attempted again with the two
   compatibility findings fixed, and the full suite named the remaining eight
