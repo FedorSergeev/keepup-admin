@@ -10,6 +10,17 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The profile brings the capabilities up in a real application (keepup-123).**
+  With the runtime raised inside `create_app` and the deployment's dialect
+  choosing the driver, an application that names the `panel` profile brings its
+  capabilities up for real: the abstraction publishes the data source, `audit`
+  and `users` publish theirs, and the capabilities offer their table declarations
+  to be created. That is the acceptance of keepup-123 and the thing keepup-124 has
+  been waiting for: something in a deployment now asks a capability for its
+  declaration, so a declaration can leave `keepup.schema` without the table
+  disappearing. A check states exactly that -- eight declarations, the services,
+  and the dialect the deployment named.
+
 - **The application raises the catalogue with itself (keepup-123, second step).**
   The catalogue and the profiles worked only in checks: `create_app` assembled the
   application the 0.3.0 way, and the capabilities that already know how to declare
