@@ -41,6 +41,26 @@ deployment that wants a socket and a metrics endpoint installs `keepup-admin`,
 `keepup-db`, its driver and `keepup-metrics`, and gets no panel, no sign-in and
 no bcrypt.
 
+## Which modules keep a library in the base
+
+A library leaves the base package when the last module that imports it has moved
+into its distribution. This is that list, computed from the code: when a module
+moves, its name has to leave this table in the same change, and the day a row is
+empty, the library comes out of `pyproject.toml` -- and the check written for
+that day (`tests/base_package_freedom_tests.py`) stops finding it.
+
+A library with no module in the base that imports it is a *run-time* need of
+something the base does: `psycopg2` is the driver SQLAlchemy reaches for when it
+connects, named in a connection string rather than in an import. It leaves with
+the module that builds that string.
+
+| Library | Its distribution | The base modules that still import it |
+| --- | --- | --- |
+| `sqlalchemy` | `keepup-db` | `auth/login_throttle.py`, `auth/user_roles.py`, `events.py`, `schema.py` |
+| `psycopg2` | `keepup-postgres` | — no module imports it (see below) |
+| `bcrypt` | `keepup-auth` | `auth/dependencies.py`, `auth/providers/base.py`, `auth/providers/local.py`, `auth/seed_accounts.py`, `auth/user_routes.py` |
+| `jwt` | `keepup-auth` | `auth/dependencies.py`, `auth/oidc.py`, `auth/panel_session.py`, `auth/providers/base.py`, `auth/providers/local.py`, `auth/routes.py` |
+
 ## In what order the move happens
 
 A declaration or a module moves in one change, and the change is only complete

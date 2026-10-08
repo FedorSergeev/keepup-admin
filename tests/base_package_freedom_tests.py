@@ -92,3 +92,54 @@ def test_the_kernel_does_not_import_a_capability_module():
         if found:
             offenders[str(path.relative_to(PACKAGE))] = found
     assert offenders == {}, f"the kernel imports a capability: {offenders}"
+
+
+def keepers(library):
+    """The base modules that import a library, computed from the code."""
+    found = []
+    for path, relative in _framework_files():
+        text = path.read_text(encoding="utf-8")
+        if f"import {library}" in text or f"from {library}" in text:
+            found.append(relative)
+    return found
+
+
+def _framework_files():
+    """Every Python file of the base package, checks and artifacts aside."""
+    for path in sorted(PACKAGE.rglob("*.py")):
+        parts = path.relative_to(PACKAGE).parts
+        if any(part.startswith(".") or part in
+               ("tests", "ci", "openspec", "doc", "packages", "build", "__pycache__")
+               for part in parts):
+            continue
+        yield path, "/".join(parts)
+
+
+def test_every_library_that_stays_has_its_keepers_written_down():
+    """The list the next move reads: who keeps a library in the base today.
+
+    A library leaves when the last module that imports it has moved, so the
+    document has to name those modules -- and a module that moves has to leave
+    this table in the same change, or the table stops being true silently.
+    """
+    text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")
+    section = text[text.index("## Which modules keep a library in the base"):]
+    section = section[:section.index("\n## ")]
+    for library in LEAVES_THE_BASE:
+        found = keepers(library)
+        if not found:
+            # A library no module of the base imports is still needed at run time
+            # by something the base does: `psycopg2` is the driver SQLAlchemy
+            # reaches for when it connects, and the reference to it is a
+            # connection string rather than an import. It leaves with the module
+            # that builds that string (keepup-124), and until then it is named
+            # here so it is not simply forgotten.
+            assert library in section or library.replace("-binary", "") in section, (
+                f"{library} is a dependency of the base, no module imports it, and "
+                "the document does not say why")
+            continue
+        missing = [name for name in found if f"`{name}`" not in section]
+        assert missing == [], (
+            f"these modules keep {library} in the base and the table does not name "
+            f"them: {missing}"
+        )

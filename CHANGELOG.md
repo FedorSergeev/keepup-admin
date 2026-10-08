@@ -10,6 +10,16 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **Which modules keep a library in the base (keepup-124).** Taking the libraries
+  out of the base package cannot be done by feel: a library leaves when the last
+  module that imports it has moved, so the list of those modules is now written
+  down -- computed from the code -- and checked. A module that moves has to leave
+  the table in the same change, or the table stops being true silently. The check
+  also had to learn a case worth naming: `psycopg2` is declared by the base and no
+  module imports it, because it is the driver SQLAlchemy reaches for when it
+  connects -- a connection string, not an import -- and it leaves with the module
+  that builds that string rather than with an import that does not exist.
+
 - **The panel declares its own tables, and the declaration moves are done
   (keepup-124).** The themes, the section catalogue and the grants to roles were
   declared in the base package's `themes.py` and `schema.py`; they now live in
