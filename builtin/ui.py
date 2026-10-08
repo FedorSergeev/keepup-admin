@@ -19,7 +19,7 @@ from typing import Any, Dict, List, Mapping, Optional
 
 from keepup.kernel.descriptor import KIND_OPTIONAL, PluginDescriptor
 from keepup.plugins.base import BasePlugin
-from keepup.themes import VISUAL_THEMES
+from keepup_ui.tables import VISUAL_THEMES
 
 logger = logging.getLogger(__name__)
 

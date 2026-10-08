@@ -51,6 +51,7 @@ OPTIONAL_CAPABILITY_IMPORTS = {
     "keepup_metrics": "keepup-metrics",
     "keepup_audit": "keepup-audit",
     "keepup_auth": "keepup-auth",
+    "keepup_ui": "keepup-ui",
 }
 
 DEPENDENCY_IMPORTS = {

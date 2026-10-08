@@ -12,8 +12,7 @@ through edits here -- the framework has no payments and no feeds.
 import logging
 import os
 
-from sqlalchemy import Boolean, Column, DateTime, Index, Integer, Text, UniqueConstraint
-from sqlalchemy import text as sql_text
+from sqlalchemy import Boolean, Column, DateTime, Index, Integer, Text
 
 from keepup import tables
 from keepup.audit import init_incoming_requests_table
@@ -42,6 +41,10 @@ from keepup_users.tables import (  # noqa: E402
     USER_ROLES,
 )
 
+# The panel declares the section catalogue and the grants (keepup-124); they are
+# re-exported here so the path that predates the catalogue still creates them.
+from keepup_ui.tables import FRONTEND_MODULES, ROLE_MODULES  # noqa: E402
+
 DISTRIBUTED_LOCKS = tables.table(
     "distributed_locks",
     # A text key written as ``TEXT PRIMARY KEY``: SQLite leaves such a column
@@ -58,22 +61,6 @@ DISTRIBUTED_LOCKS = tables.table(
 # here so the path that predates the catalogue still creates it.
 from keepup_metrics.tables import SYSTEM_METRICS  # noqa: E402
 
-FRONTEND_MODULES = tables.table(
-    "frontend_modules",
-    tables.auto_id(),
-    Column("module_id", Text, unique=True, nullable=False),
-    Column("name", Text, nullable=False),
-    Column("description", Text),
-    Column("js_path", Text),
-    Column("css_path", Text),
-    Column("init_function", Text),
-    Column("version", Text, server_default="1.0.0"),
-    Column("is_active", Boolean, server_default=sql_text("TRUE")),
-    Column("config", Text),
-    Column("created_at", DateTime, server_default=tables.NOW),
-    Column("updated_at", DateTime, server_default=tables.NOW),
-    Index("idx_frontend_modules_active", "is_active"),
-)
 
 # Which backend plugins this deployment runs, when the administrator has
 # decided it from the panel (task 65). The file config/modules.json stays
@@ -127,17 +114,6 @@ CLUSTER_COMMANDS = tables.table(
 # The roles one account holds. The set is the truth about who this is;
 # ``users.role`` is a mirror of it for one release (keepup/auth/user_roles.py).
 
-ROLE_MODULES = tables.table(
-    "role_modules",
-    tables.auto_id(),
-    Column("role_name", Text, nullable=False),
-    Column("module_id", Text, nullable=False),
-    Column("is_active", Boolean, server_default=sql_text("TRUE")),
-    Column("created_at", DateTime, server_default=tables.NOW),
-    UniqueConstraint("role_name", "module_id"),
-    Index("idx_role_modules_role", "role_name"),
-    Index("idx_role_modules_active", "is_active"),
-)
 
 # The pair is unique on both dialects, but not by the same means: PostgreSQL
 # holds a named constraint, SQLite a unique index of the same name. Databases

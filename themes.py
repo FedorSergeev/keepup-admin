@@ -4,7 +4,6 @@ import logging
 from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, HTTPException
-from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 
 from keepup.auth.dependencies import get_current_admin
 
@@ -19,6 +18,10 @@ __all__ = [
     "register_theme_routes",
 ]
 
+# The panel declares its own tables (keepup-124); re-exported here so the path
+# that predates the catalogue still creates them.
+from keepup_ui.tables import VISUAL_THEMES  # noqa: E402
+
 logger = logging.getLogger(__name__)
 
 THEMES_TABLE = "visual_themes"
@@ -27,21 +30,6 @@ THEMES_TABLE = "visual_themes"
 #: load asks for it, and it changes when an administrator changes it.
 ACTIVE_THEME_CACHE = "active_theme"
 
-VISUAL_THEMES = tables.table(
-    THEMES_TABLE,
-    tables.auto_id(),
-    Column("theme_name", String(100).with_variant(Text(), "sqlite"), nullable=False, unique=True),
-    Column("main_page_file", String(255).with_variant(Text(), "sqlite"), nullable=False),
-    # Branding came after the table; older databases get these two from
-    # ensure_tables rather than from the CREATE.
-    Column("brand_name", String(100).with_variant(Text(), "sqlite")),
-    Column("logo_url", String(255).with_variant(Text(), "sqlite")),
-    # SQLite had an integer flag here and the queries write 0/1 into it.
-    Column("is_active", Boolean().with_variant(Integer(), "sqlite"),
-           server_default=tables.per_dialect(postgres="FALSE", sqlite="0")),
-    Column("created_at", DateTime, server_default=tables.NOW),
-    Column("updated_at", DateTime, server_default=tables.NOW),
-)
 
 
 class ConfigService:

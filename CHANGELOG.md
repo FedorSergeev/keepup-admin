@@ -10,6 +10,19 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The panel declares its own tables, and the declaration moves are done
+  (keepup-124).** The themes, the section catalogue and the grants to roles were
+  declared in the base package's `themes.py` and `schema.py`; they now live in
+  `packages/keepup-ui/keepup_ui/tables.py`, with the name constants they came
+  with, and the two modules re-export them so the path that predates the catalogue
+  still creates them. Six capabilities declare their own tables now -- the
+  integration log, the accounts, the snapshots, the audit, the sign-in and the
+  panel -- and what is left in the kernel's schema is exactly what
+  `doc/table-ownership.md` says must wait for 0.5.0: the locks, the plugin
+  decisions and the cluster pair. Taking SQLAlchemy and the rest out of the base
+  package is the last step of this task, and it waits for the modules that import
+  them to move.
+
 - **The sign-in declares its own tables (keepup-124).** The panel's sessions and
   the attempts that throttle a guesser were declared in the base package's
   `auth/panel_session.py` and `auth/login_throttle.py`; they now live in
