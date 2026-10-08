@@ -50,7 +50,6 @@ MOVES_WITH_ITS_CAPABILITY = {
 #: only inside functions, so the import belongs there. This is keepup-127's own
 #: work, and it is finite -- nine of them.
 CAN_BE_MADE_LAZY = {
-    "cluster.py": "its routes are the administrator's",
     "locks.py": "its routes are the administrator's",
     "metrics.py": "the collector reads the pool when it is asked to",
     "metrics_api.py": "the panel's view reads the database per request",

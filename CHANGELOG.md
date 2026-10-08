@@ -10,6 +10,15 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The seventh import comes off the debt list (keepup-127).** `cluster.py` -- the
+  replica registry, the commands between replicas and the routes an administrator
+  reads them by -- took the manager at module level in thirteen functions' worth
+  of use. The import now sits in each of those functions, and the module can be
+  imported by a stand with no database. Seven of the nine modules are paid
+  (retention, metrics retention, integrations, web, positional_sql,
+  notification_bus, cluster); two remain: locks and the metrics pair with the
+  section catalogue and the plugin decisions.
+
 - **The sixth import comes off the debt list (keepup-127).** `notification_bus.py`
   took the manager and the database configuration at module level and used them
   in three functions, so the imports moved into them. Its own checks patched the
