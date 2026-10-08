@@ -10,6 +10,19 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The integration log, finished and built from the constructor
+  (keepup-110).** Writing to the log has worked for years and showing it never
+  did: the panel's section calls `/api/integration-logs`, `/{id}`, `/stats` and
+  `/cleanup`, and no module of the framework registered any of them -- the
+  section was handed to ADMIN and answered 404. `builtin/integration_logs.py` is
+  the first capability assembled entirely from the new mechanics: a descriptor
+  (optional, requires `datasource`, wants `users`, provides `integration_log`),
+  its table declared once rather than twice, four routes as data with request
+  masks and sane bounds, `POST /cleanup` with the retention the table never had,
+  and its panel section as a contribution. A check reads the section's own
+  JavaScript and fails if it calls a path nothing declares, so the front end and
+  the back end cannot drift apart again in silence.
+
 - **The two drivers of one abstraction, and the framework finding its own
   plugins (keepup-107, keepup-108).** A driver is a plugin of kind `required`
   that provides `datasource_driver` and answers the abstraction one question:

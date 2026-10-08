@@ -72,9 +72,8 @@ async def test_the_framework_ships_two_drivers():
     """They are files of the framework until each travels in its own distribution."""
     import os
 
-    shipped = sorted(name for name in os.listdir(builtin_directory())
-                     if name.endswith(".py"))
-    assert shipped == ["postgres.py", "sqlite.py"]
+    shipped = {name for name in os.listdir(builtin_directory()) if name.endswith(".py")}
+    assert {"postgres.py", "sqlite.py"} <= shipped
 
 
 async def test_the_deployment_chooses_the_dialect_by_enabling_one_driver():
