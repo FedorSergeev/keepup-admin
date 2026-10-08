@@ -10,6 +10,17 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **Two names for one module are one object (keepup-124).** Moving the sign-in
+  package into its distribution failed on a check of the password rule -- 401 where
+  it wanted 400 -- and the reason is worth having found: after a package moves,
+  `import keepup.auth.routes` builds a *second* module object from the same file,
+  so a setting written through the old name is invisible to the code that reads the
+  new one. The compatibility layer forwarded attributes but not identity. A moved
+  submodule now gets its old name in `sys.modules` pointing at the same object, and
+  a check holds it to that with a synthetic pair of packages -- the old name and
+  the new one are the same module, and a write through either is visible through
+  the other. With this the sign-in's move has one fewer way to fail.
+
 - **The last move, measured and written down as a runbook (keepup-124).** The
   sign-in package is the last unit of the release that moves, and its size is
   measured rather than feared: 75 import lines inside the package name it by its

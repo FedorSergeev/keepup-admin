@@ -113,6 +113,33 @@ def test_installing_a_stand_in_imports_nothing(monkeypatch):
     assert calls == ["keepup_fake_lazy_target"]
 
 
+def test_a_moved_submodule_keeps_one_module_object(tmp_path, monkeypatch):
+    """Two names for one file must be one object, or a setting lands on neither.
+
+    This is what a check caught when the sign-in package moved: a password rule
+    set through the old name did not reach the code reading the new one.
+    """
+    import sys
+
+    package = tmp_path / "keepup_fake_tree"
+    package.mkdir()
+    (package / "__init__.py").write_text("", encoding="utf-8")
+    (package / "inner.py").write_text("value = 1\n", encoding="utf-8")
+    monkeypatch.syspath_prepend(str(tmp_path))
+    try:
+        stand_in = compat.shim("keepup.fake_tree", "keepup_fake_tree")
+        stand_in.inner                      # touching the name aliases it
+        old = __import__("keepup.fake_tree.inner", fromlist=["inner"])
+        new = __import__("keepup_fake_tree.inner", fromlist=["inner"])
+        assert old is new, "the old name and the new one are two module objects"
+        old.value = 2
+        assert new.value == 2
+    finally:
+        for name in ("keepup.fake_tree", "keepup.fake_tree.inner",
+                     "keepup_fake_tree", "keepup_fake_tree.inner"):
+            sys.modules.pop(name, None)
+
+
 def test_a_stand_in_declares_what_the_module_declared():
     """A check that reads `__all__` must learn the interface, not nothing."""
     import sys

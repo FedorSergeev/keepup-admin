@@ -136,6 +136,24 @@ class _Moved(types.ModuleType):
         setattr(self._target(), item, value)
         self.__dict__[item] = value
 
+    def _alias_submodules(self, target) -> None:
+        """Give a moved submodule its old name as well, and the same object.
+
+        `import keepup.auth.routes` after the package moved would otherwise build
+        a *second* module object from the same file -- one under the old name and
+        one under the new -- and a setting written through one would be invisible
+        to the other. A check caught exactly that when the sign-in moved: a
+        password rule set on `keepup.auth.routes` did not reach the administrator
+        (keepup-124).
+        """
+        if not hasattr(target, "__path__"):
+            return
+        for module in _submodules(target):
+            tail = module.__name__.split(".")[1:]
+            sys.modules.setdefault(".".join([self.__name__, *tail]), module)
+            if len(tail) == 1 and tail[0].isidentifier():
+                self.__dict__.setdefault(tail[0], module)
+
     def _target(self):
         """The module this name now lives in.
 
@@ -168,6 +186,7 @@ class _Moved(types.ModuleType):
             raise AttributeError(item)
         warn_moved(self.__name__, self.__dict__["_destination"])
         target = self._target()
+        self._alias_submodules(target)
         if hasattr(target, item):
             return getattr(target, item)
         for module in _submodules(target):
