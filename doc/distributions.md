@@ -115,3 +115,46 @@ hundred and sixty checks. Both were reverted whole, and nothing was committed.
 The lesson is not that tooling is bad: it is that an edit which cannot be
 finished and *seen* must not be started, and these modules are where the release
 is least tolerant of a half-done change.
+
+## What is left, and in what order
+
+Two tasks of 0.4.0 remain, and they are one piece of work in two halves. The order
+between them is not a preference: it was forced twice by a check refusing a
+half-done change.
+
+**First, `create_app` is assembled through the runtime** (keepup-123). The old
+path builds the application itself: it creates the tables of `keepup.schema` from
+a list inside `init_db`, registers the routes of every framework module and loads
+the application's plugins through the old manager. Until that path is the runtime
+-- catalogue, profiles, two phases, contributions -- three things stay impossible:
+
+* a table cannot be created by the capability that declares it, because nothing
+  asks a plugin for its declarations on that path;
+* a declaration cannot leave `keepup.schema`, because the old path would stop
+  creating it (this is what the ownership map's rows are waiting for);
+* `sqlalchemy`, `psycopg2-binary`, `bcrypt` and `pyjwt` cannot leave the base
+  `pyproject.toml`, because the modules that import them are still modules of it.
+
+**Then the declarations move to their owners and the libraries leave**
+(keepup-124). `doc/table-ownership.md` names the destination of every declaration;
+each move is one declaration, its owner, the module that reads it, and the entry
+in `tests/lazy_database_import_tests.py` -- and the last one deletes the debt
+check in `tests/base_package_freedom_tests.py`, which fails on purpose the day a
+library leaves the base.
+
+## What the attempts taught, so the next one does not repeat them
+
+* A file of a capability is not a client of it: the plugin file of `keepup-db`
+  imports its distribution directly *once that distribution holds the code*
+  (keepup-123). Until then it goes through the compatibility layer, and the
+  packaging check enforces the accounting either way.
+* A base package that imports a distribution declares a dependency nobody can
+  install: neither package could be installed alone, which is why the base
+  declares none and the old names answer through `keepup.compat`.
+* An import that moves breaks patch points: anything patching `module.Name` where
+  the module no longer takes `Name` at import time has to patch the module that
+  holds it. Two checks learned that the hard way; the stand-in forwards reads,
+  writes and declarations, but it cannot invent an attribute a module never had.
+* A change that cannot be finished and *seen* must not be started. Three attempts
+  at moving a module and two at writing a dialect rule were reverted whole; no
+  half-done edit was ever committed.

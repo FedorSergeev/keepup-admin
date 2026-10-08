@@ -10,6 +10,18 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **What is left of the release, written where the next attempt reads it
+  (keepup-123, keepup-124).** Two tasks remain and they are one piece of work in
+  two halves: `create_app` has to be assembled through the runtime before a
+  declaration can leave `keepup.schema` (the old path creates tables from a list
+  inside `init_db`, so a declaration that moved would stop being created), and
+  only after that can the four libraries leave the base package.
+  `doc/distributions.md` states the order and collects what the attempts taught:
+  a capability's plugin file is not a client of it, a base that imports a
+  distribution declares a dependency nobody can install, a moved import breaks
+  patch points that have to follow the name, and a change that cannot be finished
+  and seen must not be started. A check holds the document to naming all of it.
+
 - **The positional-parameter helper joins the abstraction (keepup-124).** It
   exists only because of how the manager takes parameters -- the pool wants
   `:name` and code written for a driver uses `?` -- so it belongs beside the

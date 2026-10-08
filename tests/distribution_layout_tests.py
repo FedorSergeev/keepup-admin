@@ -167,6 +167,15 @@ def test_the_document_says_how_a_payment_is_made():
     assert "reverted whole" in text
 
 
+def test_the_document_says_what_is_left_and_in_what_order():
+    """The two remaining tasks, and why one comes before the other (keepup-123)."""
+    text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")
+    assert "What is left, and in what order" in text
+    assert "`create_app` is assembled through the runtime" in text
+    assert "the declarations move to their owners and the libraries leave" in text
+    assert "must not be started" in text
+
+
 def test_the_document_says_what_the_base_stops_carrying():
     """The promise keepup-124 has to keep, written where a reader will find it."""
     text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")
