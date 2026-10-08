@@ -267,6 +267,23 @@ def _build_lifespan(settings: KeepupSettings):
     async def lifespan(app: FastAPI):
         require_signing_key()
 
+        # The plugin catalogue, raised beside the path this application already
+        # has (keepup-123). Everything the runtime does is additive: it resolves
+        # the catalogue and the profile, publishes the services a capability
+        # offers and creates the tables a capability declares. A deployment whose
+        # catalogue cannot start -- a required plugin missing, two providers of
+        # one service -- is reported and the application boots anyway, because
+        # 0.3.0 deployments reach this code with a catalogue that never existed.
+        from keepup.kernel import create_runtime
+
+        kernel = create_runtime(settings)
+        try:
+            await kernel.start()
+        except Exception as error:  # noqa: BLE001 - a catalogue is not the application
+            logger.warning("The plugin catalogue did not start: %s", error)
+            kernel = None
+        app.state.kernel = kernel
+
         # Shipping is loaded only for an application that names a collector
         # (keepup/log_shipping.py, keepup-24).
         remote_handler = None
@@ -350,6 +367,11 @@ def _build_lifespan(settings: KeepupSettings):
         cache.invalidate_all()
 
         yield
+
+        if kernel is not None:
+            # The services a capability published are closed with the process
+            # that published them (keepup-106).
+            await kernel.stop()
 
         await controller.shutdown()
         cluster.set_controller(None)

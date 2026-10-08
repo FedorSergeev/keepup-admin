@@ -317,6 +317,11 @@ class Runtime:
         logger.info("Runtime: %s", self.summary_line())
         return self
 
+    @property
+    def started(self) -> bool:
+        """Whether this runtime is up: what a deployment asks before stopping it."""
+        return bool(getattr(self, "_started", False))
+
     async def stop(self) -> None:
         """Clean the plugins up in the reverse of the order they started."""
         for plugin_id in reversed(self._init_order):

@@ -10,6 +10,20 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The application raises the catalogue with itself (keepup-123, second step).**
+  The catalogue and the profiles worked only in checks: `create_app` assembled the
+  application the 0.3.0 way, and the capabilities that already know how to declare
+  their tables and publish their services took no part in a deployment. That is
+  what kept a declaration from leaving `keepup.schema` -- the table would have
+  stopped being created (keepup-124). The runtime is now raised inside the
+  application's own lifespan, beside the old path, which still registers routes
+  and still suits a 0.3.0 plugin: it resolves the catalogue and the profile,
+  publishes what a capability offers and creates what a capability declares. A
+  catalogue that cannot start does not take the application with it -- the reason
+  goes to the log and the application serves, because a deployment that predates
+  the catalogue reaches this code with none. The runtime closes with the process,
+  and it answers `started` so a deployment can ask.
+
 - **The deployment's dialect chooses the driver (keepup-123, first step).** The
   framework ships two drivers of one required service, and both enabled stops the
   start on purpose, so the choice has to reach the kernel as data -- and the
