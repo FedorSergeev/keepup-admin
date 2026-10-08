@@ -10,6 +10,14 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The third import comes off the debt list (keepup-127).** `integrations.py`
+  took the database manager at module level and used it in four places, all of
+  them inside functions; the import moved into each of them and the module can be
+  imported by a stand with no database. Thirty modules still load a database
+  while being imported, down from thirty-three, and every payment is claimed in
+  the same change that makes it -- the check refuses an entry that no longer
+  needs the database.
+
 - **The second import comes off the debt list (keepup-127).**
   `metrics_retention.py` took the database manager at module level and used it in
   three functions; the import moved into them, and the module can be imported by

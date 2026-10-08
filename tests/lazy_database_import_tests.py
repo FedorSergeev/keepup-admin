@@ -42,7 +42,6 @@ AT_IMPORT_TIME = {
     "cluster.py": "its capability keeps its own table",
     "db.py": "it is the database, or the root that wires it in (keepup-124 moves these)",
     "events.py": "its capability keeps its own table",
-    "integrations.py": "its capability keeps its own table",
     "locks.py": "its capability keeps its own table",
     "metrics.py": "its capability keeps its own table",
     "metrics_api.py": "its capability keeps its own table",

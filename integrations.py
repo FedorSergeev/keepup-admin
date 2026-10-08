@@ -18,7 +18,6 @@ from datetime import datetime
 from typing import Dict, Optional
 
 
-from keepup.db import DatabaseManagerV2
 from keepup.auth.dependencies import get_user_by_id, get_user_by_username
 
 logger = logging.getLogger(__name__)
@@ -41,6 +40,7 @@ class IntegrationLogger:
             status_code: Optional[int] = None,
             duration_ms: Optional[int] = None
     ):
+        from keepup.db import DatabaseManagerV2
         """Record a request to an external API."""
         try:
             # Bodies are capped: a single large payload would otherwise dominate the log table.
@@ -78,6 +78,7 @@ class IntegrationLogger:
             limit: int = 100,
             offset: int = 0
     ):
+        from keepup.db import DatabaseManagerV2
         """Return log entries matching the given filters."""
         where, params = IntegrationLogger._filters(user_id, username, host, start_date, end_date)
         return DatabaseManagerV2.execute(
@@ -93,6 +94,7 @@ class IntegrationLogger:
             start_date: Optional[datetime] = None,
             end_date: Optional[datetime] = None
     ):
+        from keepup.db import DatabaseManagerV2
         """Return the number of log entries matching the given filters."""
         where, params = IntegrationLogger._filters(user_id, username, host, start_date, end_date)
         result = DatabaseManagerV2.execute_one(
@@ -129,6 +131,7 @@ def log_external_request(host: str, endpoint: str):
             response_body = ""
 
             try:
+                from keepup.db import DatabaseManagerV2
                 result = await func(*args, **kwargs)
                 response_body = str(result)[:1000] if result else ""
                 return result
