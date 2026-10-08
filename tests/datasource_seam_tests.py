@@ -172,6 +172,7 @@ def runtime_with(*plugin_classes):
     """A runtime whose catalogue enables exactly these plugins."""
     return create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue={
             "plugins": [{"id": plugin_class.descriptor.id, "enabled": True}
                         for plugin_class in plugin_classes]

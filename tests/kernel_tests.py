@@ -453,7 +453,7 @@ def test_a_plugin_of_the_application_is_loaded_from_its_file(tmp_path):
         "        return {}\n",
         encoding="utf-8",
     )
-    loader = PluginLoader(str(tmp_path), entry_points=[])
+    loader = PluginLoader(str(tmp_path), entry_points=[], builtin_dir=None)
     candidates = loader.candidates()
     assert "notes" in candidates
     assert candidates["notes"].source == "directory"
@@ -464,7 +464,7 @@ def test_a_plugin_of_the_application_is_loaded_from_its_file(tmp_path):
 def test_a_file_without_the_expected_class_is_passed_over(tmp_path):
     """A wrong class name does not raise in 0.3.0, and must not raise now."""
     (tmp_path / "wrong.py").write_text("value = 1\n", encoding="utf-8")
-    loader = PluginLoader(str(tmp_path), entry_points=[])
+    loader = PluginLoader(str(tmp_path), entry_points=[], builtin_dir=None)
     assert loader.candidates() == {}
 
 
@@ -490,7 +490,7 @@ def test_an_application_file_shadows_a_distribution(tmp_path):
         "        return {}\n",
         encoding="utf-8",
     )
-    loader = PluginLoader(str(tmp_path), entry_points=[entry_point(GreetingPlugin)])
+    loader = PluginLoader(str(tmp_path), entry_points=[entry_point(GreetingPlugin)], builtin_dir=None)
     candidates = loader.candidates()
     assert candidates["greeting"].source == "directory"
 
@@ -502,6 +502,7 @@ async def test_a_consumer_gets_a_service_from_a_plugin_declared_later():
     """Registration happens before any initialisation, so order does not matter."""
     runtime = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue=catalogue_for(GreetingPlugin, ConsumerPlugin),
         entry_points=[entry_point(GreetingPlugin), entry_point(ConsumerPlugin)],
     )
@@ -515,6 +516,7 @@ async def test_cleanup_runs_in_the_reverse_order():
     """What came up last goes down first."""
     runtime = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue=catalogue_for(GreetingPlugin),
         entry_points=[entry_point(GreetingPlugin)],
     )
@@ -529,6 +531,7 @@ async def test_a_soft_requirement_degrades_instead_of_stopping():
     """A plugin that runs worse is not a plugin that does not run."""
     runtime = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue=catalogue_for(WantingPlugin),
         entry_points=[entry_point(WantingPlugin)],
     )
@@ -542,6 +545,7 @@ async def test_a_hard_requirement_nobody_satisfies_leaves_the_plugin_out():
     """An audit that cannot record is not an audit, so it does not pretend to be."""
     runtime = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue=catalogue_for(ConsumerPlugin),
         entry_points=[entry_point(ConsumerPlugin)],
     )
@@ -577,6 +581,7 @@ async def test_a_plugin_written_for_0_3_0_still_runs(tmp_path):
     )
     runtime = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue={"plugins": [{"id": "old_style", "enabled": True}]},
         plugins_dir=str(tmp_path),
     )
@@ -588,6 +593,7 @@ async def test_the_environment_cannot_switch_off_a_required_plugin():
     """One line in a deployment's variables must not remove what it cannot work without."""
     runtime = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue=catalogue_for(GreetingPlugin),
         entry_points=[entry_point(GreetingPlugin)],
         environ={"PLUGINS_DISABLE": "greeting"},
@@ -601,6 +607,7 @@ async def test_the_application_file_may_switch_a_required_plugin_off():
     """The composition root says 'I bring my own', and that is its decision."""
     runtime = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue={"plugins": [{"id": "greeting", "enabled": False}]},
         entry_points=[entry_point(GreetingPlugin)],
     )
@@ -613,6 +620,7 @@ async def test_two_providers_of_one_required_service_stop_the_start():
     """The kernel refuses to guess which database it is running on."""
     runtime = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue=catalogue_for(DbPlugin, SqliteDriverPlugin, PostgresDriverPlugin),
         entry_points=[
             entry_point(DbPlugin),
@@ -628,6 +636,7 @@ async def test_a_plugin_enabled_but_not_installed_stops_the_start():
     """A deployment that asked for something absent is not a deployment."""
     runtime = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue={"plugins": [{"id": "cluster", "kind": "required", "enabled": True}]},
         entry_points=[],
     )
@@ -646,6 +655,7 @@ async def test_the_administrators_decision_is_read_in_the_second_phase():
 
     runtime = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue={"plugins": [{"id": "greeting"}, {"id": "metrics"}]},
         entry_points=[entry_point(GreetingPlugin), entry_point(ConsumerPlugin)],
         overrides_reader=overrides,
@@ -660,11 +670,13 @@ async def test_two_runtimes_in_one_process_share_nothing():
     """The state belongs to the instance: 0.3.0's module globals did not."""
     first = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue=catalogue_for(GreetingPlugin),
         entry_points=[entry_point(GreetingPlugin)],
     )
     second = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue={"plugins": []},
         entry_points=[],
     )
@@ -680,6 +692,7 @@ async def test_the_report_says_what_each_plugin_contributes_and_who_decided():
     """Composition has to be legible: it is the only place the wiring is written down."""
     runtime = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue=catalogue_for(GreetingPlugin),
         entry_points=[entry_point(GreetingPlugin)],
     )

@@ -151,6 +151,7 @@ def runtime_with(*plugin_classes, plugins_dir=None, overrides=None, enabled=True
     """A runtime whose catalogue declares exactly these plugins."""
     return create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue={
             "plugins": [{"id": plugin_class.descriptor.id,
                          **({"enabled": True} if enabled else {})}
@@ -299,6 +300,7 @@ async def test_an_optional_plugin_from_the_directory_is_still_welcome(tmp_path):
     )
     runtime = create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue={"plugins": [{"id": "notes", "enabled": True}]},
         plugins_dir=str(tmp_path),
     )

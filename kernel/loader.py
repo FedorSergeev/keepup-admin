@@ -28,14 +28,34 @@ from keepup.plugins.base import (
 logger = logging.getLogger(__name__)
 
 __all__ = [
+    "BUILTIN_DIRECTORY",
     "ENTRY_POINT_GROUP",
+    "USE_BUILTIN",
     "Candidate",
     "PluginLoader",
+    "builtin_directory",
     "plugin_class_name",
 ]
 
 #: The group a distribution declares its plugin in.
 ENTRY_POINT_GROUP = "keepup.plugins"
+
+#: Where the framework keeps the plugins it ships itself, until each of them
+#: travels in a distribution of its own (a file per plugin, the shape an
+#: application's plugins have).
+BUILTIN_DIRECTORY = "builtin"
+
+
+#: What the loader uses when nobody said which built-in directory to read.
+#: Passing None means "the framework ships no plugins of its own here", which is
+#: what a check that builds its own runtime says.
+USE_BUILTIN = object()
+
+
+def builtin_directory() -> str:
+    """The framework's own plugin directory, from this file's location."""
+    return os.path.join(os.path.dirname(os.path.abspath(__file__)), os.pardir,
+                        BUILTIN_DIRECTORY)
 
 
 def plugin_class_name(plugin_id: str) -> str:
@@ -84,9 +104,11 @@ class PluginLoader:
         plugins_dir: Optional[str] = None,
         entry_points: Optional[Iterable[Any]] = None,
         group: str = ENTRY_POINT_GROUP,
+        builtin_dir: Any = USE_BUILTIN,
     ) -> None:
         self.plugins_dir = plugins_dir
         self.group = group
+        self.builtin_dir = builtin_directory() if builtin_dir is USE_BUILTIN else builtin_dir
         self._entry_points = list(entry_points) if entry_points is not None else None
 
     # --- discovery ----------------------------------------------------------
@@ -110,6 +132,11 @@ class PluginLoader:
             the same identifier.
         """
         found: Dict[str, Candidate] = {}
+        # Order is precedence, last wins: the framework's own plugins first, the
+        # distributions that replace them next, and the application's own files
+        # last, because an application's plugin shadows both.
+        for plugin_id, plugin_class in self._directory_classes(self.builtin_dir).items():
+            found[plugin_id] = self._candidate(plugin_id, plugin_class, "builtin")
         for entry_point in self.entry_points():
             plugin_id = str(getattr(entry_point, "name", "") or "")
             if not plugin_id:
@@ -120,7 +147,7 @@ class PluginLoader:
                 logger.warning("Entry point %s does not load: %s", plugin_id, error)
                 continue
             found[plugin_id] = self._candidate(plugin_id, plugin_class, "entry-point")
-        for plugin_id, plugin_class in self._directory_classes().items():
+        for plugin_id, plugin_class in self._directory_classes(self.plugins_dir).items():
             if plugin_id in found:
                 logger.info(
                     "Plugin %s comes from the application's directory, shadowing a distribution",
@@ -134,15 +161,15 @@ class PluginLoader:
         descriptor = PluginDescriptor.of(plugin_class, plugin_id)
         return Candidate(plugin_id, plugin_class, source, descriptor)
 
-    def _directory_classes(self) -> Dict[str, Any]:
-        """The plugin classes of the application's directory, by file name.
+    def _directory_classes(self, where: Optional[str]) -> Dict[str, Any]:
+        """The plugin classes of one directory, by file name.
 
         A file that cannot be imported is logged and passed over: one broken
         plugin of an application must not take the plugin runtime down with it.
         """
-        if not self.plugins_dir:
+        if not where:
             return {}
-        directory = os.path.abspath(self.plugins_dir)
+        directory = os.path.abspath(where)
         if not os.path.isdir(directory):
             logger.info("Plugin directory %s is not there", directory)
             return {}

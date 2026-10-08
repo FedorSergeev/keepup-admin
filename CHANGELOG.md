@@ -10,6 +10,24 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The two drivers of one abstraction, and the framework finding its own
+  plugins (keepup-107, keepup-108).** A driver is a plugin of kind `required`
+  that provides `datasource_driver` and answers the abstraction one question:
+  `spec()` -- the dialect, the connection, the engine's parameters, whether
+  `INSERT ... RETURNING` answers, and whether the database carries a message
+  between replicas. `builtin/postgres.py` and `builtin/sqlite.py` are the two
+  the framework ships, each taking what it knows from the deployment's current
+  configuration until it travels in a distribution of its own (keepup-124); a
+  driver creates no table and owns no pool. Two drivers of one required service
+  cannot both answer, so the choice belongs to the catalogue and not to being
+  installed: the framework offers both and enables neither, and a deployment
+  enables one in a line. SQLite says what it cannot do -- no `RETURNING`, no
+  messages between replicas -- in the one place that knows, so a deployment that
+  needs a cluster is reported rather than silently deaf. The loader now reads
+  the framework's own plugin directory as well, between the installed
+  distributions and the application's files, and a runtime can be built without
+  any of the framework's plugins when a check wants a deployment of its own.
+
 - **The data source as a service, and tables created by the one who knows the
   dialect (keepup-106).** The kernel stores nothing and knows no database, but a
   capability could only create its own tables in `initialize()` and query

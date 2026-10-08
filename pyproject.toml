@@ -148,6 +148,9 @@ keepup = [
     # without importing anything, so a clone with nothing installed still knows
     # what the framework offers.
     "plugins/builtin.json",
+    # The framework's own plugins (keepup-107, keepup-108): the two drivers
+    # today, each of them a file until it travels in a distribution of its own.
+    "builtin/*.py",
     # The vendored bundles are minified, and minification took their licence
     # headers with it. MIT asks that the notice travel with the copy, so it
     # travels as this file.

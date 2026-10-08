@@ -33,7 +33,7 @@ from keepup.kernel.contributions import (
     collect as collect_contributions,
     mount,
 )
-from keepup.kernel.loader import Candidate, PluginLoader
+from keepup.kernel.loader import USE_BUILTIN, Candidate, PluginLoader
 from keepup.kernel.services import ServiceRegistry
 from keepup.kernel.transports import route_specs_of, serve_all, transports_of
 from keepup.plugins import enablement
@@ -150,6 +150,7 @@ class Runtime:
         environ: Optional[Mapping[str, str]] = None,
         overrides_reader: Optional[Callable[[], Mapping[str, bool]]] = None,
         plugins_dir: Optional[str] = None,
+        builtin_dir: Any = USE_BUILTIN,
         entry_points: Optional[Iterable[Any]] = None,
         loader: Optional[PluginLoader] = None,
         table_setup: Optional[Callable[["Runtime"], Any]] = None,
@@ -171,7 +172,7 @@ class Runtime:
         self.plugins_dir = plugins_dir if plugins_dir is not None else getattr(
             settings, "plugins_dir", None
         )
-        self.loader = loader or PluginLoader(self.plugins_dir, entry_points)
+        self.loader = loader or PluginLoader(self.plugins_dir, entry_points, builtin_dir=builtin_dir)
         self.catalogue: Dict[str, Any] = {}
         self.contributions = Contributions()
 
@@ -331,9 +332,12 @@ class Runtime:
 
         A distribution that is installed and declared nowhere is still offered:
         this is what "a required or transport plugin is enabled by being
-        installed" means (doc/plugin_constructor.md section 4.9). An optional one
-        found this way is offered and not enabled, because installing a
-        capability is not the same as asking for it.
+        installed" means (doc/plugin_constructor.md section 4.9), and a plugin
+        optional one found this way is offered and not enabled, because
+        installing a capability is not the same as asking for it. A framework
+        that ships two drivers of one required service says so in its catalogue
+        -- ``plugins/builtin.json`` -- which is where a deployment's choice
+        belongs (keepup-107).
         """
         builtin = self._builtin_catalogue
         if builtin is None:

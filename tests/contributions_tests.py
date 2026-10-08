@@ -285,6 +285,7 @@ def runtime_with(*plugin_classes, enabled=True):
     ]
     return create_runtime(
         builtin_catalogue={},
+        builtin_dir=None,
         application_catalogue={"plugins": entries},
         entry_points=[entry_point(plugin_class) for plugin_class in plugin_classes],
     )
