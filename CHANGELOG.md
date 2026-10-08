@@ -10,6 +10,18 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The accounts become a capability (keepup-105, first half).** Accounts, the
+  roles they hold and the rights granted are what everything else points at -- a
+  session belongs to a user, an audit row is attributed to one, a section is
+  shown by role -- and the three tables holding them sit in the kernel's schema,
+  so the kernel cannot be assembled without them. `builtin/users.py` claims
+  them, declares them once, publishes the `users` service (`roles_of`,
+  `has_role`, `count`) so a capability asks who holds a role instead of
+  importing the module that reads the table, and contributes the panel's
+  accounts section. The declaration and the section's routes move into this
+  capability's distribution in keepup-124, and the deprecated `users.role`
+  mirror goes away in keepup-83.
+
 - **The sign-in becomes a capability (keepup-116, first half).** Sessions, login
   throttling, roles, OIDC and somebody else's identity system live in the kernel
   and import SQLAlchemy, so a base bundle without a database library cannot be
