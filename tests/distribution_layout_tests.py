@@ -110,6 +110,14 @@ def test_the_code_that_moves_still_lives_in_the_framework():
         assert f'id="{plugin_id}"' in plugin_file.read_text(encoding="utf-8")
 
 
+def test_the_document_says_in_what_order_a_move_happens():
+    """A reader who moves a module needs the three conditions, not a guess."""
+    text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")
+    assert "In what order the move happens" in text
+    assert "declares the distribution it re-exports from" in text
+    assert "keepup-114" in text and "keepup-124" in text
+
+
 def test_the_document_says_what_the_base_stops_carrying():
     """The promise keepup-124 has to keep, written where a reader will find it."""
     text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")

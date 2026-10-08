@@ -10,6 +10,17 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The order a move happens in is written down (keepup-124).** The first attempt
+  at moving a declaration into a distribution was reverted rather than patched,
+  and the reason is worth keeping: the `packages/*` directories are on the suite's
+  import path, which is a test arrangement and not an installation, so a fresh
+  `pip install keepup-admin` would import a module that is not there. Moving a
+  capability's code and taking its library out of the base are therefore one
+  change, not two -- the code moves, the old name re-exports from the new home,
+  the base declares the distribution it re-exports from, and the compatibility
+  layer and the debt check are updated in the same change. `doc/distributions.md`
+  states the three conditions, and a check holds the document to them.
+
 - **The distributions are on the import path before they are installed
   (keepup-124).** Moving a declaration into `keepup_db` would otherwise be a
   change that only works after a release, because in the repository a

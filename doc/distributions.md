@@ -40,3 +40,24 @@ A deployment that wants everything installs the capabilities it names; a
 deployment that wants a socket and a metrics endpoint installs `keepup-admin`,
 `keepup-db`, its driver and `keepup-metrics`, and gets no panel, no sign-in and
 no bcrypt.
+
+## In what order the move happens
+
+A declaration or a module moves in one change, and the change is only complete
+when all three of these are true -- which is why the first attempt at moving
+`INTEGRATION_LOGS` was reverted rather than patched:
+
+1. **The code is in the distribution**, and `keepup.schema` (or the module the old
+   name pointed at) re-exports it from there.
+2. **The base package declares the distribution it re-exports from.** Otherwise a
+   fresh `pip install keepup-admin` imports a module that is not installed: in the
+   repository the `packages/*` directories are on the suite's `pythonpath`, but
+   that is a test arrangement, not an installation.
+3. **The compatibility layer is told**, so the old import path keeps working and
+   says where the name went (keepup-114), and the check that measures the debt
+   (keepup-124, `tests/base_package_freedom_tests.py`) is updated in the same
+   change: it fails on purpose the day a library leaves the base.
+
+So the move of a capability's code and the removal of its library from the base's
+`dependencies` are one change, not two, and the entry in `pyproject.toml` is where
+the two meet.
