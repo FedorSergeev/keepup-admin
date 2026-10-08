@@ -183,7 +183,14 @@ def apply_settings(settings: KeepupSettings) -> None:
     # (keepup-119). Until keepup-auth is a plugin of its own this is the
     # framework's own sign-in; afterwards it is that plugin's register().
     from keepup.auth.identity import access as identity_access
-    from keepup.kernel import security
+    from keepup.kernel import observability, security
+    # What is written down about a call, behind the two names the kernel owns
+    # (keepup-111). Until keepup-audit is a plugin this is the framework's own,
+    # and it is built here rather than imported from the plugin file: the
+    # framework's own plugins are data of the package, not a module of it.
+    from keepup.audit import IncomingRequestLogger, log_api_request
+    observability.set_recording(observability.Recording(
+        start=log_api_request, end=IncomingRequestLogger.end_request, name="keepup audit"))
     security.set_identity(security.Identity(
         subject_dependency=auth_dependencies.get_panel_user,
         checker=identity_access.check,

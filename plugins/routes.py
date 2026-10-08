@@ -20,10 +20,9 @@ import logging
 from fastapi import Depends, HTTPException, Request, Response
 from starlette.requests import ClientDisconnect
 
-from keepup.audit import IncomingRequestLogger, log_api_request
 from keepup.auth.websocket import authenticate_websocket
 from keepup.body_limit import declare_limit
-from keepup.kernel import security
+from keepup.kernel import observability, security
 from keepup.kernel.call import (
     KIND_WRITE,
     Call,
@@ -350,7 +349,7 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
             # A route that said so is not written down: no context, no row.
             return await invoke(request, current_user)
 
-        async with log_api_request(
+        async with observability.start_call(
                 method=method_name,
                 endpoint=path,
                 host='plugin_api',
@@ -359,7 +358,7 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
             try:
                 response = await invoke(request, current_user)
 
-                await IncomingRequestLogger.end_request(
+                await observability.end_call(
                     request_id=request_id,
                     http_status=200,
                     response_data=response if isinstance(response, dict) else {"data": response}
@@ -367,7 +366,7 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
 
                 return response
             except HTTPException as e:
-                await IncomingRequestLogger.end_request(
+                await observability.end_call(
                     request_id=request_id,
                     http_status=e.status_code,
                     error_message=e.detail
@@ -378,7 +377,7 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
                 # exception carries whatever the failing code held -- values,
                 # queries, secrets -- and the audit's redaction never sees it
                 # (keepup-76). The text goes to the application log.
-                await IncomingRequestLogger.end_request(
+                await observability.end_call(
                     request_id=request_id,
                     http_status=500,
                     error_message=type(e).__name__

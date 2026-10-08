@@ -10,6 +10,21 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The audit becomes a service, and the route runtime stops importing it
+  (keepup-111).** Three modules of the kernel record what happens -- the incoming
+  call, the application's events and what an administrator decided -- and all
+  three import SQLAlchemy, so a base bundle without a database library cannot be
+  assembled while they stay. The route wrapper no longer imports any of them: it
+  opens and closes the record through `keepup/kernel/observability.py`, where a
+  deployment puts its recording behind the two names `audit` and `events`, and a
+  deployment that registers none serves its calls and writes nothing. `builtin/audit.py`
+  is the capability that owns both tables -- `incoming_requests` and
+  `app_events` -- declares them once, publishes the two services and hands the
+  kernel's own trail an emitter, so the trail of administrative decisions is
+  written through a name rather than an import. The event log's routes and its
+  panel section travel with the panel (keepup-104), and the three modules move
+  into the capability's distribution in keepup-124.
+
 - **System metrics as a capability, and the two route keys it needed
   (keepup-112).** Collecting this replica's numbers, answering Prometheus and
   showing the panel what the fleet is doing were three modules of the kernel

@@ -71,7 +71,7 @@ def framework_state_restored():
     from keepup import audit, log_shipping, modules, web
     from keepup.auth import dependencies, routes
     from keepup.auth.identity import access as identity_access
-    from keepup.kernel import security
+    from keepup.kernel import observability, security
     from keepup.plugins import admin as plugins_admin
 
     # What a deployment puts behind `auth` and `permissions` (keepup-119).
@@ -79,6 +79,10 @@ def framework_state_restored():
     # that raises an application of its own -- a bare FastAPI app with plugin
     # routes on it -- would otherwise have no sign-in at all and answer 401
     # where it means to test something else.
+    saved_recording = observability.recording()
+    from keepup.audit import IncomingRequestLogger, log_api_request
+    observability.set_recording(observability.Recording(
+        start=log_api_request, end=IncomingRequestLogger.end_request, name="keepup audit"))
     saved_identity = security.get_identity()
     security.set_identity(security.Identity(
         subject_dependency=dependencies.get_panel_user,
@@ -99,6 +103,7 @@ def framework_state_restored():
      log_shipping.REMOTE_LOG_TOKEN,
      routes.password_rule, routes.record_login, dependencies.pending_documents,
      plugins_admin.MODULES_CONFIG_PATH, modules.MODULES_CONFIG_PATH) = saved
+    observability.set_recording(saved_recording)
     security.set_identity(saved_identity)
     # The identity provider too: an application built with one must not hand it
     # to the next test's application (keepup-91).
