@@ -44,7 +44,7 @@ def as_tuple(version):
 
 
 def test_every_runtime_dependency_has_a_floor_and_the_test_extra_does_not_count():
-    names = [name for name, _ in script().floors(PACKAGE / "pyproject.toml")]
+    names = [name for name, _ in script().floors_everywhere(PACKAGE)]
     assert "fastapi" in names and "asyncpg" in names
     assert "pytest" not in names
     assert len(names) == len(set(names))
@@ -52,7 +52,7 @@ def test_every_runtime_dependency_has_a_floor_and_the_test_extra_does_not_count(
 
 @pytest.mark.parametrize("name, clean", sorted(FIRST_CLEAN.items()))
 def test_the_floor_is_past_every_known_advisory(name, clean):
-    floors = dict(script().floors(PACKAGE / "pyproject.toml"))
+    floors = dict(script().floors_everywhere(PACKAGE))
     assert name in floors, f"{name} has no floor of its own"
     assert as_tuple(floors[name]) >= as_tuple(clean)
 

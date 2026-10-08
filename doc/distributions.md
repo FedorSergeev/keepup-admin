@@ -44,64 +44,23 @@ no bcrypt.
 ## Which modules keep a library in the base
 
 A library leaves the base package when the last module that imports it has moved
-into its distribution. This is that list, computed from the code: when a module
-moves, its name has to leave this table in the same change, and the day a row is
-empty, the library comes out of `pyproject.toml` -- and the check written for
-that day (`tests/base_package_freedom_tests.py`) stops finding it.
-
-A library with no module in the base that imports it is a *run-time* need of
-something the base does: `psycopg2` is the driver SQLAlchemy reaches for when it
-connects, named in a connection string rather than in an import. It leaves with
-the module that builds that string.
+into its distribution. Three have left: `psycopg2-binary`, `bcrypt` and
+`pyjwt[crypto]` -- no module of the base imports them any more, and the
+distributions that need them (`keepup-postgres`, `keepup-auth`) declare them in
+their own metadata. What the base still declares is `sqlalchemy`, kept by the
+kernel's schema, which holds the four declarations whose capabilities are 0.5.0
+work -- together with `cryptography` and `urllib3`, the floors for advisories of
+what the remaining dependencies pull in.
 
 | Library | Its distribution | The base modules that still import it |
 | --- | --- | --- |
-| `sqlalchemy` | `keepup-db` | `auth/login_throttle.py`, `auth/user_roles.py`, `events.py`, `schema.py` |
-| `psycopg2` | `keepup-postgres` | — no module imports it (see below) |
-| `bcrypt` | `keepup-auth` | `auth/dependencies.py`, `auth/providers/base.py`, `auth/providers/local.py`, `auth/seed_accounts.py`, `auth/user_routes.py` |
-| `jwt` | `keepup-auth` | `auth/dependencies.py`, `auth/oidc.py`, `auth/panel_session.py`, `auth/providers/base.py`, `auth/providers/local.py`, `auth/routes.py` |
+| `sqlalchemy` | `keepup-db` | `schema.py` |
 
-## The units that still move, and why they move whole
-
-The table above says which modules keep a library in the base. They do not move
-one by one, and the sizes say why: a unit moves as a whole because its files
-import each other, and moving one of them would leave the same package in two
-homes at once.
-
-| Unit | Its distribution | Size | Why it moves whole |
-| --- | --- | --- | --- |
-| `keepup/auth/` | `keepup-auth` | 20 files, ~6 000 lines | its modules import each other (`providers`, `dependencies`, `user_roles`), and it is one capability: sign-in, sessions, throttling, roles, OIDC, the routes of the panel's sign-in |
-| `keepup/events.py` | `keepup-audit` | 495 lines, 10 importers | it is the event log the audit capability keeps; the event API, the administrator's trail and the panel's section reach it by name, and `keepup.events` stays as the compatibility name |
-| `keepup/schema.py` | -- | 214 lines, 49 importers | it keeps the four declarations whose capabilities are 0.5.0 work (`doc/table-ownership.md`), and it is the path that predates the catalogue: it shrinks as those capabilities arrive, not before |
-| `keepup/migrations.py` | -- | depends on `schema.py` | the same: it initialises what `schema.py` declares |
-
-An attempt to move a single file out of `keepup/auth/` would be an attempt to make
-`from keepup.auth import providers` resolve to two different packages; the honest
-unit is the package. That is why this list is written down rather than discovered
-by whoever tries next.
-
-## The edges of the sign-in package, before it moves
-
-`keepup/auth/` is the last unit of 0.4.0 that still moves, and it is the largest:
-32 files that import each other by fifteen internal names. Its edges are surveyed
-here so the move is a move rather than a discovery.
-
-**What it reaches outwards** -- `keepup.instance`, `keepup.kernel`, `keepup.roles`,
-`keepup.retention`-style helpers, the tables and the manager (through
-`keepup_db`), and its own declarations (`keepup_auth.tables`). Everything else it
-uses is inside the package: those fifteen internal names are why it moves whole.
-
-**What reaches inwards** -- twenty modules of the base name it: the routes of the
-panel and the API documentation, the plugin files of the sign-in and the accounts,
-the cluster, locks, the scheduler, the section catalogue, metrics, the themes, the
-notification bus, the integration log, the event API, `factory`, `settings`,
-`schema`, `roles`, `compat` and the route runtime. Not one of them has to change:
-`keepup.auth` keeps answering through the compatibility layer, name by name, which
-is what the layer was built for and has now been used for three times.
-
-**What the move has to carry** -- the four declarations it owns (already in
-`keepup_auth.tables`), its own modules, and nothing of the base. The base's
-modules that import it stay where they are until their own capabilities move.
+Two checks read the same question out of the code: a library the base declares and
+no module imports fails, and so does a library that has left while a module still
+imports it. The security floors are read from every `pyproject.toml` in the
+repository, the base's and each distribution's, and audited at the highest floor a
+library declares -- a library is not audited any less for having moved.
 
 ## The runbook for the last move
 
@@ -135,6 +94,48 @@ The libraries leave in the same change: `sqlalchemy`, `bcrypt` and `pyjwt` have 
 keeper left in the base once this package is out, and
 `tests/base_package_freedom_tests.py` fails on purpose the moment one of them is
 still declared and unused.
+
+## The edges of the sign-in package, before it moves
+
+`keepup/auth/` is the last unit of 0.4.0 that still moves, and it is the largest:
+32 files that import each other by fifteen internal names. Its edges are surveyed
+here so the move is a move rather than a discovery.
+
+**What it reaches outwards** -- `keepup.instance`, `keepup.kernel`, `keepup.roles`,
+`keepup.retention`-style helpers, the tables and the manager (through
+`keepup_db`), and its own declarations (`keepup_auth.tables`). Everything else it
+uses is inside the package: those fifteen internal names are why it moves whole.
+
+**What reaches inwards** -- twenty modules of the base name it: the routes of the
+panel and the API documentation, the plugin files of the sign-in and the accounts,
+the cluster, locks, the scheduler, the section catalogue, metrics, the themes, the
+notification bus, the integration log, the event API, `factory`, `settings`,
+`schema`, `roles`, `compat` and the route runtime. Not one of them has to change:
+`keepup.auth` keeps answering through the compatibility layer, name by name, which
+is what the layer was built for and has now been used for three times.
+
+**What the move has to carry** -- the four declarations it owns (already in
+`keepup_auth.tables`), its own modules, and nothing of the base. The base's
+modules that import it stay where they are until their own capabilities move.
+
+## The units that still move, and why they move whole
+
+The table above says which modules keep a library in the base. They do not move
+one by one, and the sizes say why: a unit moves as a whole because its files
+import each other, and moving one of them would leave the same package in two
+homes at once.
+
+| Unit | Its distribution | Size | Why it moves whole |
+| --- | --- | --- | --- |
+| `keepup/auth/` | `keepup-auth` | 20 files, ~6 000 lines | its modules import each other (`providers`, `dependencies`, `user_roles`), and it is one capability: sign-in, sessions, throttling, roles, OIDC, the routes of the panel's sign-in |
+| `keepup/events.py` | `keepup-audit` | 495 lines, 10 importers | it is the event log the audit capability keeps; the event API, the administrator's trail and the panel's section reach it by name, and `keepup.events` stays as the compatibility name |
+| `keepup/schema.py` | -- | 214 lines, 49 importers | it keeps the four declarations whose capabilities are 0.5.0 work (`doc/table-ownership.md`), and it is the path that predates the catalogue: it shrinks as those capabilities arrive, not before |
+| `keepup/migrations.py` | -- | depends on `schema.py` | the same: it initialises what `schema.py` declares |
+
+An attempt to move a single file out of `keepup/auth/` would be an attempt to make
+`from keepup.auth import providers` resolve to two different packages; the honest
+unit is the package. That is why this list is written down rather than discovered
+by whoever tries next.
 
 ## In what order the move happens
 

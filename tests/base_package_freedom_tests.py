@@ -58,6 +58,27 @@ def test_every_library_that_leaves_has_a_distribution_that_takes_it():
         assert distribution in distributions, f"{library} is to go to {distribution}, which is not declared"
 
 
+#: What has left the base, and the distribution that carries it now.
+HAS_LEFT = {"psycopg2-binary": "keepup-postgres", "bcrypt": "keepup-auth",
+            "pyjwt[crypto]": "keepup-auth"}
+
+
+def test_a_library_that_left_is_no_dependency_and_has_no_keeper():
+    """The release's whole point, checked one library at a time."""
+    import tomllib
+
+    declared = " ".join(
+        tomllib.loads((PACKAGE / "pyproject.toml").read_text(encoding="utf-8"))
+        ["project"]["dependencies"])
+    for library, distribution in HAS_LEFT.items():
+        import_name = library.split("[")[0].split("-")[0]
+        assert library not in declared and import_name not in declared, (
+            f"{library} is back in the base; it belongs to {distribution}")
+        assert keepers(import_name) == [], (
+            f"{library} left the base and these modules still import it: "
+            f"{keepers(import_name)}")
+
+
 def test_the_base_still_declares_them_and_that_is_the_debt():
     """Honest while the code is here: the check fails the day it is not needed.
 
@@ -72,7 +93,7 @@ def test_the_base_still_declares_them_and_that_is_the_debt():
     text = (PACKAGE / "pyproject.toml").read_text(encoding="utf-8")
     metadata = tomllib.loads(text)
     declared = " ".join(metadata["project"]["dependencies"])
-    for library in ("sqlalchemy", "psycopg2-binary", "bcrypt", "pyjwt"):
+    for library in ("sqlalchemy",):
         assert library in declared, (
             f"{library} is no longer a dependency of the base: if the code that "
             "imported it has moved, delete this check in the same change and say "

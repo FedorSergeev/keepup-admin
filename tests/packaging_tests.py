@@ -55,8 +55,11 @@ OPTIONAL_CAPABILITY_IMPORTS = {
 }
 
 DEPENDENCY_IMPORTS = {
-    "apscheduler", "bcrypt", "fastapi", "httpx", "jwt", "prometheus_client",
-    "psutil", "psycopg2", "pydantic", "requests", "sqlalchemy", "starlette",
+    # bcrypt, jwt and psycopg2 are not here: no module of the base imports them
+    # any more, and the distributions that do declare them for themselves
+    # (keepup-auth, keepup-postgres -- keepup-124).
+    "apscheduler", "fastapi", "httpx", "prometheus_client",
+    "psutil", "pydantic", "requests", "sqlalchemy", "starlette",
     "yaml", "multipart",
     # Declared as an optional extra: the bus between replicas needs it on
     # PostgreSQL, a single-process deployment on SQLite does not.
@@ -82,6 +85,12 @@ def framework_imports():
         # test environment's business, not the distribution's (keepup-6), and a
         # local environment or a build output is not the package at all.
         if (PACKAGE / "tests") in path.parents or is_not_the_package(path):
+            continue
+        # A distribution beside the package declares its own dependencies in its
+        # own pyproject.toml (keepup-115): the sign-in's modules import bcrypt and
+        # keepup-auth asks for it, which is a different question from what the base
+        # package must install (keepup-124).
+        if (PACKAGE / "packages") in path.parents:
             continue
         tree = ast.parse(path.read_text(encoding="utf-8"))
         for node in ast.walk(tree):

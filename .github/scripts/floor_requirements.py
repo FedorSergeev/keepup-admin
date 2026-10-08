@@ -33,6 +33,28 @@ def floors(pyproject: Path):
     return pinned
 
 
+def floors_everywhere(package: Path):
+    """Every floor this repository declares: the package's, and each distribution's.
+
+    A library that moved into a distribution (keepup-124) is not audited any less
+    for having moved: `bcrypt` and `pyjwt` are floors of `keepup-auth` now, and an
+    installation that satisfies them still has to be past every known advisory.
+    """
+    found = list(floors(package / "pyproject.toml"))
+    for metadata in sorted((package / "packages").glob("*/pyproject.toml")):
+        found.extend(floors(metadata))
+    # A library declared more than once has to satisfy every declaration, so the
+    # highest floor is the one to audit.
+    def version(text):
+        return tuple(int(part) for part in text.split(".") if part.isdigit())
+
+    highest = {}
+    for name, floor in found:
+        if name not in highest or version(floor) > version(highest[name]):
+            highest[name] = floor
+    return sorted(highest.items())
+
+
 def main(argv):
     path = Path(argv[1]) if len(argv) > 1 else Path(__file__).resolve().parents[2] / "pyproject.toml"
     for name, version in floors(path):

@@ -10,6 +10,21 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The libraries leave the base package (keepup-124).** `psycopg2-binary`,
+  `bcrypt` and `pyjwt[crypto]` are gone from `pyproject.toml`: no module of the
+  base imports them any more, and the distributions that need them declare them --
+  `keepup-postgres` and `keepup-auth`. `keepup-admin` plus one driver is now a
+  deployment that talks to a database and carries no library it does not use,
+  which is what the release was for. `sqlalchemy` stays, kept by the kernel's
+  schema and the four declarations whose capabilities are 0.5.0 work -- a
+  recorded decision rather than a remainder. Three checks learned what the change
+  means: the packaging check counts the base's imports against the base's
+  dependencies and leaves a distribution's imports to its own metadata; the
+  security floors are read from every `pyproject.toml` in the repository and
+  audited at the highest floor a library declares, because a library is not
+  audited any less for having moved; and the base's freedom check fails if one of
+  the three comes back or if a module still imports it.
+
 - **The sign-in moves into its distribution (keepup-124).** `keepup/auth/` -- 22
   paths, twenty modules and three subpackages, the largest unit of the release --
   is now the contents of `packages/keepup-auth/keepup_auth/`, so that distribution

@@ -240,7 +240,7 @@ def test_10_the_dependency_floors_are_past_every_known_advisory():
     loader = importlib.util.spec_from_file_location("floor_requirements", spec)
     module = importlib.util.module_from_spec(loader)
     loader.loader.exec_module(module)
-    floors = dict(module.floors(PACKAGE / "pyproject.toml"))
+    floors = dict(module.floors_everywhere(PACKAGE))
     clean = {"pyjwt": "2.13", "python-multipart": "0.0.31", "requests": "2.33",
              "cryptography": "50.0", "urllib3": "2.7"}
 
