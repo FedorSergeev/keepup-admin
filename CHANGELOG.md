@@ -10,6 +10,17 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The units that still move, and why they move whole (keepup-124).** The list of
+  modules that keep a library in the base invited the obvious next step -- move one
+  of them -- and the sizes say why that step is wrong for most of them:
+  `keepup/auth/` is one capability in twenty files whose modules import each other,
+  so moving one file would leave `from keepup.auth import providers` resolving to
+  two different packages. The document now names the units that move whole
+  (`keepup/auth/` to `keepup-auth`, `keepup/events.py` to `keepup-audit`) with
+  their size and their importers, and says why `keepup/schema.py` and
+  `keepup/migrations.py` wait for the 0.5.0 capabilities instead. A check holds the
+  document to naming them.
+
 - **Which modules keep a library in the base (keepup-124).** Taking the libraries
   out of the base package cannot be done by feel: a library leaves when the last
   module that imports it has moved, so the list of those modules is now written

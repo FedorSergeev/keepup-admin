@@ -61,6 +61,25 @@ the module that builds that string.
 | `bcrypt` | `keepup-auth` | `auth/dependencies.py`, `auth/providers/base.py`, `auth/providers/local.py`, `auth/seed_accounts.py`, `auth/user_routes.py` |
 | `jwt` | `keepup-auth` | `auth/dependencies.py`, `auth/oidc.py`, `auth/panel_session.py`, `auth/providers/base.py`, `auth/providers/local.py`, `auth/routes.py` |
 
+## The units that still move, and why they move whole
+
+The table above says which modules keep a library in the base. They do not move
+one by one, and the sizes say why: a unit moves as a whole because its files
+import each other, and moving one of them would leave the same package in two
+homes at once.
+
+| Unit | Its distribution | Size | Why it moves whole |
+| --- | --- | --- | --- |
+| `keepup/auth/` | `keepup-auth` | 20 files, ~6 000 lines | its modules import each other (`providers`, `dependencies`, `user_roles`), and it is one capability: sign-in, sessions, throttling, roles, OIDC, the routes of the panel's sign-in |
+| `keepup/events.py` | `keepup-audit` | 495 lines, 10 importers | it is the event log the audit capability keeps; the event API, the administrator's trail and the panel's section reach it by name, and `keepup.events` stays as the compatibility name |
+| `keepup/schema.py` | -- | 214 lines, 49 importers | it keeps the four declarations whose capabilities are 0.5.0 work (`doc/table-ownership.md`), and it is the path that predates the catalogue: it shrinks as those capabilities arrive, not before |
+| `keepup/migrations.py` | -- | depends on `schema.py` | the same: it initialises what `schema.py` declares |
+
+An attempt to move a single file out of `keepup/auth/` would be an attempt to make
+`from keepup.auth import providers` resolve to two different packages; the honest
+unit is the package. That is why this list is written down rather than discovered
+by whoever tries next.
+
 ## In what order the move happens
 
 A declaration or a module moves in one change, and the change is only complete
