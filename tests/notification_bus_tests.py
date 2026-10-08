@@ -15,6 +15,7 @@ import pytest
 from fastapi.testclient import TestClient
 
 from keepup import notification_bus as nb
+from keepup.db import DatabaseManagerV2
 from keepup.factory import _start_notification_bus, _stop_notification_bus, create_app
 from keepup.settings import KeepupSettings
 
@@ -148,7 +149,7 @@ def sent(monkeypatch):
         await asyncio.sleep(0.01)
         record.append(params)
         return 1
-    monkeypatch.setattr(nb.DatabaseManagerV2, "execute_commit_async", notify)
+    monkeypatch.setattr(DatabaseManagerV2, "execute_commit_async", notify)
     return record
 
 
@@ -190,7 +191,7 @@ async def test_a_bus_that_was_not_started_does_not_publish(sent):
 async def test_a_failed_publish_is_false_and_not_raised(monkeypatch):
     async def broken(query, params=None):
         raise RuntimeError("the database went away")
-    monkeypatch.setattr(nb.DatabaseManagerV2, "execute_commit_async", broken)
+    monkeypatch.setattr(DatabaseManagerV2, "execute_commit_async", broken)
     assert await started_bus().publish({"kind": "k"}) is False
 
 

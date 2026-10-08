@@ -40,7 +40,6 @@ import logging
 import time
 from typing import Any, Awaitable, Callable, Dict, List, Optional
 
-from keepup.db import DatabaseManagerV2, db_config
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -250,6 +249,7 @@ class NotificationBus:
             bool: whether the envelope reached the channel. False also means
             "the bus is not running", which is the normal state on SQLite.
         """
+        from keepup.db import DatabaseManagerV2
         envelope = dict(envelope)
         envelope[ORIGIN_FIELD] = self._instance_id
 
@@ -285,6 +285,7 @@ class NotificationBus:
             bool: whether listening began. False on a database that has no
             such mechanism, which is a working mode and not a failure.
         """
+        from keepup.db import db_config
         if not db_config.is_postgres():
             logger.info(
                 "Notification bus is off: it needs PostgreSQL, and notifications "
@@ -328,6 +329,7 @@ class NotificationBus:
         for as long as it listens, and a pooled connection handed back would
         stop delivering while still looking reusable.
         """
+        from keepup.db import db_config
         import asyncpg
 
         return await asyncpg.connect(

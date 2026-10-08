@@ -10,6 +10,18 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The sixth import comes off the debt list (keepup-127).** `notification_bus.py`
+  took the manager and the database configuration at module level and used them
+  in three functions, so the imports moved into them. Its own checks patched the
+  manager as an attribute of that module -- a patch point that exists only while
+  the module imports it -- and they now patch `keepup.db.DatabaseManagerV2`,
+  which is where the name lives. That is the general consequence of a lazy
+  import and it is worth saying plainly: a module that no longer takes a name at
+  import time no longer offers it as an attribute, so anything patching it
+  through the module has to follow the name. Six of the nine modules are paid;
+  three remain (cluster, locks, metrics with its API, the section catalogue and
+  the plugin decisions).
+
 - **The fifth import comes off the debt list (keepup-127).** `positional_sql.py`
   took the manager at module level and used it in three functions -- the
   returning-insert helper, the batch executor and the raw-connection reader --

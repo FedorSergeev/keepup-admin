@@ -55,7 +55,6 @@ CAN_BE_MADE_LAZY = {
     "metrics.py": "the collector reads the pool when it is asked to",
     "metrics_api.py": "the panel's view reads the database per request",
     "modules.py": "the section catalogue is read per request",
-    "notification_bus.py": "it signs what replicas send, not what they store",
     "plugins/admin.py": "the plugin decisions are read per request",
 }
 
