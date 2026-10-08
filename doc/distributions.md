@@ -95,3 +95,23 @@ is about the module being moved, which transfers cleanly.
    the move itself (keepup-125): `db_leftovers_tests.py`,
    `leftovers_tests.py`, `one_database_manager_tests.py`, and the compatibility
    check that knows which names have moved.
+
+## How a payment is made, and how it is not
+
+Paying down the import debt (`keepup-127`) has a shape that works and one that
+does not, learned the hard way twice.
+
+What works: one module, read by hand. Its database use is found, the import moves
+into the function that uses it, the entry is struck off the list in the same
+change, the checks that cover the module are run, then the whole suite. Three
+payments were made that way -- `retention.py`, `metrics_retention.py`,
+`integrations.py` -- and all three hold.
+
+What does not work: a script that rewrites several modules at once. A batch of
+five crashed halfway through its first file and left an edit without its other
+half; a single-file AST rewrite of `web.py` inserted the import somewhere the file
+must not have it and produced a syntax error that broke the collection of a
+hundred and sixty checks. Both were reverted whole, and nothing was committed.
+The lesson is not that tooling is bad: it is that an edit which cannot be
+finished and *seen* must not be started, and these modules are where the release
+is least tolerant of a half-done change.

@@ -159,6 +159,14 @@ def test_the_two_findings_of_the_failed_move_are_recorded():
     assert "themes_tests.py" in text and "metrics_split_tests.py" in text
 
 
+def test_the_document_says_how_a_payment_is_made():
+    """The shape that works, and the one that left two trees worse (keepup-127)."""
+    text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")
+    assert "How a payment is made, and how it is not" in text
+    assert "retention.py" in text and "web.py" in text
+    assert "reverted whole" in text
+
+
 def test_the_document_says_what_the_base_stops_carrying():
     """The promise keepup-124 has to keep, written where a reader will find it."""
     text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")
