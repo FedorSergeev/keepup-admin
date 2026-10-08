@@ -19,6 +19,13 @@ from keepup.kernel.catalogue import (
     merge,
     read,
 )
+from keepup.kernel.contributions import (
+    CONTRIBUTION_KINDS,
+    Contributions,
+    MiddlewareSpec,
+    collect,
+    mount,
+)
 from keepup.kernel.descriptor import (
     KIND_OPTIONAL,
     KIND_REQUIRED,
@@ -45,6 +52,7 @@ from keepup.kernel.services import (
 )
 
 __all__ = [
+    "CONTRIBUTION_KINDS",
     "ENTRY_POINT_GROUP",
     "KINDS",
     "KIND_OPTIONAL",
@@ -53,8 +61,10 @@ __all__ = [
     "PROFILE_METRICS_ONLY",
     "Candidate",
     "CatalogueError",
+    "Contributions",
     "DuplicateProvider",
     "KernelError",
+    "MiddlewareSpec",
     "PluginDescriptor",
     "PluginLoader",
     "PluginState",
@@ -64,12 +74,14 @@ __all__ = [
     "ServiceRegistry",
     "UnsatisfiedRequirement",
     "apply_profile",
+    "collect",
     "compose",
     "create_runtime",
     "declarations",
     "declared_ids",
     "maybe_await",
     "merge",
+    "mount",
     "parse_requirement",
     "read",
 ]

@@ -116,7 +116,11 @@ class ReportsPlugin(BasePlugin):          # plugin_id "reports"
   mask (`keepup/plugins/route_mask.py`: per parameter a type, `required`,
   `in`, `choices`, `min`, `max`, `max_length`, `pattern`), and `permission` --
   the right a caller must hold, checked before the handler
-  (`keepup/auth/identity/access.py`; see "Somebody else's identity system").
+  (`keepup/auth/identity/access.py`; see "Somebody else's identity system"),
+  `audit` (default true; a route that says false is not written to the
+  incoming-request audit -- a scrape every fifteen seconds is not an audit), and
+  `response_media_type` (what a non-JSON answer is; a handler may also return a
+  `Response` itself).
 - **Handlers take plain arguments**, not FastAPI objects: path and query values
   by name, `current_user` when signed in, and `request` -- the JSON body -- for
   POST, PUT and PATCH. Raise `fastapi.HTTPException` to refuse.

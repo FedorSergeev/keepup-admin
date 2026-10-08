@@ -26,6 +26,11 @@ from keepup.kernel.descriptor import (
     KIND_TRANSPORT,
     PluginDescriptor,
 )
+from keepup.kernel.contributions import (
+    Contributions,
+    collect as collect_contributions,
+    mount,
+)
 from keepup.kernel.loader import Candidate, PluginLoader
 from keepup.kernel.services import ServiceRegistry
 from keepup.plugins import enablement
@@ -164,6 +169,7 @@ class Runtime:
         )
         self.loader = loader or PluginLoader(self.plugins_dir, entry_points)
         self.catalogue: Dict[str, Any] = {}
+        self.contributions = Contributions()
 
     # --- what a plugin reaches for ------------------------------------------
 
@@ -176,6 +182,18 @@ class Runtime:
     def loaded_plugins(self) -> Dict[str, Any]:
         """The initialised plugins, by identifier -- what ``get_plugin`` answers."""
         return {plugin_id: self._loaded[plugin_id] for plugin_id in self._init_order}
+
+    def mount(self, registrars: Mapping[str, Any]) -> Dict[str, int]:
+        """Hand the collected contributions to their consumers.
+
+        Args:
+            registrars: a callable per contribution kind, as
+                :func:`keepup.kernel.contributions.mount` describes.
+
+        Returns:
+            How many contributions of each kind were mounted.
+        """
+        return mount(self.contributions, registrars, self)
 
     def get_plugin(self, plugin_id: str) -> Any:
         """Return an initialised plugin by identifier, or None.
@@ -228,6 +246,12 @@ class Runtime:
         await self._initialize(optional)
 
         self.services.freeze()
+
+        # What the plugins contribute, collected once, after every plugin that
+        # could contribute has initialised and before anything is mounted: the
+        # transport mounts routes, sections, middleware and jobs from here
+        # (kernel/contributions.py).
+        self.contributions = collect_contributions(self)
 
         for mounter in self._mounters:
             await maybe_await(mounter(self))

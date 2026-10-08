@@ -53,6 +53,7 @@ __all__ = [
     "get_plugins",
     "get_plugins_status",
     "initialize_plugins",
+    "load_and_initialize",
     "raw_request_wrapper",
     "read_plugin_overrides",
     "register_plugin_admin_routes",
@@ -65,61 +66,97 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
-async def initialize_plugins(app, manager, config_path=MODULES_CONFIG_PATH, environ=None):
-    """Load and initialise the plugins the configuration and environment enable.
+async def load_and_initialize(manager, config_path=MODULES_CONFIG_PATH, environ=None):
+    """Read the declaration, then load and initialise the plugins it enables.
 
-    Which plugins run is decided by keepup.plugins.enablement -- the plugin's own
-    ``enabled`` flag, an administrator's override kept in this deployment's
-    database, and PLUGINS_ENABLE / PLUGINS_DISABLE -- never by the roles'
-    plugin lists, which only say what a role is shown.
+    No application is needed and none is touched: loading a plugin and letting it
+    publish its services is one thing, and binding what it contributes to a
+    transport is another (keepup-102). A runtime that serves no HTTP calls this
+    and stops here.
+
+    An unreadable declaration is reported and the deployment runs without
+    plugins; a single plugin that cannot be loaded or initialised is recorded
+    against itself and the rest still come up (keepup/plugins/base.py).
+
+    Args:
+        manager: the plugin manager.
+        config_path: the catalogue the application named.
+        environ: the environment the enablement rules read; the process's own
+            when None.
+
+    Returns:
+        The resolution, or None when the declaration could not be read at all.
     """
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
+    except (OSError, ValueError) as error:
+        logger.error(f"Plugin declaration {config_path} is unreadable: {error}")
+        return None
 
-        resolution = enablement.resolve(
-            config, environ if environ is not None else os.environ,
-            overrides=read_plugin_overrides())
-        # On the manager rather than in this module: the administrative list
-        # reads it through the manager it is already given, and a process may
-        # hold more than one application (keepup-21).
-        manager.resolution = resolution
-        for unknown in resolution.unknown:
-            logger.warning(
-                f"{enablement.ENABLE_ENV}/{enablement.DISABLE_ENV} name "
-                f"an undeclared plugin: {unknown}"
+    resolution = enablement.resolve(
+        config, environ if environ is not None else os.environ,
+        overrides=read_plugin_overrides())
+    # On the manager rather than in this module: the administrative list
+    # reads it through the manager it is already given, and a process may
+    # hold more than one application (keepup-21).
+    manager.resolution = resolution
+    for unknown in resolution.unknown:
+        logger.warning(
+            f"{enablement.ENABLE_ENV}/{enablement.DISABLE_ENV} name "
+            f"an undeclared plugin: {unknown}"
+        )
+    logger.info(enablement.summary_line(resolution))
+
+    enabled = set(enablement.enabled_ids(resolution))
+    for plugin_config in enablement.declared_plugins(config):
+        plugin_id = plugin_config['id']
+        if plugin_id in enabled:
+            manager.load_plugin(
+                plugin_id,
+                plugin_config.get('config', {}),
+                priority=plugin_config.get('priority') or 0,
             )
-        logger.info(enablement.summary_line(resolution))
-
-        enabled = set(enablement.enabled_ids(resolution))
-        for plugin_config in enablement.declared_plugins(config):
-            plugin_id = plugin_config['id']
-            if plugin_id in enabled:
-                manager.load_plugin(
-                    plugin_id,
-                    plugin_config.get('config', {}),
-                    priority=plugin_config.get('priority') or 0,
-                )
-            else:
-                # Recorded rather than passed over: a plugin switched off and a
-                # plugin that fell over look the same from outside.
-                manager.record_outcome(plugin_id, OUTCOME_DISABLED)
-
-        if await manager.initialize_plugins():
-            logger.info("All plugins initialized successfully")
         else:
-            logger.error("Some plugins failed to initialize")
+            # Recorded rather than passed over: a plugin switched off and a
+            # plugin that fell over look the same from outside.
+            manager.record_outcome(plugin_id, OUTCOME_DISABLED)
 
-        initialized = sum(1 for plugin_id in enablement.declared_plugins(config)
-                          if manager.get_outcome(plugin_id['id'])[0] == OUTCOME_INITIALIZED)
-        declared = len(enablement.declared_plugins(config))
-        logger.info(f"Plugins: initialized {initialized} of {declared} declared")
+    if await manager.initialize_plugins():
+        logger.info("All plugins initialized successfully")
+    else:
+        logger.error("Some plugins failed to initialize")
 
-        await register_plugin_routes(app, manager)
-        return resolution
+    initialized = sum(1 for plugin_id in enablement.declared_plugins(config)
+                      if manager.get_outcome(plugin_id['id'])[0] == OUTCOME_INITIALIZED)
+    declared = len(enablement.declared_plugins(config))
+    logger.info(f"Plugins: initialized {initialized} of {declared} declared")
+    return resolution
 
-    except Exception as e:
-        logger.error(f"Error initializing plugins: {str(e)}")
+
+async def initialize_plugins(app, manager, config_path=MODULES_CONFIG_PATH, environ=None):
+    """Load, initialise and bind the plugins to this application.
+
+    Route registration is outside the try that the loading phase tolerates: a
+    declaration the route runtime refuses -- a mask naming a parameter the
+    handler does not take, a permission on a route nobody signs in to -- is a
+    mistake found here, at the start, rather than a route that quietly goes
+    missing (keepup-102).
+
+    Args:
+        app: the FastAPI application the routes are registered on.
+        manager: the plugin manager.
+        config_path: the catalogue the application named.
+        environ: the environment the enablement rules read.
+
+    Returns:
+        The resolution, or None when the declaration could not be read at all.
+    """
+    resolution = await load_and_initialize(manager, config_path, environ)
+    if resolution is None:
+        return None
+    await register_plugin_routes(app, manager)
+    return resolution
 
 
 async def run_post_construct_processors(manager):

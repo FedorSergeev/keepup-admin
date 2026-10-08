@@ -10,6 +10,27 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **Contribution points, and the two route keys a capability needs to become a
+  plugin (keepup-102).** A plugin declares what it contributes -- routes,
+  sockets, panel sections, tables, jobs, event sinks, metric collectors,
+  middleware, a transport, settings defaults, the rights its routes may ask for
+  -- and the kernel collects each kind for its one consumer
+  (`keepup/kernel/contributions.py`). The list is closed: a new kind is a change
+  to the specification. A plugin whose getter raises loses that kind and keeps
+  the other ten, and the plugin report carries the reason. Middleware
+  contributes with an order -- outermost first -- so a layer that must see the
+  registered path says so instead of relying on where it was added. Two route
+  keys are added, because without them a capability cannot move out of the
+  kernel: `response_media_type`, so a route can answer something that is not
+  JSON (Prometheus text, for one), and `audit: false`, so a route that is asked
+  by a monitor every few seconds is not written to the incoming-request audit
+  once per scrape per replica. The default stays "audited". Loading and binding
+  are now separate steps (`load_and_initialize` and `initialize_plugins`): a
+  runtime that serves no HTTP initialises its plugins without an application,
+  and a route declaration the runtime refuses -- a mask naming a parameter the
+  handler does not take -- stops the start where it is found instead of leaving
+  part of a plugin's routes quietly unregistered.
+
 - **`keepup.kernel` — the plugin constructor (keepup-101).** A plugin declares a
   *descriptor* as a class attribute: its id, its kind (`required`, `optional` or
   `transport`), the services it `requires` (without which it must not run) and

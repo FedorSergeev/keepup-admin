@@ -18,7 +18,7 @@ import inspect
 import json
 import logging
 
-from fastapi import Depends, HTTPException, Request
+from fastapi import Depends, HTTPException, Request, Response
 from starlette.requests import ClientDisconnect
 
 from keepup.audit import IncomingRequestLogger, log_api_request
@@ -269,7 +269,8 @@ async def json_body(request: Request, path: str = None):
 
 
 def create_wrapper(handler, path, methods, require_auth: bool = True,
-                   is_upload: bool = False, mask=None, permission: str = None):
+                   is_upload: bool = False, mask=None, permission: str = None,
+                   audit: bool = True, response_media_type: str = None):
     """Build the endpoint FastAPI will call for one declared route.
 
     One implementation rather than one per shape. It used to be eight nearly
@@ -289,6 +290,12 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
         mask: the route's parsed mask, or None.
         permission: the right the caller must hold, or None
             (keepup/auth/identity/access.py).
+        audit: whether the call is written to the incoming-request audit. A
+            route that answers a monitor is asked every few seconds by every
+            replica, and a row per scrape is not an audit (keepup-102).
+        response_media_type: what the answer is, when it is not JSON -- text
+            for a metrics scrape, for one. A handler that returns a Response
+            itself is passed through either way.
 
     Returns:
         An async endpoint to hand to app.add_api_route().
@@ -309,6 +316,39 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
 
     has_path_params = any('{' in part and '}' in part for part in path.split('/'))
 
+    def as_answer(value):
+        """A handler's value as the answer: a Response as it is, text when asked."""
+        if response_media_type is None or isinstance(value, Response):
+            return value
+        return Response(content="" if value is None else str(value),
+                        media_type=response_media_type)
+
+    async def invoke(request: Request, current_user):
+        """What the handler does, with or without the audit around it."""
+        if permission is not None:
+            # Inside the audit, so a refusal is recorded like any other answer;
+            # before anything of the handler runs.
+            await access.check(current_user, access.action_of(request, permission))
+
+        params = {}
+        # The query first and the path over it: a value taken from the address
+        # is what the route matched on, and a client that sends ?id=99 to
+        # /api/x/5 used to reach the handler with 99 while every log and every
+        # rule built on the path still said 5.
+        params.update(request.query_params)
+        params.update(request.path_params)
+        params = admit_params(handler, mask, params)
+
+        if current_user is not None:
+            params['current_user'] = current_user
+        if kind == KIND_WRITE:
+            # An upload is handed the request itself: reading a file into
+            # memory to pass it as a value is what such a route exists to avoid.
+            params['request'] = (request if is_upload
+                                else await json_body(request, path))
+
+        return as_answer(await handler(**params))
+
     async def call(request: Request, current_user):
         """One call of a plugin route, from the audit's first row to its last."""
         request_data = {
@@ -321,6 +361,10 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
         if kind == KIND_WRITE:
             request_data['is_upload'] = is_upload
 
+        if not audit:
+            # A route that said so is not written down: no context, no row.
+            return await invoke(request, current_user)
+
         async with log_api_request(
                 method=method_name,
                 endpoint=path,
@@ -328,30 +372,7 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
                 request_data=request_data
         ) as request_id:
             try:
-                if permission is not None:
-                    # Inside the audit, so a refusal is recorded like any other
-                    # answer; before anything of the handler runs.
-                    await access.check(current_user, access.action_of(request, permission))
-
-                params = {}
-                # The query first and the path over it: a value taken from the
-                # address is what the route matched on, and a client that sends
-                # ?id=99 to /api/x/5 used to reach the handler with 99 while
-                # every log and every rule built on the path still said 5.
-                params.update(request.query_params)
-                params.update(request.path_params)
-                params = admit_params(handler, mask, params)
-
-                if current_user is not None:
-                    params['current_user'] = current_user
-                if kind == KIND_WRITE:
-                    # An upload is handed the request itself: reading a file
-                    # into memory to pass it as a value is what such a route
-                    # exists to avoid.
-                    params['request'] = (request if is_upload
-                                        else await json_body(request, path))
-
-                response = await handler(**params)
+                response = await invoke(request, current_user)
 
                 await IncomingRequestLogger.end_request(
                     request_id=request_id,
@@ -405,6 +426,16 @@ async def register_plugin_routes(app, manager):
         require_auth = route.get('require_auth', True)
         is_upload = route.get('is_upload', False)
         permission = route.get('permission')
+        audit = route.get('audit', True)
+        response_media_type = route.get('response_media_type')
+        if response_media_type is not None and (
+                not isinstance(response_media_type, str) or not response_media_type.strip()):
+            raise ValueError(
+                f"{path}: response_media_type is a media type, like 'text/plain'")
+        if response_media_type is not None and route.get('raw_request'):
+            raise ValueError(
+                f"{path}: a raw_request route answers with a Response of its own; "
+                "response_media_type would be ignored. Drop one of the two.")
         if permission is not None:
             # A right needs somebody to hold it: on a route nobody signs in to,
             # or one that signs itself in, it would be a check that never runs.
@@ -442,7 +473,8 @@ async def register_plugin_routes(app, manager):
             wrapper = raw_request_wrapper(handler)
         else:
             wrapper = create_wrapper(handler, path, methods, require_auth, is_upload, mask,
-                                     permission)
+                                     permission, audit=audit,
+                                     response_media_type=response_media_type)
 
         # What the route says about its body: its own limit, or that it reads
         # the body itself (keepup/body_limit.py).

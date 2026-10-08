@@ -492,6 +492,14 @@ class PluginDescriptor:
 | **optional** | yes -- by the file, the environment or the administrator | the catalogue | the deployment runs without it; its routes and its section are absent |
 | **transport** | yes, but at least one must be running unless the deployment is a worker on purpose | the catalogue | a process with no transport starts the lifecycle and serves nothing -- a worker replica, which is a declared deployment, not a mistake |
 
+A plugin of kind `required` **or** `transport` is enabled by being installed:
+installing `keepup-postgres` is how a deployment says "this database", and
+installing `keepup-http` is how it says "serve HTTP". The application's file may
+still switch either off, because the file is the composition root; the panel may
+not, and neither may `PLUGINS_DISABLE` -- naming a required plugin there stops the
+start, and naming a transport one stops it too, because a stand whose web server
+did not come up must not look like one that did.
+
 **Required plugins are libraries, and the comparison is exact.** `keepup-db-
 postgres` is in the application's `requirements` the way `psycopg2` is; without
 it there is no database, and without a database there is no panel, no section
