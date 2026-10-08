@@ -802,6 +802,20 @@ The permission check moves onto the `Call`, because
 the call carries. `raw_request` and `is_upload` stay as they are, expressed as
 `body` being the untouched request or an open stream.
 
+Three things about it are worth stating because they are what makes it a
+contract rather than a refactor:
+
+- **A route's mask is parsed and matched against the handler's signature when
+  the contributions are collected** -- once, at the start, for every transport
+  there will ever be -- rather than when one particular transport registers the
+  route. A declaration nobody can call stops the start.
+- **The transport supplies the checker.** `invoke()` takes one and refuses to
+  run a route that declares a `permission` without it, because a right nobody
+  decides is worse than a route that does not run.
+- **`invoke()` shapes nothing.** It returns the handler's answer as it is: a
+  media type, a status code and a body are the transport's vocabulary, which is
+  why `response_media_type` and `Response` live in the HTTP adapter.
+
 That interface is what makes the reference transport of section 5 a day of work
 instead of a rewrite, and it is the reason the gRPC transport can wait.
 

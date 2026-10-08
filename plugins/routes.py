@@ -14,7 +14,6 @@ two of the eight had drifted apart from the rest without anybody noticing
 what this module does once, it does to all of them.
 """
 
-import inspect
 import json
 import logging
 
@@ -26,6 +25,16 @@ from keepup.auth.dependencies import get_panel_user
 from keepup.auth.identity import access
 from keepup.auth.websocket import authenticate_websocket
 from keepup.body_limit import declare_limit
+from keepup.kernel.call import (
+    KIND_WRITE,
+    Call,
+    CallError,
+    RouteSpec,
+    admit,
+    admitted,
+    invoke as invoke_route,
+    route_kind,
+)
 from keepup.plugins import route_mask
 
 #: What an application may import from this module. Everything else is
@@ -66,13 +75,8 @@ def raw_request_wrapper(handler):
 def accepted_params(handler, params):
     """The parameters this handler declares, refusing the ones it does not.
 
-    A plugin route is data, so the framework unpacks what arrived into keyword
-    arguments -- and an argument the handler never heard of used to raise
-    TypeError, which left the client with a 500 and the audit table with a row.
-    Sending `?nosuch=1` in a loop was a cheap way to fill the database and the
-    log at once, and on a route with `require_auth: False` anybody could.
-
-    A handler that takes **kwargs is asking for everything and gets it.
+    The decision is the kernel's (:func:`keepup.kernel.call.admitted`); what an
+    HTTP caller reads is the refusal, which is a 400 here.
 
     Args:
         handler: the plugin's callable.
@@ -85,36 +89,18 @@ def accepted_params(handler, params):
         HTTPException: 400, naming the parameters the route does not take.
     """
     try:
-        signature = inspect.signature(handler)
-    except (TypeError, ValueError):
-        # A callable that cannot be inspected (a builtin, a C extension) is
-        # left alone: refusing it would break a plugin over introspection.
-        return params
-
-    parameters = signature.parameters.values()
-    if any(p.kind is inspect.Parameter.VAR_KEYWORD for p in parameters):
-        return params
-
-    declared = {p.name for p in parameters
-                if p.kind in (inspect.Parameter.POSITIONAL_OR_KEYWORD,
-                              inspect.Parameter.KEYWORD_ONLY)}
-    # Supplied by the framework, never by the caller: a client sending
-    # ?current_user=1 used to get a 500 out of the duplicate argument.
-    supplied = params.keys() - declared - {"current_user"}
-    if supplied:
-        raise HTTPException(
-            status_code=400,
-            detail=f"Unknown parameter(s): {', '.join(sorted(supplied))}")
-    return {name: value for name, value in params.items() if name != "current_user"}
+        return admitted(handler, params)
+    except CallError as refused:
+        raise HTTPException(status_code=refused.http_status, detail=refused.detail) from refused
 
 
 def admit_params(handler, mask, params):
     """What reaches the handler: the mask decides, or the signature still does.
 
     A route that declared a mask is checked against it -- names, types,
-    required, allowed values -- and the values arrive converted. A route
-    without one keeps the previous behaviour exactly, which is the condition of
-    the change: the applications convert their routes by their own tasks, and a
+    required, allowed values -- and the values arrive converted. A route without
+    one keeps the previous behaviour exactly, which is the condition of the
+    change: the applications convert their routes by their own tasks, and a
     framework that changed the default would have turned every route of every
     application into a refusal at once. See doc/keepup.md.
 
@@ -129,47 +115,11 @@ def admit_params(handler, mask, params):
     Raises:
         HTTPException: 400, naming everything the request got wrong.
     """
-    if mask is None:
-        return accepted_params(handler, params)
-
-    values, complaints = mask.admit(params)
-    if complaints:
-        raise HTTPException(status_code=400, detail="; ".join(complaints))
-    return values
-
-
-#: What the runtime does with a route, decided by the methods it declares.
-#: A route is one of three shapes: a read, a write (which carries a body) and
-#: a deletion.
-KIND_READ = "read"
-KIND_WRITE = "write"
-KIND_DELETE = "delete"
-
-#: The methods that carry a body. PUT and PATCH go the way POST goes.
-WRITE_METHODS = ("POST", "PUT", "PATCH")
-
-
-def route_kind(methods):
-    """The shape of a route, and the method name its calls are recorded under.
-
-    The order of the checks is the order the eight wrappers used to be written
-    in, and it is what decides a tie: a route declaring ["POST", "GET"] is a
-    read and is recorded as GET, not as the first method it named.
-
-    Args:
-        methods: the methods the route declares.
-
-    Returns:
-        A (kind, method name) pair, or (None, None) for a set of methods the
-        runtime has no wrapper for.
-    """
-    if "GET" in methods:
-        return KIND_READ, "GET"
-    if any(method in WRITE_METHODS for method in methods):
-        return KIND_WRITE, methods[0]
-    if "DELETE" in methods:
-        return KIND_DELETE, "DELETE"
-    return None, None
+    spec = RouteSpec(path="", methods=(), handler=handler, mask=mask)
+    try:
+        return admit(spec, params)
+    except CallError as refused:
+        raise HTTPException(status_code=refused.http_status, detail=refused.detail) from refused
 
 
 def media_type(header):
@@ -323,13 +273,25 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
         return Response(content="" if value is None else str(value),
                         media_type=response_media_type)
 
-    async def invoke(request: Request, current_user):
-        """What the handler does, with or without the audit around it."""
-        if permission is not None:
-            # Inside the audit, so a refusal is recorded like any other answer;
-            # before anything of the handler runs.
-            await access.check(current_user, access.action_of(request, permission))
+    spec = RouteSpec(
+        path=path,
+        methods=tuple(str(item).upper() for item in methods or ()),
+        handler=handler,
+        mask=mask,
+        permission=permission,
+        require_auth=require_auth,
+        is_upload=is_upload,
+        audit=audit,
+        response_media_type=response_media_type,
+    )
 
+    async def invoke(request: Request, current_user):
+        """What the handler does, with or without the audit around it.
+
+        The reading of the request is the HTTP adapter's; everything after it --
+        the mask, the caller, the body, the right, the answer -- is the
+        transport-neutral invocation of ``keepup.kernel.call``.
+        """
         params = {}
         # The query first and the path over it: a value taken from the address
         # is what the route matched on, and a client that sends ?id=99 to
@@ -337,17 +299,19 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
         # rule built on the path still said 5.
         params.update(request.query_params)
         params.update(request.path_params)
-        params = admit_params(handler, mask, params)
 
-        if current_user is not None:
-            params['current_user'] = current_user
+        body = None
         if kind == KIND_WRITE:
             # An upload is handed the request itself: reading a file into
             # memory to pass it as a value is what such a route exists to avoid.
-            params['request'] = (request if is_upload
-                                else await json_body(request, path))
+            body = request if is_upload else await json_body(request, path)
 
-        return as_answer(await handler(**params))
+        call = Call(route=spec, params=params, actor=current_user, body=body, source="http")
+        try:
+            answer = await invoke_route(call, checker=access.check)
+        except CallError as refused:
+            raise HTTPException(status_code=refused.http_status, detail=refused.detail) from refused
+        return as_answer(answer)
 
     async def call(request: Request, current_user):
         """One call of a plugin route, from the audit's first row to its last."""
@@ -450,14 +414,20 @@ async def register_plugin_routes(app, manager):
         logger.info(
             f"Registering route {path} - methods: {methods}, auth: {require_auth}, upload: {is_upload}")
 
-        try:
-            mask = route_mask.parse(route.get(route_mask.MASK_FIELD), path)
-            route_mask.check_signature(handler, mask)
-        except route_mask.MaskError as error:
-            # The same loudness as the raw_request check below: a mask naming a
-            # parameter the handler does not take is a typo, and finding it on
-            # a request would mean hearing about it from a user.
-            raise ValueError(f"{path}: {error}")
+        # The kernel parsed and checked the mask when it collected the route,
+        # for every transport there will ever be (keepup-102); a route that
+        # reaches here without one was declared by something else, and is
+        # checked the same way rather than trusted.
+        mask = route.get('_mask')
+        if mask is None:
+            try:
+                mask = route_mask.parse(route.get(route_mask.MASK_FIELD), path)
+                route_mask.check_signature(handler, mask)
+            except route_mask.MaskError as error:
+                # The same loudness as the raw_request check below: a mask naming
+                # a parameter the handler does not take is a typo, and finding it
+                # on a request would mean hearing about it from a user.
+                raise ValueError(f"{path}: {error}")
 
         if route.get('raw_request'):
             # A raw route authenticates inside the handler -- it is handed the

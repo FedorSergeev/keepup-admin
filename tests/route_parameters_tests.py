@@ -70,12 +70,14 @@ def test_an_uninspectable_callable_is_left_alone(monkeypatch):
     builtins and C extensions, and a plugin handler is neither -- which is
     exactly why the branch would otherwise go untested until it fired.
     """
-    from keepup.plugins import routes
+    # The introspection moved into the kernel with the neutral invocation
+    # (keepup-103), and that is where it is forced to fail.
+    from keepup.kernel import call as kernel_call
 
     def refuses(_):
         raise ValueError("no signature for this one")
 
-    monkeypatch.setattr(routes.inspect, "signature", refuses)
+    monkeypatch.setattr(kernel_call.inspect, "signature", refuses)
     passed = accepted_params(handler_with_a_default, {"anything": "1"})
     assert passed == {"anything": "1"}
 

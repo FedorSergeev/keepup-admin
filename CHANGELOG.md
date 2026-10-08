@@ -10,6 +10,28 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The transport seam: an invocation that is not HTTP, and a carrier that is a
+  plugin (keepup-103).** `keepup/kernel/call.py` is one invocation of a declared
+  route, knowing nothing about the wire: a `RouteSpec` (path, methods, handler,
+  mask, right, keys) and a `Call` (the parameters the transport read, the
+  caller, the body, the source). `invoke()` applies the mask, injects the
+  caller and the body, checks the right through a checker the transport passes,
+  and returns the handler's answer as it is; a refusal of the framework's is a
+  `CallError` with a code, which the transport renders in its own vocabulary.
+  HTTP becomes an adapter of that invocation -- it reads the request, builds the
+  call, maps `CallError` to `HTTPException` and writes the audit -- and
+  `accepted_params`/`admit_params` stay public names delegating to the kernel. A
+  route's mask is now parsed and matched against the handler's signature when
+  contributions are collected: once, at the start, for every transport there
+  will ever be, so a declaration nobody can call stops the start instead of
+  reaching a handler unchecked. A transport is a plugin of kind `transport`
+  (`keepup/kernel/transports.py`): it contributes a server rather than routes,
+  `Runtime.serve_all()` serves every enabled one at once, and
+  `Runtime.run_forever()` is start, serve, stop -- while a deployment with no
+  transport is a worker, which the log says rather than the framework refusing.
+  A reference transport -- two lines over a TCP socket, answering through
+  another plugin's route -- lives in the suite as the proof the seam is real.
+
 - **Contribution points, and the two route keys a capability needs to become a
   plugin (keepup-102).** A plugin declares what it contributes -- routes,
   sockets, panel sections, tables, jobs, event sinks, metric collectors,

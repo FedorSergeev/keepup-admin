@@ -246,12 +246,47 @@ def _record(contributions: Contributions, kind: str, plugin_id: str, value: Any)
 
 
 def _tagged(item: Any, plugin_id: str, kind: str) -> Any:
-    """Remember who contributed a route or a section, for the report."""
+    """Remember who contributed a route or a section, for the report.
+
+    A route is also *checked* here, once, for every transport there will ever
+    be: the mask is parsed and matched against the handler's signature now, at
+    the start, rather than when one particular transport happens to register it.
+    A mask naming a parameter the handler does not take is a mistake, and a
+    mistake found at the start is a start that stops (keepup-102).
+    """
     if isinstance(item, dict):
-        return {**item, "_plugin_id": item.get("_plugin_id") or plugin_id}
+        tagged = {**item, "_plugin_id": item.get("_plugin_id") or plugin_id}
+        if kind == "routes":
+            tagged["_mask"] = _parsed_mask(tagged)
+        return tagged
     if kind == "middleware":
         return MiddlewareSpec.of(item, plugin_id)
     return item
+
+
+def _parsed_mask(route: Mapping[str, Any]) -> Any:
+    """The route's request mask, parsed, with the declaration checked.
+
+    Args:
+        route: the declared route.
+
+    Returns:
+        The parsed mask, or None when the route declares none.
+
+    Raises:
+        ValueError: when the declaration is wrong -- a mask that names a
+            parameter the handler does not take, or one that leaves out a
+            parameter of its own path.
+    """
+    from keepup.plugins import route_mask
+
+    path = str(route.get("path") or "")
+    try:
+        mask = route_mask.parse(route.get(route_mask.MASK_FIELD), path)
+        route_mask.check_signature(route.get("handler"), mask)
+    except route_mask.MaskError as error:
+        raise ValueError(f"{path}: {error}") from error
+    return mask
 
 
 def mount(contributions: Contributions, registrars: Mapping[str, Callable], runtime: Any = None) -> Dict[str, int]:

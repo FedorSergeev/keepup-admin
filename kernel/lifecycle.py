@@ -13,6 +13,7 @@ plugin. So the required set is resolved from files and the environment alone, is
 registered and initialised, and only then is the administrator asked.
 """
 
+import asyncio
 import inspect
 import logging
 import os
@@ -33,6 +34,7 @@ from keepup.kernel.contributions import (
 )
 from keepup.kernel.loader import Candidate, PluginLoader
 from keepup.kernel.services import ServiceRegistry
+from keepup.kernel.transports import route_specs_of, serve_all, transports_of
 from keepup.plugins import enablement
 from keepup.plugins.base import (
     OUTCOME_DISABLED,
@@ -182,6 +184,39 @@ class Runtime:
     def loaded_plugins(self) -> Dict[str, Any]:
         """The initialised plugins, by identifier -- what ``get_plugin`` answers."""
         return {plugin_id: self._loaded[plugin_id] for plugin_id in self._init_order}
+
+    def transports(self) -> List[Tuple[str, Any]]:
+        """The initialised transport plugins, in the order they started."""
+        return transports_of(self)
+
+    def route_specs(self) -> List[Any]:
+        """Every declared route, as a transport-neutral specification."""
+        return route_specs_of(self)
+
+    async def serve_all(self) -> None:
+        """Serve on every enabled transport, returning when they have all stopped."""
+        await serve_all(self)
+
+    async def run_forever(self) -> None:
+        """Start, serve, and stop when the serving is over.
+
+        A deployment with no transport is a worker: it starts its plugins and
+        waits, because that is what a process whose work is a scheduled job or
+        a subscription does. Cancelling this coroutine stops the runtime.
+        """
+        await self.start()
+        try:
+            transports = self.transports()
+            if transports:
+                await serve_all(self, transports)
+            else:
+                logger.info("A worker with no transport: waiting until cancelled")
+                await asyncio.Event().wait()
+        except asyncio.CancelledError:
+            logger.info("Runtime cancelled")
+            raise
+        finally:
+            await self.stop()
 
     def mount(self, registrars: Mapping[str, Any]) -> Dict[str, int]:
         """Hand the collected contributions to their consumers.

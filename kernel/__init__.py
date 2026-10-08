@@ -44,12 +44,22 @@ from keepup.kernel.lifecycle import (
     maybe_await,
 )
 from keepup.kernel.loader import ENTRY_POINT_GROUP, Candidate, PluginLoader
+from keepup.kernel.call import (
+    Call,
+    CallError,
+    RouteSpec,
+    admit,
+    admitted,
+    invoke,
+    route_kind,
+)
 from keepup.kernel.services import (
     DuplicateProvider,
     ServiceError,
     ServiceRegistry,
     UnsatisfiedRequirement,
 )
+from keepup.kernel.transports import TransportPlugin, route_specs_of, serve_all, transports_of
 
 __all__ = [
     "CONTRIBUTION_KINDS",
@@ -59,6 +69,8 @@ __all__ = [
     "KIND_REQUIRED",
     "KIND_TRANSPORT",
     "PROFILE_METRICS_ONLY",
+    "Call",
+    "CallError",
     "Candidate",
     "CatalogueError",
     "Contributions",
@@ -69,19 +81,28 @@ __all__ = [
     "PluginLoader",
     "PluginState",
     "Requirement",
+    "RouteSpec",
     "Runtime",
     "ServiceError",
     "ServiceRegistry",
+    "TransportPlugin",
     "UnsatisfiedRequirement",
+    "admit",
+    "admitted",
     "apply_profile",
     "collect",
     "compose",
     "create_runtime",
     "declarations",
     "declared_ids",
+    "invoke",
     "maybe_await",
     "merge",
     "mount",
     "parse_requirement",
     "read",
+    "route_kind",
+    "route_specs_of",
+    "serve_all",
+    "transports_of",
 ]
