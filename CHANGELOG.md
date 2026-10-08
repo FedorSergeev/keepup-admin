@@ -10,6 +10,17 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The retired flag is the profile (keepup-123, first slice).**
+  `disable_http_server` asked for a stand that serves `/metrics` and a
+  raw-request log and nothing else, and it was a second way of assembling an
+  application -- past the catalogue and the profiles, and the one place where
+  what a deployment consists of was not data. The flag now maps onto the
+  `metrics-only` profile of the built-in catalogue, warns once that it is retired
+  and names the profile, and an explicitly named profile wins; without the flag
+  nothing is said. The stripped application is unchanged for this release, and
+  the flag itself goes away in keepup-122. Assembling `create_app` itself through
+  the runtime is the rest of keepup-123.
+
 - **Every table has an owner, and the map is checked (keepup-124).** A
   declaration leaves the kernel's `schema.py` together with the module that keeps
   it, so the move needs a map that says where each one goes -- and a map nobody

@@ -28,6 +28,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
 from keepup import audit, cluster, logging_setup, modules, notification_bus, web
+from keepup.kernel.lifecycle import PROFILE_METRICS_ONLY
 from keepup.api_docs import register_api_documentation
 from keepup.api_versions import ApiVersionMiddleware
 from keepup.audit import (audit_retention_background, background_buffer_flusher,
@@ -516,6 +517,20 @@ def create_app(settings: KeepupSettings = None) -> FastAPI:
     identity_runtime.configure(settings.identity_provider)
 
     if settings.disable_http_server:
+        # The retired flag is the profile (keepup-123): a stand that serves no
+        # panel and no admin API is assembled from the same code and the same
+        # catalogue as every other stand, not from a second application factory.
+        # An explicit profile wins -- a deployment that named one meant it.
+        import warnings
+
+        warnings.warn(
+            "disable_http_server is retired in 0.4.0 and goes away in 0.5.0: it is "
+            "the 'metrics-only' profile now (KeepupSettings.profile)",
+            DeprecationWarning,
+            stacklevel=2,
+        )
+        if not settings.profile:
+            settings.profile = PROFILE_METRICS_ONLY
         return _create_stripped_app(settings)
 
     # /docs belongs to the public gateway reference, so the interactive API docs
