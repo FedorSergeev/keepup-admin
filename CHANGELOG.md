@@ -10,6 +10,18 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The constructor keeps no library a capability must carry (keepup-124).** The
+  release promises that `keepup-admin` plus a driver is a deployment that talks
+  to a database and carries no library it does not use. The code that needs
+  SQLAlchemy, a driver, a password hasher and a JWT still lives in the base in
+  0.4.0 and moves in the rest of this task, so what is pinned now -- and must not
+  regress while the move happens -- is the boundary: the kernel imports none of
+  the four, and imports no capability module either, because storage, sign-in and
+  the record are reached through services. Each library is named together with
+  the distribution that will take it, and the base's remaining dependency on them
+  is checked as a debt that the last slice of this task removes, together with
+  the check itself.
+
 - **The retired flag is the profile (keepup-123, first slice).**
   `disable_http_server` asked for a stand that serves `/metrics` and a
   raw-request log and nothing else, and it was a second way of assembling an
