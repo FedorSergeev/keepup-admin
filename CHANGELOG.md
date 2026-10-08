@@ -10,6 +10,18 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The accounts declare their own tables (keepup-124).** `users`, `user_roles`,
+  `user_permissions` and `external_role_mappings` move into
+  `packages/keepup-users/keepup_users/tables.py`, and `keepup.schema`
+  re-exports them: the path that predates the catalogue still creates the tables
+  it always did, and every reader keeps working, while the declaration itself now
+  lives with the capability that keeps the rows. The capability's plugin takes
+  them from its own distribution, and the packaging check counts the accounts
+  among the capabilities the base references without depending on. Moving a
+  declaration is not only a text move: the four blocks brought `sql_text` and
+  `UniqueConstraint` with them, which the checks caught as load errors before
+  anything else ran.
+
 - **The first declaration leaves the kernel's schema for its owner
   (keepup-124).** With a capability creating what it declares (keepup-123), a
   declaration can finally move: the integration log's table now lives in

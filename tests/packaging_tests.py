@@ -47,6 +47,7 @@ PYPROJECT = PACKAGE / "pyproject.toml"
 #: it travels -- is what imports it.
 OPTIONAL_CAPABILITY_IMPORTS = {
     "keepup_integration_log": "keepup-integration-log",
+    "keepup_users": "keepup-users",
 }
 
 DEPENDENCY_IMPORTS = {

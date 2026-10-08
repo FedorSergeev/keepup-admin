@@ -18,7 +18,7 @@ from typing import Any, Dict, List, Mapping, Optional
 from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.descriptor import KIND_OPTIONAL, PluginDescriptor
 from keepup.plugins.base import BasePlugin
-from keepup.schema import USERS, USER_PERMISSIONS, USER_ROLES
+from keepup_users.tables import USERS, USER_PERMISSIONS, USER_ROLES
 
 logger = logging.getLogger(__name__)
 
