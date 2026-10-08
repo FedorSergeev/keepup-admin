@@ -180,6 +180,11 @@ def apply_settings(settings: KeepupSettings) -> None:
         favicon_file=settings.favicon_file,
     )
     auth_dependencies.configure_panel_gate(pending=settings.pending_documents)
+    if not settings.database_dialect:
+        # The framework's configuration is the default; naming the dialect lets
+        # the kernel choose a driver without importing a database (keepup-123).
+        from keepup.db import db_config as _db_config
+        settings.database_dialect = "postgresql" if _db_config.is_postgres() else "sqlite"
     # Who is calling and what they may do, behind the two names the kernel owns
     # (keepup-119). Until keepup-auth is a plugin of its own this is the
     # framework's own sign-in; afterwards it is that plugin's register().

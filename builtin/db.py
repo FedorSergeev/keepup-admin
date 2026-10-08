@@ -141,7 +141,18 @@ class DbPlugin(BasePlugin):
         logger.info("The data source is %s", self.source.dialect)
 
     async def initialize(self):
-        """Open nothing yet: the manager opens its pool on the first query."""
+        """Take the driver's description, and open nothing.
+
+        The driver is read here rather than at registration: a plugin's
+        ``register`` runs in the order the catalogue lists, and the abstraction
+        may well be listed before the driver it abstracts. By the time a phase
+        initialises, every plugin of it has registered.
+        """
+        if self.services.has(SERVICE_DATASOURCE_DRIVER):
+            driver = self.services.require(SERVICE_DATASOURCE_DRIVER)
+            reader = getattr(driver, "spec", None)
+            if callable(reader):
+                self.source.spec = reader()
         return True
 
     def get_declared_tables(self) -> List[Any]:

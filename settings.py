@@ -263,5 +263,11 @@ class KeepupSettings:
     scheduler_job_defaults: Optional[Dict[str, Any]] = None
 
     # --- deployment -----------------------------------------------------
+    #: Which database driver runs (`postgresql`, `sqlite`). None means "the one the
+    #: database configuration already describes", which is what a 0.3.0 deployment
+    #: has. Naming it is how a deployment chooses a driver without the kernel
+    #: learning a database library (keepup-123).
+    database_dialect: Optional[str] = None
+
     #: The stripped application: /metrics and a raw-request log, nothing else.
     disable_http_server: bool = False

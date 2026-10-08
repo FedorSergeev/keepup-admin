@@ -593,6 +593,13 @@ class Runtime:
         plugin_id: str,
     ) -> Tuple[bool, str]:
         """Whether one plugin runs, and who decided it."""
+        dialect = getattr(self.settings, "database_dialect", None)
+        offered = entry.get("dialect")
+        if dialect and offered:
+            # One database is configured, so one driver runs: the choice is the
+            # deployment's and not a consequence of what is installed
+            # (doc/plugin_constructor.md section 4.9, keepup-123).
+            return str(offered).lower() == str(dialect).lower(), enablement.SOURCE_CONFIG
         if kind in (KIND_REQUIRED, KIND_TRANSPORT):
             if plugin_id in enablement.parse_id_list(self.environ.get(enablement.DISABLE_ENV)):
                 if candidate is not None:

@@ -10,6 +10,19 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The deployment's dialect chooses the driver (keepup-123, first step).** The
+  framework ships two drivers of one required service, and both enabled stops the
+  start on purpose, so the choice has to reach the kernel as data -- and the
+  kernel cannot read the configuration itself without importing a database
+  library. `KeepupSettings.database_dialect` names it (filled in by `create_app`
+  from the configuration, which is the composition root's job), the built-in
+  catalogue names a dialect for each driver, and the kernel enables the one that
+  matches and turns the other off. A deployment that names no dialect keeps the
+  rule it had. One thing this needed and got: the abstraction reads the driver's
+  description when the phase initialises rather than when it registers, because
+  the catalogue decides the order and the abstraction may be listed before the
+  driver it abstracts.
+
 - **What is left of the release, written where the next attempt reads it
   (keepup-123, keepup-124).** Two tasks remain and they are one piece of work in
   two halves: `create_app` has to be assembled through the runtime before a
