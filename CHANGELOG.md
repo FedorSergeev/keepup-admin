@@ -10,6 +10,18 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The journal moves into the audit capability (keepup-124).** The event log --
+  the table, writing, reading and retention -- was a module of the base package
+  that belongs to the audit capability. It now lives in
+  `packages/keepup-audit/keepup_audit/events.py`, takes its tables and the manager
+  from the distributions and `retention` from the framework, and `keepup.events`
+  answers through the compatibility layer: the ten modules that import it did not
+  change at all. This is the first *module* move of the release, and it needed two
+  instruments first -- the ownership map that sees a declaration outside the
+  kernel's schema, and a way for a check to ask a module for its file rather than
+  build a path to it. Both were built in the rounds before, after the move failed
+  without them, and it went through on the first attempt with them.
+
 - **A check asks the module where it is, not the filesystem (keepup-124).** Moving
   the event log into the audit capability failed on the checks rather than on the
   code: two of them read the source as `PACKAGE / "events.py"`, and a module that

@@ -22,8 +22,9 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from sqlalchemy import Index
 
-from keepup import retention, tables
-from keepup.db import DatabaseManagerV2
+from keepup import retention
+from keepup_db import tables
+from keepup_db import DatabaseManagerV2
 from keepup.instance import get_instance_id, get_instance_name
 
 #: What an application may import from this module. Everything else is
