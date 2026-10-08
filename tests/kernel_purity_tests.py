@@ -72,6 +72,16 @@ def imports_of(path):
     return found
 
 
+#: The files that *are* the sign-in: the capability's own modules, and the
+#: plugin file that claims it (keepup-116). They may import it because they are it.
+THE_SIGN_IN_ITSELF = ("auth/", "builtin/auth.py")
+
+
+def is_the_sign_in_itself(relative):
+    """Whether this file is the capability rather than a module reaching for it."""
+    return relative.startswith("auth/") or relative in THE_SIGN_IN_ITSELF
+
+
 def importers():
     """Every module of the framework that imports the sign-in."""
     return {relative for path, relative in package_files() if imports_of(path)}
@@ -81,7 +91,7 @@ def test_only_the_named_modules_import_the_sign_in():
     """A new edge is a decision, and a decision is a change to the specification."""
     unknown = sorted(
         name for name in importers()
-        if name not in STILL_IMPORTING and not name.startswith("auth/")
+        if name not in STILL_IMPORTING and not is_the_sign_in_itself(name)
     )
     assert unknown == [], (
         "these modules import the sign-in and are not in the list: "

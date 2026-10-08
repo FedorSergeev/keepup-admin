@@ -293,6 +293,7 @@ class Runtime:
         await self._initialize(optional)
 
         await self._create_tables(optional)
+        self._adopt_the_identity()
 
         self.services.freeze()
 
@@ -423,6 +424,23 @@ class Runtime:
             self.states[plugin_id] = state
             states.append(state)
         return states
+
+    def _adopt_the_identity(self) -> None:
+        """Let a plugin's sign-in answer for this process, if it published one.
+
+        The kernel's two names are services; the HTTP dependency FastAPI was
+        handed is a module-level callable, and the seam in
+        ``keepup/kernel/security.py`` is where the two meet until the transport
+        owns the application (keepup-123). A deployment whose plugin answered
+        wins over whatever the composition root put there before it.
+        """
+        from keepup.kernel import security
+
+        if not self.services.has(security.SERVICE_AUTH):
+            return
+        identity = self.services.require(security.SERVICE_AUTH)
+        security.set_identity(identity)
+        logger.info("The sign-in is answered by %s", getattr(identity, "name", "a plugin"))
 
     def _mark_required_services(self, states: Sequence[PluginState]) -> None:
         """Remember every service an enabled plugin cannot run without.

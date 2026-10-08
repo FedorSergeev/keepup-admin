@@ -10,6 +10,20 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The sign-in becomes a capability (keepup-116, first half).** Sessions, login
+  throttling, roles, OIDC and somebody else's identity system live in the kernel
+  and import SQLAlchemy, so a base bundle without a database library cannot be
+  assembled while they stay. The kernel already owns the shape and the two names
+  (keepup-119); `builtin/auth.py` is a deployment answering behind them: a plugin
+  of kind `optional` that requires `datasource`, provides `auth` and
+  `permissions`, declares its contributions -- routes, sockets, middleware,
+  tables, permissions -- and owns the two tables that answering needs, the
+  panel's sessions and the attempts that throttle a guesser. The runtime adopts
+  the identity a plugin published, so the panel signs people in with the
+  capability rather than with whatever the composition root put there before it.
+  The sign-in's routes, its sockets and the CSRF middleware travel into the
+  capability's distribution in keepup-124.
+
 - **The audit becomes a service, and the route runtime stops importing it
   (keepup-111).** Three modules of the kernel record what happens -- the incoming
   call, the application's events and what an administrator decided -- and all
