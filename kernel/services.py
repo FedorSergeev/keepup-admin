@@ -127,6 +127,10 @@ class ServiceRegistry:
         """Remember that some enabled plugin cannot run without this service."""
         self._required.add(name)
 
+    def required_services(self) -> frozenset:
+        """The names some enabled plugin cannot run without."""
+        return frozenset(self._required)
+
     # --- consuming ----------------------------------------------------------
 
     def has(self, name: str, minimum: int = 0) -> bool:

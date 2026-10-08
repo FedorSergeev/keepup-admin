@@ -10,6 +10,24 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The kinds of plugin, and the three rules that follow from them
+  (keepup-120).** A plugin declared nowhere but installed is now offered: this
+  is what "a plugin of kind `required` or `transport` is enabled by being
+  installed" means, and it was not true -- the catalogue was treated as the only
+  source of the composition, so an installed database plugin that an application
+  forgot to declare simply did not run. A required plugin may declare a
+  `check()`, and the kernel asks it once it is up: a `False` or an exception is
+  a start that stops with the reason in the report, because a deployment that
+  cannot work is worse than one that does not start. A provider of a service
+  some enabled plugin cannot run without must arrive as an installed
+  distribution: a file dropped into the plugins directory is refused by name,
+  since a driver sees every row and every secret and has to be something
+  `pip freeze`, a lock file and an audit can name. The panel may not choose such
+  a provider either -- required services are now known from the descriptors of
+  everything enabled before the optional plugins are decided, which is the
+  moment at which that decision can still be refused. The plugin report carries
+  `origin`, so a distribution and a file of the application are told apart.
+
 - **The transport seam: an invocation that is not HTTP, and a carrier that is a
   plugin (keepup-103).** `keepup/kernel/call.py` is one invocation of a declared
   route, knowing nothing about the wire: a `RouteSpec` (path, methods, handler,

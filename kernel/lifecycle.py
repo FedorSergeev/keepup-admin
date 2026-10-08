@@ -117,6 +117,7 @@ class PluginState:
     priority: int = 0
     enabled: bool = False
     source: str = ""
+    origin: str = ""
     phase: str = PHASE_OPTIONAL
     descriptor: Optional[PluginDescriptor] = None
     instance: Any = None
@@ -264,19 +265,29 @@ class Runtime:
         """
         if self._started:
             return self
-        self.catalogue = self._compose_catalogue()
         candidates = self.loader.candidates()
+        self.catalogue = self._compose_catalogue(candidates)
 
         required = self._decide(PHASE_REQUIRED, candidates)
         self._register(required, candidates)
         self.services.check_duplicates()
+        self._refuse_substitutes(required)
         await self._initialize(required)
+        await self._check_the_required(required)
         self._require_the_required(required)
 
         if self._table_setup is not None and self.services.has("datasource"):
             await maybe_await(self._table_setup(self))
 
         optional = self._decide(PHASE_OPTIONAL, candidates)
+        # Which services are required is known from the descriptors of everything
+        # that is enabled, before any of the optional plugins is constructed: a
+        # service an enabled plugin cannot run without is required whether or not
+        # that plugin has come up yet, and the second phase is the last moment at
+        # which a decision about its provider can still be refused.
+        self._mark_required_services(required + optional)
+        for state in optional:
+            self._refuse_a_provider_the_panel_chose(state)
         self._register(optional, candidates)
         await self._initialize(optional)
 
@@ -313,8 +324,15 @@ class Runtime:
 
     # --- the catalogue ------------------------------------------------------
 
-    def _compose_catalogue(self) -> Dict[str, Any]:
-        """The framework's catalogue, the application's and a profile, as one."""
+    def _compose_catalogue(self, candidates: Mapping[str, Candidate]) -> Dict[str, Any]:
+        """The framework's catalogue, the application's, a profile -- and what is installed.
+
+        A distribution that is installed and declared nowhere is still offered:
+        this is what "a required or transport plugin is enabled by being
+        installed" means (doc/plugin_constructor.md section 4.9). An optional one
+        found this way is offered and not enabled, because installing a
+        capability is not the same as asking for it.
+        """
         builtin = self._builtin_catalogue
         if builtin is None:
             builtin = catalogue_module.builtin()
@@ -323,7 +341,20 @@ class Runtime:
             application = catalogue_module.read(
                 getattr(self.settings, "plugins_config_path", None)
             )
-        return catalogue_module.compose(builtin, application, self._profile)
+        composed = catalogue_module.compose(builtin, application, self._profile)
+        declared = {entry["id"] for entry in catalogue_module.declarations(composed)}
+        for plugin_id, candidate in candidates.items():
+            if plugin_id in declared:
+                continue
+            descriptor = candidate.descriptor
+            composed["plugins"].append({
+                "id": plugin_id,
+                "name": descriptor.name or plugin_id,
+                "kind": descriptor.kind,
+                "priority": descriptor.priority,
+                "_discovered": candidate.source,
+            })
+        return composed
 
     def _decide(self, phase: str, candidates: Mapping[str, Candidate]) -> List[PluginState]:
         """Decide the plugins of one phase, and record every one of them.
@@ -362,6 +393,7 @@ class Runtime:
                 descriptor=(candidate.descriptor if candidate else None),
                 config=dict(entry.get("config") or {}),
             )
+            state.origin = candidate.source if candidate is not None else ""
             state.enabled, state.source = self._enabled(entry, kind, candidate, decisions, plugin_id)
             if state.enabled and candidate is None:
                 state.outcome = OUTCOME_NOT_FOUND
@@ -385,6 +417,107 @@ class Runtime:
             self.states[plugin_id] = state
             states.append(state)
         return states
+
+    def _mark_required_services(self, states: Sequence[PluginState]) -> None:
+        """Remember every service an enabled plugin cannot run without.
+
+        Args:
+            states: the plugins decided about, in either phase.
+        """
+        for state in states:
+            if not state.enabled or state.descriptor is None:
+                continue
+            for requirement in state.descriptor.requires:
+                self.services.mark_required(requirement.name)
+
+    def _refuse_a_provider_the_panel_chose(self, state: PluginState) -> None:
+        """A right the deployment has, not the panel: who provides a required service.
+
+        An administrator decides whether an optional capability runs. Which
+        database the application talks to, which audit sink it writes to, is a
+        decision made in code and reviewed like code -- a panel that could change
+        it would turn "an administrator of the panel" into "somebody who reads
+        every row of it" (doc/plugin_constructor.md section 4.9).
+
+        Args:
+            state: the plugin just decided about.
+
+        Raises:
+            KernelError: when an administrator's override would enable a plugin
+                that provides a service some enabled plugin cannot run without.
+        """
+        if state.source != enablement.SOURCE_PANEL or not state.enabled:
+            return
+        descriptor = state.descriptor
+        if descriptor is None:
+            return
+        refused = sorted(set(descriptor.service_names) & set(self.services.required_services()))
+        if refused:
+            raise KernelError(
+                f"{state.plugin_id} provides {', '.join(refused)}, which this deployment "
+                "cannot run without: a provider is chosen in the catalogue, not in the panel"
+            )
+
+    def _refuse_substitutes(self, states: Sequence[PluginState]) -> None:
+        """A provider of a required service has to be an installed distribution.
+
+        A driver sees every row and every secret. A file dropped into the plugins
+        directory is not in ``requirements``, not in a lock file and not in an
+        audit, so it may provide an optional capability and may not provide the
+        database (doc/plugin_constructor.md section 4.9).
+
+        Args:
+            states: the plugins of the required phase.
+
+        Raises:
+            KernelError: naming the file and the service it tried to provide.
+        """
+        required = self.services.required_services()
+        for state in states:
+            if not state.loaded:
+                continue
+            descriptor = state.descriptor
+            if descriptor is None or state.origin != "directory":
+                continue
+            refused = sorted(set(descriptor.service_names) & set(required))
+            if refused:
+                raise KernelError(
+                    f"{state.plugin_id} is a file of the application and provides "
+                    f"{', '.join(refused)}: a provider of a required service must come "
+                    "from an installed distribution"
+                )
+
+    async def _check_the_required(self, states: Sequence[PluginState]) -> None:
+        """Ask each required plugin whether the deployment can work at all.
+
+        An ``initialize()`` that answered yes says the plugin came up. A
+        ``check()`` answers the harder question -- does a connection open, is the
+        schema there -- and its refusal is a start that stops, because a
+        deployment that cannot work is worse than one that does not start
+        (doc/plugin_constructor.md section 4.7).
+        """
+        for state in sorted(states, key=lambda item: item.priority):
+            if not state.initialized or state.instance is None:
+                continue
+            check = getattr(state.instance, "check", None)
+            if not callable(check):
+                continue
+            try:
+                answer = await maybe_await(check())
+            except Exception as error:  # noqa: BLE001 - an outcome, and a start that stops
+                self._stopped(state, f"check failed: {type(error).__name__}: {error}")
+                continue
+            if answer is False:
+                self._stopped(state, "check() returned false")
+
+    def _stopped(self, state: PluginState, reason: str) -> None:
+        """Record a required plugin that is not running, and take it out of the picture."""
+        state.outcome = OUTCOME_FAILED
+        state.reason = reason
+        state.initialized = False
+        if state.plugin_id in self._init_order:
+            self._init_order.remove(state.plugin_id)
+        logger.error("%s is not running: %s", state.plugin_id, reason)
 
     def _enabled(
         self,
@@ -557,6 +690,7 @@ class Runtime:
                     "priority": state.priority,
                     "enabled": state.enabled,
                     "source": state.source,
+                    "origin": state.origin,
                     "phase": state.phase,
                     "loaded": state.loaded,
                     "initialized": state.initialized,
