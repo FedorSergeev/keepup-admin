@@ -58,6 +58,25 @@ def test_each_distribution_declares_its_plugin_by_name():
         assert provided in (PACKAGES / name / module / "__init__.py").read_text(encoding="utf-8")
 
 
+def test_every_distribution_is_importable_by_its_own_name():
+    """The move of keepup-124 needs the packages on the path before they are installed.
+
+    A distribution is installed in a deployment; in the repository it is a
+    directory beside the package, and the suite is told where to find it. Without
+    this, moving a declaration into `keepup_db` would be a change that only works
+    after a release.
+    """
+    import importlib
+    import tomllib
+
+    for name in EXPECTED:
+        package = tomllib.loads(
+            (PACKAGES / name / "pyproject.toml").read_text(encoding="utf-8")
+        )["tool"]["setuptools"]["packages"][0]
+        module = importlib.import_module(package)
+        assert module.__version__ == "0.4.0", f"{package} does not carry the release"
+
+
 def test_the_graph_points_one_way():
     """A capability depends on the abstraction, never on another capability."""
     for name in EXPECTED:

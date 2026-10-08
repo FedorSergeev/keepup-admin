@@ -10,6 +10,14 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The distributions are on the import path before they are installed
+  (keepup-124).** Moving a declaration into `keepup_db` would otherwise be a
+  change that only works after a release, because in the repository a
+  distribution is a directory beside the package rather than something pip
+  installed. The suite is told where the nine of them are, and a check holds each
+  one to importing by its own name and carrying the version of the release --
+  which is what makes the move itself checkable as it happens.
+
 - **The constructor keeps no library a capability must carry (keepup-124).** The
   release promises that `keepup-admin` plus a driver is a deployment that talks
   to a database and carries no library it does not use. The code that needs

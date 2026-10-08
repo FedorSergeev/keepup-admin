@@ -196,4 +196,4 @@ asyncio_default_fixture_loop_scope = "function"
 python_files = ["*_tests.py", "test_*.py"]
 # The directory above the package, so that `import keepup` resolves whether
 # the package sits in its own repository or inside an application's.
-pythonpath = [".."]
+pythonpath = ["..", "packages/keepup-db", "packages/keepup-postgres", "packages/keepup-sqlite", "packages/keepup-auth", "packages/keepup-users", "packages/keepup-ui", "packages/keepup-audit", "packages/keepup-metrics", "packages/keepup-integration-log"]
