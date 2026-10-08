@@ -70,7 +70,8 @@ def test_the_runtime_lets_the_plugin_answer_for_the_process():
 
 def test_without_the_data_source_the_sign_in_does_not_start():
     """No storage, no sessions: the plugin says so in the report."""
-    runtime = runtime_with([{"id": "postgres", "enabled": False},
+    runtime = runtime_with([{"id": "db", "enabled": False},
+                            {"id": "postgres", "enabled": False},
                             {"id": "sqlite", "enabled": False},
                             {"id": "auth", "enabled": True}], with_source=False)
     asyncio.run(runtime.start())

@@ -718,6 +718,9 @@ async def test_a_profile_assembles_a_deployment_from_the_same_code():
         application_catalogue={},
         profile="metrics-only",
         entry_points=[],
+        # A deployment of its own: the framework's own plugins and drivers are
+        # not part of what this profile assembles.
+        builtin_dir=None,
     )
     await runtime.start()
     assert runtime.states["metrics"].enabled is True

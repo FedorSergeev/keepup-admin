@@ -187,6 +187,7 @@ def test_the_section_is_a_contribution_and_carries_its_icon():
 def test_a_deployment_without_the_data_source_does_not_start_the_log():
     """No storage, no log: the plugin says so in the report rather than writing nowhere."""
     runtime = create_runtime(application_catalogue={"plugins": [
+        {"id": "db", "enabled": False},
         {"id": "postgres", "enabled": False},
         {"id": "sqlite", "enabled": False},
         {"id": "integration_logs", "enabled": True},

@@ -272,7 +272,9 @@
       "_comment": "What disable_http_server asked for: a process whose only job is to answer Prometheus.",
       "only": [
         "http",
-        "metrics"
+        "metrics",
+        "db",
+        "sqlite"
       ]
     }
   }

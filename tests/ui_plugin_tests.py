@@ -71,7 +71,8 @@ def test_the_sections_of_other_capabilities_are_seen_by_the_panel():
 
 def test_a_panel_without_storage_is_still_a_panel():
     """Storage is a want, not a requirement: sections from code serve anyway."""
-    runtime = runtime_with([{"id": "postgres", "enabled": False},
+    runtime = runtime_with([{"id": "db", "enabled": False},
+                            {"id": "postgres", "enabled": False},
                             {"id": "sqlite", "enabled": False},
                             {"id": "ui", "enabled": True}], with_source=False)
     asyncio.run(runtime.start())

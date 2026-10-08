@@ -77,7 +77,8 @@ def test_the_accounts_section_is_a_contribution():
 
 def test_without_storage_the_accounts_do_not_start():
     """No storage, no accounts: the report says which service is missing."""
-    runtime = runtime_with([{"id": "postgres", "enabled": False},
+    runtime = runtime_with([{"id": "db", "enabled": False},
+                            {"id": "postgres", "enabled": False},
                             {"id": "sqlite", "enabled": False},
                             {"id": "users", "enabled": True}], with_source=False)
     asyncio.run(runtime.start())

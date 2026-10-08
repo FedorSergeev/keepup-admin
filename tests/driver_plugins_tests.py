@@ -119,7 +119,9 @@ async def test_both_enabled_stops_the_start_and_names_both():
 
 async def test_a_driver_describes_itself_and_creates_nothing():
     """It brings no tables and owns no pool: that is the abstraction's business."""
-    runtime = runtime_with({"plugins": [{"id": "postgres", "enabled": True}]})
+    runtime = runtime_with({"plugins": [{"id": "db", "enabled": False},
+                                        {"id": "postgres", "enabled": True},
+                                        {"id": "sqlite", "enabled": False}]})
     await runtime.start()
     driver = runtime.get_plugin("postgres")
     assert not hasattr(driver, "ensure_tables")
@@ -128,9 +130,14 @@ async def test_a_driver_describes_itself_and_creates_nothing():
 
 
 async def test_the_framework_offers_them_without_being_asked():
-    """A runtime with the framework's own catalogue finds them and leaves them off."""
+    """A runtime with the framework's own catalogue finds them and leaves them off.
+
+    The abstraction is required and asks for a driver, so a deployment that
+    enables neither does not start -- with the service named, which is the
+    honest answer: `keepup-db` is unusable without the database it abstracts.
+    """
     runtime = create_runtime(application_catalogue={"plugins": []})
-    await runtime.start()
-    ids = {row["id"] for row in runtime.report()}
-    assert {"postgres", "sqlite"} <= ids
-    assert runtime.services.has(SERVICE_DATASOURCE_DRIVER) is False
+    with pytest.raises(Exception) as refused:
+        await runtime.start()
+    assert "datasource_driver" in str(refused.value)
+    assert {"postgres", "sqlite"} <= {row["id"] for row in runtime.report()}

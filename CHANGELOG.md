@@ -10,6 +10,21 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The abstraction becomes a plugin, and storage finally has a name
+  (keepup-124, first slice).** The shapes and the two names were in place
+  (keepup-106) and the drivers answered `spec()` (keepup-107, 108), but nothing
+  published `datasource`: a capability could only reach storage by importing the
+  manager, and the catalogue declared a `db` plugin whose file did not exist.
+  `builtin/db.py` is that plugin -- kind `required`, it requires
+  `datasource_driver` and provides `datasource` -- and `DatabaseSource` is the
+  framework's manager wearing the abstraction's shape: run a statement, run one
+  that changes something, create what a capability declared, add a column, open a
+  session, hand over a raw cursor, report the pool, close. The dialect comes from
+  the driver rather than from the abstraction, and the abstraction owns no table
+  of the framework's: a table belongs to the capability that keeps it. Moving
+  `db.py` itself into `packages/keepup-db` and taking SQLAlchemy out of the base
+  package is the rest of keepup-124.
+
 - **The compatibility layer (keepup-114).** 0.4.0 moves code out of the base
   package and into the distributions beside it, and an application that imports
   an old name has to keep working for one release -- and has to be told where

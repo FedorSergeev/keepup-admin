@@ -87,8 +87,6 @@ def test_the_code_that_moves_still_lives_in_the_framework():
     """Until keepup-124: the plugin each distribution will bring exists here."""
     for name, (plugin_id, provided) in EXPECTED.items():
         plugin_file = PACKAGE / "builtin" / f"{plugin_id}.py"
-        if plugin_id in {"db"}:
-            continue  # the abstraction's own plugin is written when it moves
         assert plugin_file.exists(), f"{name} promises {plugin_file.name}, which is not there"
         assert f'id="{plugin_id}"' in plugin_file.read_text(encoding="utf-8")
 
