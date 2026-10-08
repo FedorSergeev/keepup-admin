@@ -26,6 +26,12 @@ except Exception:
     # itself, until the applications switch to installing by version.
     __version__ = "0.0.0+source"
 
+# Names that moved into a distribution of their own keep working for one
+# release, and say where they went (keepup-114, keepup-124).
+from keepup import compat as _compat
+
+_compat.install()
+
 __all__ = ["KeepupSettings", "StaticMount", "create_app", "__version__"]
 
 

@@ -10,6 +10,16 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The compatibility layer (keepup-114).** 0.4.0 moves code out of the base
+  package and into the distributions beside it, and an application that imports
+  an old name has to keep working for one release -- and has to be told where
+  the name went, because a silent shim is how an application ends up pinned to a
+  release it cannot leave. `keepup/compat.py` holds the map from the old import
+  path to its new home, warns once per process, and stands in for a module that
+  is no longer there with one that answers exactly like the new one. Nothing is
+  redirected while the module is still part of the package: in 0.4.0 the map
+  waits, and keepup-124 is the change that makes it act.
+
 - **The distribution layout, and the graph that points one way (keepup-115).**
   Every capability is a plugin and answers for its own, but they all still live
   in one package: the base declares SQLAlchemy, psycopg2-binary, bcrypt and
