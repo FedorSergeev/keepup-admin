@@ -65,7 +65,7 @@ Settings worth knowing: `cors_origins`, `security_headers`,
 `max_upload_bytes`, `static_dir`, `static_mounts`, `client_page` (the page at
 `/`), `built_in_themes`, `gated_pages`, `audit_redaction`, `password_rule`,
 `oidc`, `identity_provider`, `openapi_url`, `openapi_public`, `public_config`, `notification_channel`, `on_startup`, `on_shutdown`,
-`extra_setup`, `remote_log_url`, `disable_http_server`, and `performance` --
+`extra_setup`, `remote_log_url`, `profile`, `disable_http_server`, and `performance` --
 the database pool, the audit buffer and the metrics interval in one object. Each is documented in
 `keepup/settings.py`; a value you would have to edit inside keepup belongs in a
 setting instead.
@@ -125,6 +125,21 @@ class ReportsPlugin(BasePlugin):          # plugin_id "reports"
 - **Plugins call each other** through `plugin_manager.get_plugin(id).get_handlers()`,
   never by importing each other's modules.
 - `post_construct()` runs once the server is up, for self-checks that need it.
+
+## The kernel
+
+`keepup.kernel` is the constructor a plugin is loaded by: a **descriptor** a
+plugin declares as a class attribute (id, kind, its `requires` and `wants`, what
+it `provides`, what it contributes), the **catalogue** it is declared in -- the
+framework's `plugins/builtin.json`, the application's `plugins_config_path` file
+and a **profile** named in `KeepupSettings.profile` -- the **service registry**
+one plugin publishes into and another requires from, and the **lifecycle** that
+resolves and runs them in two phases. A plugin of kind `required` or `transport`
+is enabled by being installed; an `optional` one is enabled by the file, by
+`PLUGINS_ENABLE` or by an administrator, and a required one cannot be switched
+off at all. `keepup.kernel.create_runtime(settings)` builds one. The contract is
+`doc/plugin_constructor.md`; the service names a plugin may use are
+`doc/service-catalogue.md`. 0.3.0 plugins need no descriptor and keep working.
 
 ## Tables
 

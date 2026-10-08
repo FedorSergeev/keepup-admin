@@ -124,6 +124,7 @@ packages = [
     "keepup.auth.dto",
     "keepup.auth.identity",
     "keepup.auth.providers",
+    "keepup.kernel",
     "keepup.plugins",
 ]
 
@@ -143,6 +144,10 @@ keepup = [
     "static/modules/js/*.js",
     "static/modules/css/*.css",
     "sections.json",
+    # The framework's own plugin catalogue (keepup-101). The kernel reads it
+    # without importing anything, so a clone with nothing installed still knows
+    # what the framework offers.
+    "plugins/builtin.json",
     # The vendored bundles are minified, and minification took their licence
     # headers with it. MIT asks that the notice travel with the copy, so it
     # travels as this file.

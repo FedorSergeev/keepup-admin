@@ -1,0 +1,275 @@
+{
+  "_comment": "The plugins of the framework itself (task keepup-101). An application does not restate them: this file declares what the framework offers, and the application's own config/modules.json says what it thinks of them -- an entry there wins field by field. A plugin of kind required or transport is enabled by being installed; an optional one is enabled by the file, by PLUGINS_ENABLE or by an administrator. A profile is a named patch over this catalogue: 'panel' is the full admin panel, 'metrics-only' is what the retired disable_http_server asked for.",
+  "plugins": [
+    {
+      "id": "db",
+      "name": "Database abstraction",
+      "kind": "required",
+      "priority": 20,
+      "provides": [
+        "datasource>=1"
+      ],
+      "requires": [
+        "datasource_driver>=1"
+      ],
+      "contributions": [
+        "tables"
+      ],
+      "distribution": "keepup-db"
+    },
+    {
+      "id": "postgres",
+      "name": "PostgreSQL driver",
+      "kind": "required",
+      "priority": 25,
+      "provides": [
+        "datasource_driver>=1",
+        "notify_transport>=1"
+      ],
+      "distribution": "keepup-postgres"
+    },
+    {
+      "id": "sqlite",
+      "name": "SQLite driver",
+      "kind": "required",
+      "priority": 26,
+      "provides": [
+        "datasource_driver>=1"
+      ],
+      "distribution": "keepup-sqlite"
+    },
+    {
+      "id": "http",
+      "name": "HTTP transport",
+      "kind": "transport",
+      "priority": 5,
+      "contributions": [
+        "routes",
+        "sockets",
+        "middleware",
+        "transport"
+      ],
+      "distribution": "keepup-http"
+    },
+    {
+      "id": "auth",
+      "name": "Sign-in and sessions",
+      "kind": "optional",
+      "priority": 30,
+      "provides": [
+        "auth>=1",
+        "permissions>=1"
+      ],
+      "requires": [
+        "datasource>=1"
+      ],
+      "contributions": [
+        "routes",
+        "sockets",
+        "middleware",
+        "tables",
+        "permissions"
+      ],
+      "distribution": "keepup-auth"
+    },
+    {
+      "id": "users",
+      "name": "Users",
+      "kind": "optional",
+      "priority": 35,
+      "provides": [
+        "users>=1"
+      ],
+      "requires": [
+        "datasource>=1",
+        "auth>=1"
+      ],
+      "contributions": [
+        "routes",
+        "sections",
+        "tables"
+      ],
+      "distribution": "keepup-users"
+    },
+    {
+      "id": "ui",
+      "name": "Panel",
+      "kind": "optional",
+      "priority": 10,
+      "provides": [
+        "ui>=1"
+      ],
+      "requires": [
+        "auth>=1",
+        "catalogue>=1"
+      ],
+      "contributions": [
+        "routes",
+        "sections",
+        "tables"
+      ],
+      "distribution": "keepup-ui"
+    },
+    {
+      "id": "metrics",
+      "name": "System metrics",
+      "kind": "optional",
+      "priority": 40,
+      "provides": [
+        "metrics>=1"
+      ],
+      "requires": [
+        "datasource>=1"
+      ],
+      "wants": [
+        "cluster>=1",
+        "scheduler>=1"
+      ],
+      "contributions": [
+        "routes",
+        "sections",
+        "tables",
+        "metrics"
+      ],
+      "distribution": "keepup-metrics"
+    },
+    {
+      "id": "integration_logs",
+      "name": "Integration log",
+      "kind": "optional",
+      "priority": 50,
+      "provides": [
+        "integration_log>=1"
+      ],
+      "requires": [
+        "datasource>=1"
+      ],
+      "wants": [
+        "users>=1"
+      ],
+      "contributions": [
+        "routes",
+        "sections",
+        "tables"
+      ],
+      "distribution": "keepup-integration-log"
+    },
+    {
+      "id": "audit",
+      "name": "Event audit",
+      "kind": "optional",
+      "priority": 60,
+      "provides": [
+        "audit>=1",
+        "events>=1"
+      ],
+      "requires": [
+        "datasource>=1"
+      ],
+      "wants": [
+        "locks>=1",
+        "scheduler>=1"
+      ],
+      "contributions": [
+        "routes",
+        "sections",
+        "tables",
+        "events"
+      ],
+      "distribution": "keepup-audit"
+    },
+    {
+      "id": "modules",
+      "name": "Module management",
+      "kind": "optional",
+      "priority": 70,
+      "provides": [
+        "catalogue>=1",
+        "plugin_decisions>=1"
+      ],
+      "requires": [
+        "datasource>=1"
+      ],
+      "contributions": [
+        "routes",
+        "sections",
+        "tables"
+      ],
+      "distribution": "keepup-modules"
+    },
+    {
+      "id": "tasks",
+      "name": "Background tasks",
+      "kind": "optional",
+      "priority": 80,
+      "provides": [
+        "scheduler>=1",
+        "locks>=1"
+      ],
+      "requires": [
+        "datasource>=1"
+      ],
+      "contributions": [
+        "routes",
+        "sections",
+        "tables",
+        "jobs"
+      ],
+      "distribution": "keepup-tasks"
+    },
+    {
+      "id": "cluster",
+      "name": "Cluster",
+      "kind": "optional",
+      "priority": 85,
+      "provides": [
+        "cluster>=1"
+      ],
+      "requires": [
+        "datasource>=1",
+        "notify_transport>=1"
+      ],
+      "wants": [
+        "scheduler>=1"
+      ],
+      "contributions": [
+        "routes",
+        "sections",
+        "tables",
+        "middleware"
+      ],
+      "distribution": "keepup-cluster"
+    },
+    {
+      "id": "log_shipping",
+      "name": "Log shipping",
+      "kind": "optional",
+      "priority": 90,
+      "distribution": "keepup-log-shipping"
+    }
+  ],
+  "profiles": {
+    "panel": {
+      "_comment": "The full admin panel: every capability of the framework, which is what keepup-admin[panel] installs. The database plugins are not listed: they are enabled by being installed, and naming two drivers here would stop the start on purpose.",
+      "enable": [
+        "http",
+        "auth",
+        "users",
+        "ui",
+        "metrics",
+        "integration_logs",
+        "audit",
+        "modules",
+        "tasks",
+        "cluster"
+      ]
+    },
+    "metrics-only": {
+      "_comment": "What disable_http_server asked for: a process whose only job is to answer Prometheus.",
+      "only": [
+        "http",
+        "metrics"
+      ]
+    }
+  }
+}

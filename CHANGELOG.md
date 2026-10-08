@@ -2,6 +2,41 @@
 
 Notable changes to `keepup-admin`.
 
+## 0.4.0 — unreleased
+
+The release that turns the framework into a constructor: a kernel that knows
+nothing about the capabilities it ships, and capabilities that arrive as
+plugins. This entry grows as the tasks of 0.4.0 land.
+
+### Added
+
+- **`keepup.kernel` — the plugin constructor (keepup-101).** A plugin declares a
+  *descriptor* as a class attribute: its id, its kind (`required`, `optional` or
+  `transport`), the services it `requires` (without which it must not run) and
+  `wants` (without which it runs worse, and the report says so), the services it
+  `provides`, and what it contributes. The kernel reads the descriptor without
+  constructing the plugin, so a plugin whose requirement nobody satisfies is
+  reported rather than built. What a deployment offers is a *catalogue*: the
+  framework's own `plugins/builtin.json`, the application's
+  `plugins_config_path` file (whose entry wins field by field) and a *profile*
+  -- a named patch over the catalogue, `KeepupSettings.profile`, of which the
+  framework declares `panel` and `metrics-only`. Plugins publish services into a
+  registry and ask for them by name and version while initialising, so nothing
+  imports anything; a service may be published ready, built lazily on first use,
+  or started and stopped with the runtime. The start-up is two-phase, because
+  the administrator's decision about plugins lives in a database a plugin may
+  provide: the required set is resolved from files and the environment, is
+  registered and initialised, and only then is the administrator asked. A plugin
+  of kind `required` is enabled by being installed and cannot be switched off --
+  not by the panel, and not by `PLUGINS_DISABLE`, which stops the start instead;
+  two enabled providers of one required service stop the start and name both. A
+  plugin written for 0.3.0 has no descriptor and needs none: it is accepted as
+  it is. The state of a runtime belongs to the runtime, not to module globals, so
+  two applications in one process resolve, publish and report separately. The
+  contract is `doc/plugin_constructor.md`, the service names are
+  `doc/service-catalogue.md`, and the extraction plan is
+  `doc/capabilities-out-of-the-kernel.md`.
+
 ## 0.3.0 — 2026-10-07
 
 A release about the panel's own security: it is served with a

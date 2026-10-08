@@ -169,6 +169,11 @@ class KeepupSettings:
     plugin_manager: Any = None
     plugins_dir: Optional[str] = None
     plugins_config_path: str = "config/modules.json"
+    #: What this deployment is, named: a profile is a patch over the catalogue
+    #: (keepup/plugins/builtin.json declares "panel" and "metrics-only"), so one
+    #: codebase serves a full panel, a worker and a metrics-only process without
+    #: a second configuration format. None means "whatever the catalogue says".
+    profile: Optional[str] = None
 
     # --- front end ------------------------------------------------------
     #: Where the package serves its own panel shell from. The shell is data of
