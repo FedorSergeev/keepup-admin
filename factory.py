@@ -179,6 +179,16 @@ def apply_settings(settings: KeepupSettings) -> None:
         favicon_file=settings.favicon_file,
     )
     auth_dependencies.configure_panel_gate(pending=settings.pending_documents)
+    # Who is calling and what they may do, behind the two names the kernel owns
+    # (keepup-119). Until keepup-auth is a plugin of its own this is the
+    # framework's own sign-in; afterwards it is that plugin's register().
+    from keepup.auth.identity import access as identity_access
+    from keepup.kernel import security
+    security.set_identity(security.Identity(
+        subject_dependency=auth_dependencies.get_panel_user,
+        checker=identity_access.check,
+        name="keepup sign-in",
+    ))
     auth_routes.configure(
         password=settings.password_rule,
         login_record=settings.record_login,

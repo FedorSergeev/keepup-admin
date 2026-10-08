@@ -293,7 +293,7 @@ def access_request(call: Call) -> Any:
         An ``AccessRequest``; imported here so that the neutral module does not
         hold the identity system, only the shape of the question.
     """
-    from keepup.auth.identity.contract import AccessRequest
+    from keepup.kernel.security import AccessRequest
 
     return AccessRequest(
         permission=call.route.permission,

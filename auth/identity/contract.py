@@ -29,6 +29,8 @@ from __future__ import annotations
 
 from abc import ABC
 from dataclasses import dataclass, field
+
+from keepup.kernel.security import AccessRequest
 from datetime import datetime
 from typing import Any, Dict, Mapping, Optional, Tuple
 
@@ -109,16 +111,6 @@ class ExternalIdentity:
             expires_at=datetime.fromisoformat(expires) if expires else None,
             attributes=dict(data.get("attributes") or {}),
         )
-
-
-@dataclass(frozen=True)
-class AccessRequest:
-    """The action somebody wants to take, as the provider is asked about it."""
-
-    permission: str
-    method: str = ""
-    path: str = ""
-    path_params: Mapping[str, Any] = field(default_factory=dict)
 
 
 #: The three things a provider may be able to do, by the name of the method.

@@ -10,6 +10,27 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The subject of a call and the right attached to it are the kernel's
+  contract (keepup-119).** Eleven modules of the kernel -- the panel's metrics,
+  the section catalogue, locks, the scheduler, the cluster, the event API,
+  themes, the pages, the API documentation, the plugin admin and the route
+  runtime -- used to reach for the current administrator by importing the module
+  that finds them, which made the sign-in something every capability depended on
+  and nothing could be moved without breaking all eleven at once. The kernel now
+  owns the shape of the question (`keepup/kernel/security.py`: `AccessRequest`,
+  the `Identity` a deployment puts behind the services, and the names `auth` and
+  `permissions`), and the sign-in re-exports that shape, so an application keeps
+  importing it where it always did. The route runtime no longer imports the
+  sign-in at all: the dependency it signs a caller in with and the checker that
+  decides a right come from the deployment, and a deployment with no identity
+  system answers 401 instead of failing on an import. `create_app` puts the
+  framework's own sign-in behind the two services until `keepup-auth` is a
+  plugin of its own and does it in `register()`. A guard
+  (`tests/kernel_purity_tests.py`) lists by name the modules that may still
+  import the sign-in, with the reason for each: a module outside the list fails,
+  and so does an entry that no longer imports it -- the list may only shrink,
+  which is what the rest of the release is for.
+
 - **The kinds of plugin, and the three rules that follow from them
   (keepup-120).** A plugin declared nowhere but installed is now offered: this
   is what "a plugin of kind `required` or `transport` is enabled by being

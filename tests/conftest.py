@@ -70,7 +70,21 @@ def framework_state_restored():
     """
     from keepup import audit, log_shipping, modules, web
     from keepup.auth import dependencies, routes
+    from keepup.auth.identity import access as identity_access
+    from keepup.kernel import security
     from keepup.plugins import admin as plugins_admin
+
+    # What a deployment puts behind `auth` and `permissions` (keepup-119).
+    # create_app does this too; here it is done for every check, because a check
+    # that raises an application of its own -- a bare FastAPI app with plugin
+    # routes on it -- would otherwise have no sign-in at all and answer 401
+    # where it means to test something else.
+    saved_identity = security.get_identity()
+    security.set_identity(security.Identity(
+        subject_dependency=dependencies.get_panel_user,
+        checker=identity_access.check,
+        name="keepup sign-in",
+    ))
 
     saved = (
         web.STATIC_DIR, web.CLIENT_PAGE, web.VERSION_FILE, web.FAVICON_FILE,
@@ -85,6 +99,7 @@ def framework_state_restored():
      log_shipping.REMOTE_LOG_TOKEN,
      routes.password_rule, routes.record_login, dependencies.pending_documents,
      plugins_admin.MODULES_CONFIG_PATH, modules.MODULES_CONFIG_PATH) = saved
+    security.set_identity(saved_identity)
     # The identity provider too: an application built with one must not hand it
     # to the next test's application (keepup-91).
     from keepup.auth.identity import runtime as identity_runtime

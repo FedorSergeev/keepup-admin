@@ -21,10 +21,9 @@ from fastapi import Depends, HTTPException, Request, Response
 from starlette.requests import ClientDisconnect
 
 from keepup.audit import IncomingRequestLogger, log_api_request
-from keepup.auth.dependencies import get_panel_user
-from keepup.auth.identity import access
 from keepup.auth.websocket import authenticate_websocket
 from keepup.body_limit import declare_limit
+from keepup.kernel import security
 from keepup.kernel.call import (
     KIND_WRITE,
     Call,
@@ -56,6 +55,28 @@ JSON_MEDIA_TYPE = "application/json"
 #: order to be named in the log, not in order to be read -- a route declares
 #: what it accepts.
 JSON_SUFFIX = "+json"
+
+
+async def current_subject(request: Request):
+    """Who is calling, asked of whatever this deployment put behind ``auth``.
+
+    The kernel owns the question and this owns the HTTP half of it: a deployment
+    with no sign-in configured answers 401 rather than failing to import
+    something (keepup-119).
+
+    Args:
+        request: the request being served.
+
+    Returns:
+        The caller, in whatever shape the deployment's identity system uses.
+
+    Raises:
+        HTTPException: 401, when this deployment has no identity system at all.
+    """
+    dependency = security.subject_dependency()
+    if dependency is None:
+        raise HTTPException(status_code=401, detail="sign-in is not configured")
+    return await dependency(request)
 
 
 def raw_request_wrapper(handler):
@@ -308,7 +329,7 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
 
         call = Call(route=spec, params=params, actor=current_user, body=body, source="http")
         try:
-            answer = await invoke_route(call, checker=access.check)
+            answer = await invoke_route(call, checker=security.checker())
         except CallError as refused:
             raise HTTPException(status_code=refused.http_status, detail=refused.detail) from refused
         return as_answer(answer)
@@ -365,8 +386,17 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
                 raise
 
     if require_auth:
+        # The dependency FastAPI resolves, chosen when the route is registered:
+        # whatever the deployment put behind `auth` -- the framework's own
+        # sign-in until keepup-auth is a plugin -- or this module's refusal, so
+        # that a process with no identity system answers 401 instead of failing
+        # to import one (keepup-119). A dependency, not a call: the registered
+        # one has sub-dependencies of its own, and FastAPI is what resolves
+        # them.
+        dependency = security.subject_dependency() or current_subject
+
         async def wrapper_signed_in(request: Request,
-                                    current_user: dict = Depends(get_panel_user)):
+                                    current_user: dict = Depends(dependency)):
             return await call(request, current_user)
 
         return wrapper_signed_in
