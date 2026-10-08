@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "keepup-metrics"
+version = "0.4.0"
+description = "The scrape, the panel's view of the fleet and the snapshot retention."
+requires-python = ">=3.11"
+dependencies = [
+    "keepup-db>=0.4.0",
+    "prometheus-client>=0.24",
+    "psutil>=7.0",
+]
+
+[project.entry-points."keepup.plugins"]
+metrics = "keepup_metrics:MetricsPlugin"
+
+[tool.setuptools]
+packages = ["keepup_metrics"]

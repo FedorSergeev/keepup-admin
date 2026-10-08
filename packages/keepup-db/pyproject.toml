@@ -1,0 +1,19 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "keepup-db"
+version = "0.4.0"
+description = "The abstraction that holds SQLAlchemy: the table language, the pool, the dialect registry and the creation of declared tables."
+requires-python = ">=3.11"
+dependencies = [
+    "keepup-admin>=0.4.0",
+    "sqlalchemy>=2.0,<3",
+]
+
+[project.entry-points."keepup.plugins"]
+db = "keepup_db:DbPlugin"
+
+[tool.setuptools]
+packages = ["keepup_db"]

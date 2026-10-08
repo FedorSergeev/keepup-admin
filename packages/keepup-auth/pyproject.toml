@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "keepup-auth"
+version = "0.4.0"
+description = "Sign-in, sessions, login throttling, roles, OIDC and somebody else's identity system."
+requires-python = ">=3.11"
+dependencies = [
+    "keepup-db>=0.4.0",
+    "keepup-users>=0.4.0",
+    "bcrypt>=4.0,<5",
+    "pyjwt[crypto]>=2.15,<3",
+]
+
+[project.entry-points."keepup.plugins"]
+auth = "keepup_auth:AuthPlugin"
+
+[tool.setuptools]
+packages = ["keepup_auth"]

@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "keepup-audit"
+version = "0.4.0"
+description = "Incoming calls, the application's events, the administrator's trail and their retention."
+requires-python = ">=3.11"
+dependencies = [
+    "keepup-db>=0.4.0",
+]
+
+[project.entry-points."keepup.plugins"]
+audit = "keepup_audit:AuditPlugin"
+
+[tool.setuptools]
+packages = ["keepup_audit"]

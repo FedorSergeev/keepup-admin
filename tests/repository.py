@@ -33,6 +33,9 @@ NOT_AN_APPLICATION = {"tests", "doc", "config", "static", "openspec", "ci"}
 NOT_THE_PACKAGE = {
     ".git", ".venv", "venv", ".idea", ".vscode", "ci", "openspec",
     "build", "dist", "static.min", "__pycache__", ".pytest_cache",
+    # The distributions a capability travels in (keepup-115): directories with
+    # metadata of their own, beside the package rather than inside it.
+    "packages",
 }
 
 

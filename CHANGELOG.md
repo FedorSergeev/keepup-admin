@@ -10,6 +10,21 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The distribution layout, and the graph that points one way (keepup-115).**
+  Every capability is a plugin and answers for its own, but they all still live
+  in one package: the base declares SQLAlchemy, psycopg2-binary, bcrypt and
+  PyJWT, so a deployment that wanted a socket and a metrics endpoint installed a
+  PostgreSQL driver and a password library as well. `packages/` now holds the
+  nine distributions -- `keepup-db`, the two drivers, `keepup-auth`,
+  `keepup-users`, `keepup-ui`, `keepup-audit`, `keepup-metrics` and
+  `keepup-integration-log` -- each with its own metadata, its dependencies and
+  its plugin named in the `keepup.plugins` entry-point group the loader reads.
+  The graph points one way: a driver depends on the abstraction, the abstraction
+  chooses no database, and no capability depends on another -- they reach each
+  other through services. `doc/distributions.md` states what each brings and
+  what the base stops carrying in keepup-124, which is where the code and the
+  libraries move.
+
 - **The panel becomes a capability (keepup-104, first half).** The shell, its
   sections and its theme chrome are what a deployment shows people, and they
   were the kernel's -- served, catalogued and themed by modules every deployment

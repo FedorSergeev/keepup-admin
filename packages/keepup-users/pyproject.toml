@@ -1,0 +1,18 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "keepup-users"
+version = "0.4.0"
+description = "Accounts, the roles they hold and the rights granted."
+requires-python = ">=3.11"
+dependencies = [
+    "keepup-db>=0.4.0",
+]
+
+[project.entry-points."keepup.plugins"]
+users = "keepup_users:UsersPlugin"
+
+[tool.setuptools]
+packages = ["keepup_users"]
