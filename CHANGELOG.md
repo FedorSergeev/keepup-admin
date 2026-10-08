@@ -10,6 +10,14 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The fifth import comes off the debt list (keepup-127).** `positional_sql.py`
+  took the manager at module level and used it in three functions -- the
+  returning-insert helper, the batch executor and the raw-connection reader --
+  so the import moved into each of them. Five of the nine modules this task owns
+  are paid (retention, metrics retention, integrations, web, positional_sql) and
+  four remain: the cluster, locks, metrics with its API, the section catalogue,
+  the notification bus and the plugin decisions.
+
 - **The fourth import comes off the debt list (keepup-127).** `web.py` took the
   database manager at module level and used it in the two health checks, each
   inside its route handler; the import moved into them, and the module can be

@@ -57,7 +57,6 @@ CAN_BE_MADE_LAZY = {
     "modules.py": "the section catalogue is read per request",
     "notification_bus.py": "it signs what replicas send, not what they store",
     "plugins/admin.py": "the plugin decisions are read per request",
-    "positional_sql.py": "it builds a statement for a caller to run",
 }
 
 #: What "takes the database" means.
