@@ -27,6 +27,7 @@ from keepup.kernel.descriptor import (
     KIND_TRANSPORT,
     PluginDescriptor,
 )
+from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.contributions import (
     Contributions,
     collect as collect_contributions,
@@ -276,8 +277,7 @@ class Runtime:
         await self._check_the_required(required)
         self._require_the_required(required)
 
-        if self._table_setup is not None and self.services.has("datasource"):
-            await maybe_await(self._table_setup(self))
+        await self._create_tables(required)
 
         optional = self._decide(PHASE_OPTIONAL, candidates)
         # Which services are required is known from the descriptors of everything
@@ -290,6 +290,8 @@ class Runtime:
             self._refuse_a_provider_the_panel_chose(state)
         self._register(optional, candidates)
         await self._initialize(optional)
+
+        await self._create_tables(optional)
 
         self.services.freeze()
 
@@ -486,6 +488,41 @@ class Runtime:
                     f"{', '.join(refused)}: a provider of a required service must come "
                     "from an installed distribution"
                 )
+
+    async def _create_tables(self, states: Sequence[PluginState]) -> None:
+        """Create the tables a phase's plugins declared, through the data source.
+
+        Phase 4 of the specification's order: the framework's own tables and the
+        required plugins' tables are created once the data source is up, and the
+        optional plugins' as they come up. A plugin declares its tables --
+        ``get_declared_tables()`` -- and never creates them itself, so the
+        abstraction can create them in the order the foreign keys need, and a
+        deployment whose data source is absent creates nothing and says so by the
+        plugins it did not start.
+
+        Args:
+            states: the plugins of the phase just initialised.
+        """
+        if self._table_setup is not None:
+            if self.services.has(SERVICE_DATASOURCE):
+                await maybe_await(self._table_setup(self))
+            return
+        if not self.services.has(SERVICE_DATASOURCE):
+            return
+        ensure = getattr(self.services.require(SERVICE_DATASOURCE), "ensure_tables", None)
+        if not callable(ensure):
+            return
+        for state in sorted(states, key=lambda item: item.priority):
+            if not state.initialized or state.instance is None:
+                continue
+            declared = getattr(state.instance, "get_declared_tables", None)
+            if not callable(declared):
+                continue
+            tables = list(declared())
+            if not tables:
+                continue
+            logger.info("%s: ensuring %s declared table(s)", state.plugin_id, len(tables))
+            await maybe_await(ensure(*tables))
 
     async def _check_the_required(self, states: Sequence[PluginState]) -> None:
         """Ask each required plugin whether the deployment can work at all.

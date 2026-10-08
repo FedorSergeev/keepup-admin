@@ -223,11 +223,13 @@ class ServiceRegistry:
     def close(self) -> None:
         """Stop what providers built for themselves, newest first.
 
-        A provider that published an object with ``stop`` or ``close`` owns its
-        shutdown; a provider that published a bare value has nothing to stop.
+        A provider that published an object with ``stop``, ``close`` or
+        ``dispose`` -- the data source's own word for it -- owns its shutdown; a
+        provider that published a bare value has nothing to stop.
         """
         for name, instance in reversed(list(self._built.items())):
-            stop = getattr(instance, "stop", None) or getattr(instance, "close", None)
+            stop = (getattr(instance, "stop", None) or getattr(instance, "close", None)
+                    or getattr(instance, "dispose", None))
             if not callable(stop):
                 continue
             try:
@@ -236,7 +238,8 @@ class ServiceRegistry:
                 logger.error("%s: stopping the service failed: %s", name, error)
         for providers in self._providers.values():
             for provider in providers:
-                stop = getattr(provider.instance, "stop", None)
+                stop = (getattr(provider.instance, "stop", None)
+                        or getattr(provider.instance, "dispose", None))
                 if callable(stop):
                     try:
                         stop()

@@ -26,6 +26,13 @@ from keepup.kernel.contributions import (
     collect,
     mount,
 )
+from keepup.kernel.datasource import (
+    SERVICE_DATASOURCE,
+    SERVICE_DATASOURCE_DRIVER,
+    DataSource,
+    DatasourceDriver,
+    DriverSpec,
+)
 from keepup.kernel.descriptor import (
     KIND_OPTIONAL,
     KIND_REQUIRED,
@@ -64,6 +71,8 @@ from keepup.kernel.transports import TransportPlugin, route_specs_of, serve_all,
 __all__ = [
     "CONTRIBUTION_KINDS",
     "ENTRY_POINT_GROUP",
+    "SERVICE_DATASOURCE",
+    "SERVICE_DATASOURCE_DRIVER",
     "KINDS",
     "KIND_OPTIONAL",
     "KIND_REQUIRED",
@@ -74,6 +83,9 @@ __all__ = [
     "Candidate",
     "CatalogueError",
     "Contributions",
+    "DataSource",
+    "DatasourceDriver",
+    "DriverSpec",
     "DuplicateProvider",
     "KernelError",
     "MiddlewareSpec",

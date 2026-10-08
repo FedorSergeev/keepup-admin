@@ -10,6 +10,27 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The data source as a service, and tables created by the one who knows the
+  dialect (keepup-106).** The kernel stores nothing and knows no database, but a
+  capability could only create its own tables in `initialize()` and query
+  through a class singleton, so the database could not become a plugin and no
+  two declarations could be created in the order their foreign keys need.
+  `keepup/kernel/datasource.py` owns the two names -- `datasource`, what every
+  capability asks, and `datasource_driver`, what only the abstraction asks --
+  and their shapes: `DataSource` (execute, commit, create what was declared,
+  close) and a driver that answers one `spec()` (dialect, connection, engine
+  parameters, whether `INSERT ... RETURNING` answers, whether the database
+  carries a message between replicas). A plugin declares its tables with
+  `get_declared_tables()` and never creates one itself; the kernel hands the
+  declarations to the service in phase 4 for the required plugins and after the
+  optional ones come up, in priority order. A deployment with no data source
+  creates nothing: the capabilities that need storage are reported unsatisfied
+  with the service named, and the rest of the deployment runs. The service is
+  closed with the runtime -- `stop`, `close` or `dispose`. Moving `db.py`,
+  `tables.py` and `schema.py` into the `keepup-db` distribution, with the shims
+  and `psycopg2` out of the base package, is keepup-124: it needs the
+  distribution layout of keepup-115 first.
+
 - **The subject of a call and the right attached to it are the kernel's
   contract (keepup-119).** Eleven modules of the kernel -- the panel's metrics,
   the section catalogue, locks, the scheduler, the cluster, the event API,
