@@ -133,8 +133,15 @@ def test_a_name_that_did_not_move_needs_no_stand_in():
         compat.shim("keepup.never_moved")
 
 
-def test_nothing_is_stood_in_for_while_the_module_is_here():
-    """In 0.4.0 the code is still in the base package: the map waits."""
+def test_only_the_names_whose_module_is_gone_are_stood_in():
+    """The layer acts for what has moved, and leaves the rest alone.
+
+    In 0.4.0 that is `keepup.db`: the manager lives in `keepup-db` and answers
+    through here (keepup-124). Every other name on the map still has its module in
+    the base package, and standing in for it would be a lie.
+    """
     installed = compat.install()
-    assert installed == {}
-    assert compat.installed() == {}
+    assert "keepup.db" in installed
+    for name in installed:
+        assert name == "keepup.db", f"{name} was stood in while its module is still here"
+    assert "keepup.auth" not in compat.installed()

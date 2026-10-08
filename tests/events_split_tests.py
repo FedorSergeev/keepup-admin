@@ -18,6 +18,19 @@ import pytest
 from keepup import events, events_api
 
 PACKAGE = Path(__file__).resolve().parents[1]
+def _paths():
+    """The environment a spawned interpreter needs to find the distributions."""
+    import os
+    from pathlib import Path
+    packages = [str(Path(__file__).resolve().parents[1] / "packages" / name)
+                for name in ("keepup-db", "keepup-postgres", "keepup-sqlite", "keepup-auth",
+                             "keepup-users", "keepup-ui", "keepup-audit", "keepup-metrics",
+                             "keepup-integration-log")]
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(packages + [env.get("PYTHONPATH", "")]).rstrip(os.pathsep)
+    return env
+
+
 REPO = PACKAGE.parent
 
 
@@ -41,6 +54,7 @@ def test_the_journal_knows_nothing_of_the_web_or_its_routes():
 def test_emitting_an_event_does_not_load_the_routes():
     probe = "import sys, keepup.events; print('keepup.events_api' in sys.modules)"
     out = subprocess.run([sys.executable, "-c", probe], cwd=REPO, capture_output=True,
+        env=_paths(),
                          text=True, check=True).stdout.strip()
     assert out == "False"
 

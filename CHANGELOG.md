@@ -10,6 +10,21 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The database manager moves into `keepup-db`, and the old name keeps working
+  (keepup-124, keepup-125).** `keepup.db` -- the pool, the sessions and the
+  database configuration -- was the reason the base package carried SQLAlchemy, so
+  a deployment that wanted no database installed one anyway. It now lives in
+  `packages/keepup-db/keepup_db/manager.py`, re-exporting the three names it
+  declared, and `keepup.db` answers through the compatibility layer. Two
+  obstacles found by earlier attempts are gone: the stand-in answers for the moved
+  module's declaration, and installing it imports nothing. One more came out of
+  this attempt and is fixed: a stand-in put into `sys.modules` is now attached to
+  its parent package as well, so `keepup.db` is found by attribute access and not
+  only by import. Four checks that read the moved module by path now follow the
+  name to its new home, and three that spawn an interpreter are given the path
+  arrangement the suite uses. The base package still declares SQLAlchemy, because
+  `keepup.tables` and `keepup.schema` need it -- and those are the next to move.
+
 - **The import debt is paid (keepup-127).** The last four modules that reached
   the database only inside functions -- the metrics collector, the metrics API,
   the section catalogue and the plugin decisions -- now take the manager where

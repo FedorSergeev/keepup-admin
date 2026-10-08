@@ -8,12 +8,13 @@ positional parameters into named ones, a leftover of the transition.
 """
 
 import ast
+import importlib
 import warnings
 from pathlib import Path
 
 from keepup import db
 
-DB = Path(db.__file__)
+DB = Path(importlib.import_module(db.DatabaseManagerV2.__module__).__file__)
 
 
 def test_the_configuration_is_built_once():

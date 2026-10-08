@@ -12,6 +12,8 @@ Run by path, like the other *_tests.py files:
 from datetime import datetime, timedelta
 from pathlib import Path
 
+import importlib
+
 import pytest
 
 from keepup import tables
@@ -37,7 +39,11 @@ def no_locks_left_over():
 
 
 def test_the_legacy_connection_helper_is_gone():
-    source = (PACKAGE / "db.py").read_text(encoding="utf-8")
+    # The module moved into keepup-db (keepup-124): read it where it lives.
+    from keepup import db as db_module
+
+    source = Path(importlib.import_module(db_module.DatabaseManagerV2.__module__).__file__).read_text(
+        encoding="utf-8")
     assert "def get_db_connection" not in source
 
 

@@ -191,6 +191,7 @@ def install() -> Dict[str, types.ModuleType]:
             continue
         stand_in = shim(name, destination)
         sys.modules[name] = stand_in
+        _attach(name, stand_in)
         _installed[name] = stand_in
     return dict(_installed)
 
@@ -198,6 +199,19 @@ def install() -> Dict[str, types.ModuleType]:
 def installed() -> Dict[str, types.ModuleType]:
     """What this process stood in for, by old name."""
     return dict(_installed)
+
+
+def _attach(name: str, module: types.ModuleType) -> None:
+    """Make the parent package answer for a name put into sys.modules.
+
+    `import keepup.db` sets the attribute on `keepup`; writing into sys.modules
+    directly does not, and an application that reads `keepup.db` -- rather than
+    importing it -- would find nothing (keepup-124).
+    """
+    parent, _, child = name.rpartition(".")
+    package = sys.modules.get(parent)
+    if package is not None and child:
+        setattr(package, child, module)
 
 
 def _module_exists(name: str) -> bool:

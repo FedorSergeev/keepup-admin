@@ -20,11 +20,25 @@ import pytest
 from keepup import log_shipping, logging_setup
 
 PACKAGE = Path(__file__).resolve().parents[1]
+def _paths():
+    """The environment a spawned interpreter needs to find the distributions."""
+    import os
+    from pathlib import Path
+    packages = [str(Path(__file__).resolve().parents[1] / "packages" / name)
+                for name in ("keepup-db", "keepup-postgres", "keepup-sqlite", "keepup-auth",
+                             "keepup-users", "keepup-ui", "keepup-audit", "keepup-metrics",
+                             "keepup-integration-log")]
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(packages + [env.get("PYTHONPATH", "")]).rstrip(os.pathsep)
+    return env
+
+
 REPO = PACKAGE.parent
 
 
 def run(code: str) -> str:
     return subprocess.run([sys.executable, "-c", code], cwd=REPO, capture_output=True,
+        env=_paths(),
                           text=True, check=True).stdout.strip().splitlines()[-1]
 
 

@@ -5,8 +5,17 @@ This distribution provides `datasource` and declares one plugin,
 for the constructor -- the descriptor, the catalogue, the service registry and
 the lifecycle -- and on nothing of another capability.
 
-The code moves here in keepup-124: until then the plugin lives in the framework's
-own `builtin/db.py` and this package is the home it is moving to.
+`keepup.db` moved here in keepup-124, and the old name keeps working for one
+release: `keepup.compat` answers for it and names this distribution when it is not
+installed. The three names below are the declaration the moved module carried.
 """
 
 __version__ = "0.4.0"
+
+from keepup_db.manager import (  # noqa: E402 - after the version, as a public face
+    DatabaseConfig,
+    DatabaseManagerV2,
+    db_config,
+)
+
+__all__ = ["DatabaseConfig", "DatabaseManagerV2", "db_config"]

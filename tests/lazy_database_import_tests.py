@@ -30,7 +30,6 @@ MOVES_WITH_ITS_CAPABILITY = {
     "builtin/db.py": "keepup-db",
     "builtin/postgres.py": "keepup-postgres",
     "builtin/sqlite.py": "keepup-sqlite",
-    "db.py": "keepup-db",
     "events.py": "keepup-audit",
     "schema.py": "the declarations themselves, until each owner takes its own",
     "tables.py": "the table language, which is keepup-db's whole subject",

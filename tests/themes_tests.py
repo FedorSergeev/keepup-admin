@@ -21,6 +21,19 @@ from keepup.db import DatabaseManagerV2
 from keepup.themes import THEMES_TABLE, ConfigService
 
 PACKAGE = Path(__file__).resolve().parents[1]
+def _paths():
+    """The environment a spawned interpreter needs to find the distributions."""
+    import os
+    from pathlib import Path
+    packages = [str(Path(__file__).resolve().parents[1] / "packages" / name)
+                for name in ("keepup-db", "keepup-postgres", "keepup-sqlite", "keepup-auth",
+                             "keepup-users", "keepup-ui", "keepup-audit", "keepup-metrics",
+                             "keepup-integration-log")]
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(packages + [env.get("PYTHONPATH", "")]).rstrip(os.pathsep)
+    return env
+
+
 REPO = PACKAGE.parent
 
 #: What an application declares: name, page, brand, logo.
@@ -68,6 +81,7 @@ def test_importing_the_module_does_not_touch_the_database():
         "print('INITIALIZED:' + str(t.config_service._initialized))"
     )
     result = subprocess.run([sys.executable, "-c", code], cwd=REPO,
+        env=_paths(),
                             capture_output=True, text=True)
     assert result.returncode == 0, result.stderr
     [reported] = [line for line in result.stdout.splitlines()
