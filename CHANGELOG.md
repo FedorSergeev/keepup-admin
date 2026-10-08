@@ -10,6 +10,20 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The table language moves into `keepup-db`, and the stand-in forwards writes
+  (keepup-124).** The language for declaring a table is what the abstraction
+  exists for, and it kept SQLAlchemy in the base package alongside the manager.
+  `keepup.tables` now lives in `packages/keepup-db/keepup_db/tables.py`, the
+  distribution re-exports it, and the old name answers through the compatibility
+  layer. That layer needed one more thing, found by the language's own checks: a
+  stand-in forwarded reads but not writes, so `monkeypatch.setattr(tables,
+  "metadata", ...)` -- which the table checks do -- landed on the stand-in while
+  the moved module kept its own, and the code under test used the wrong catalogue.
+  A stand-in now forwards assignment to the module it stands for, which is what
+  makes patching a moved module work at all. SQLAlchemy stays a dependency of the
+  base only because `keepup.schema` still declares tables here; that is the next
+  thing to move.
+
 - **The database manager moves into `keepup-db`, and the old name keeps working
   (keepup-124, keepup-125).** `keepup.db` -- the pool, the sessions and the
   database configuration -- was the reason the base package carried SQLAlchemy, so

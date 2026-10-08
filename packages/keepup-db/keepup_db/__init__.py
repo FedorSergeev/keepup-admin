@@ -12,10 +12,11 @@ installed. The three names below are the declaration the moved module carried.
 
 __version__ = "0.4.0"
 
+from keepup_db import tables  # noqa: E402 - the table language, with the manager
 from keepup_db.manager import (  # noqa: E402 - after the version, as a public face
     DatabaseConfig,
     DatabaseManagerV2,
     db_config,
 )
 
-__all__ = ["DatabaseConfig", "DatabaseManagerV2", "db_config"]
+__all__ = ["DatabaseConfig", "DatabaseManagerV2", "db_config", "tables"]

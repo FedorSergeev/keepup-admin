@@ -127,6 +127,22 @@ def test_a_stand_in_declares_what_the_module_declared():
         sys.modules.pop("keepup_fake_declared", None)
 
 
+def test_a_write_through_a_stand_in_reaches_the_module():
+    """Patching a moved module has to reach it, not the stand-in (keepup-124)."""
+    import sys
+
+    target = types.ModuleType("keepup_fake_writable")
+    target.metadata = "the module's own"
+    sys.modules["keepup_fake_writable"] = target
+    try:
+        stand_in = compat.shim("keepup.fake_writable", "keepup_fake_writable")
+        stand_in.metadata = "the test's own"
+        assert target.metadata == "the test's own"
+        assert stand_in.metadata == "the test's own"
+    finally:
+        sys.modules.pop("keepup_fake_writable", None)
+
+
 def test_a_name_that_did_not_move_needs_no_stand_in():
     """The layer does not invent history for a module that is where it was."""
     with pytest.raises(KeyError):
@@ -141,7 +157,8 @@ def test_only_the_names_whose_module_is_gone_are_stood_in():
     the base package, and standing in for it would be a lie.
     """
     installed = compat.install()
-    assert "keepup.db" in installed
+    assert {"keepup.db", "keepup.tables"} <= set(installed)
     for name in installed:
-        assert name == "keepup.db", f"{name} was stood in while its module is still here"
+        assert name in ("keepup.db", "keepup.tables"), (
+            f"{name} was stood in while its module is still in the base package")
     assert "keepup.auth" not in compat.installed()

@@ -120,6 +120,21 @@ class _Moved(types.ModuleType):
         # and reported every name the application takes as undeclared
         # (keepup-125).
 
+    def __setattr__(self, item, value):
+        """Forward a write, so patching a moved module still reaches it.
+
+        A stand-in that only forwarded reads would silently ignore
+        `monkeypatch.setattr(tables, "metadata", ...)`: the name would land on
+        the stand-in while the moved module kept its own, and the code under test
+        would use the wrong one. The framework's own checks do exactly that with
+        the table language (keepup-124), which is how this was found.
+        """
+        if item.startswith("_"):
+            self.__dict__[item] = value
+            return
+        setattr(self._target(), item, value)
+        self.__dict__[item] = value
+
     def _target(self):
         """The module this name now lives in.
 
