@@ -10,6 +10,17 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The base declares no distribution, and a moved name says what to install
+  (keepup-124).** The order written down a moment ago had the base re-export from
+  a distribution and declare it as a dependency, which cannot work: every
+  distribution depends on `keepup-admin` for the kernel it is loaded by, so the
+  reverse edge would point both ways and neither could be installed alone. A name
+  that moved is therefore removed from the base rather than re-exported, and the
+  compatibility layer answers for it -- and when the capability is not installed,
+  it says which one to install (`keepup.db moved to keepup_db: install
+  keepup-db`) instead of leaving an application to wonder about a missing module.
+  A check holds the base to depending on no distribution at all.
+
 - **The order a move happens in is written down (keepup-124).** The first attempt
   at moving a declaration into a distribution was reverted rather than patched,
   and the reason is worth keeping: the `packages/*` directories are on the suite's

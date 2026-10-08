@@ -57,6 +57,14 @@ def test_the_warning_is_said_once_per_process():
     assert issubclass(seen[0].category, DeprecationWarning)
 
 
+def test_a_missing_home_names_the_distribution_to_install():
+    """The one thing an application can act on: which package to install."""
+    stand_in = compat.shim("keepup.moved.away", "keepup_nothing_here")
+    with pytest.raises(ModuleNotFoundError) as missing:
+        stand_in.anything
+    assert "install keepup-nothing-here" in str(missing.value)
+
+
 def test_a_name_that_did_not_move_needs_no_stand_in():
     """The layer does not invent history for a module that is where it was."""
     with pytest.raises(KeyError):

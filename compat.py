@@ -98,8 +98,25 @@ class _Moved(types.ModuleType):
         self.__dict__["_destination"] = destination
 
     def _target(self):
-        """The module this name now lives in."""
-        return importlib.import_module(self.__dict__["_destination"])
+        """The module this name now lives in.
+
+        Raises:
+            ModuleNotFoundError: naming the distribution to install, because
+                "No module named keepup_db" is a riddle and "install keepup-db"
+                is an answer. The base package deliberately does not depend on
+                the distributions it moved code into: that dependency would point
+                both ways (a distribution needs the kernel it is loaded by).
+        """
+        destination = self.__dict__["_destination"]
+        try:
+            return importlib.import_module(destination)
+        except ModuleNotFoundError as missing:
+            distribution = destination.split(".")[0].replace("_", "-")
+            raise ModuleNotFoundError(
+                f"{self.__name__} moved to {destination} in keepup 0.4.0: install "
+                f"{distribution} to keep using it",
+                name=destination,
+            ) from missing
 
     def __getattr__(self, item):
         if item.startswith("__") and item.endswith("__"):

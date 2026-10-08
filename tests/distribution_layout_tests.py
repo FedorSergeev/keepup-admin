@@ -77,6 +77,21 @@ def test_every_distribution_is_importable_by_its_own_name():
         assert module.__version__ == "0.4.0", f"{package} does not carry the release"
 
 
+def test_the_base_depends_on_no_distribution():
+    """The reverse edge would point both ways, so no distribution is a dependency.
+
+    Every one of them depends on `keepup-admin` for the kernel it is loaded by;
+    a base that depended on them could not be installed without them, and could
+    not be installed with them either.
+    """
+    import tomllib
+
+    metadata = tomllib.loads((PACKAGE / "pyproject.toml").read_text(encoding="utf-8"))
+    for dependency in metadata["project"]["dependencies"]:
+        base = re.split(r"[<>=!]", dependency)[0]
+        assert not base.startswith("keepup-"), f"the base depends on {base}"
+
+
 def test_the_graph_points_one_way():
     """A capability depends on the abstraction, never on another capability."""
     for name in EXPECTED:
@@ -114,7 +129,8 @@ def test_the_document_says_in_what_order_a_move_happens():
     """A reader who moves a module needs the three conditions, not a guess."""
     text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")
     assert "In what order the move happens" in text
-    assert "declares the distribution it re-exports from" in text
+    assert "declares *no*" in text
+    assert "install keepup-db" in text
     assert "keepup-114" in text and "keepup-124" in text
 
 
