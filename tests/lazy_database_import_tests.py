@@ -51,7 +51,6 @@ AT_IMPORT_TIME = {
     "notification_bus.py": "its capability keeps its own table",
     "plugins/admin.py": "its capability keeps its own table",
     "positional_sql.py": "it is the database, or the root that wires it in (keepup-124 moves these)",
-    "retention.py": "its capability keeps its own table",
     "schema.py": "it is the database, or the root that wires it in (keepup-124 moves these)",
     "tables.py": "it is the database, or the root that wires it in (keepup-124 moves these)",
     "themes.py": "its capability keeps its own table",

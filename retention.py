@@ -22,7 +22,6 @@ import os
 from datetime import datetime, timedelta
 from typing import Optional
 
-from keepup.db import DatabaseManagerV2
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -65,6 +64,10 @@ def purge_older_than(table: str, column: str, days: int, chunk_rows: int,
     Returns:
         How many rows were deleted in this pass.
     """
+    # The manager is taken here and not at the top of the module: importing the
+    # framework must not load a database (keepup-127).
+    from keepup.db import DatabaseManagerV2
+
     cutoff = (now or datetime.utcnow()) - timedelta(days=days)
     removed = 0
     for _ in range(max_chunks):

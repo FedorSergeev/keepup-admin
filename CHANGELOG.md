@@ -10,6 +10,13 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The first import comes off the debt list (keepup-127).** The list of modules
+  that load a database while being imported has thirty-three names on it, and the
+  only way to pay that debt is one module at a time with the entry struck off in
+  the same change. `retention.py` is the first: it takes the manager in exactly
+  one place, inside the function that sweeps, so the import moved there and the
+  module can now be imported by a stand that has no database at all.
+
 - **The import debt is measured, not estimated (keepup-127).** `doc/distributions.md`
   named four modules whose import pulls the database in; the check written from
   that list found thirty-three. That is the real size of the release's promise
