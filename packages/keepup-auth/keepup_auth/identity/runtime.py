@@ -27,16 +27,16 @@ from collections import OrderedDict
 from datetime import datetime, timezone
 from typing import Any, Awaitable, Callable, Dict, Mapping, Optional, Tuple
 
-from keepup.auth.identity import accounts
-from keepup.auth.identity.config import IdentityProviderConfig, resolve
-from keepup.auth.identity.contract import (
+from keepup_auth.identity import accounts
+from keepup_auth.identity.config import IdentityProviderConfig, resolve
+from keepup_auth.identity.contract import (
     AccessRequest,
     ExternalIdentity,
     IdentityProvider,
     IdentityRejected,
     ProviderUnavailable,
 )
-from keepup.auth.identity.loader import build_provider
+from keepup_auth.identity.loader import build_provider
 
 logger = logging.getLogger(__name__)
 

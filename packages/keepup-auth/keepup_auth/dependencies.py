@@ -21,17 +21,17 @@ import jwt
 from jwt import PyJWTError as JWTError
 from starlette import status
 
-from keepup.auth.usernames import is_valid_username
-from keepup.auth import panel_session
-from keepup.auth.dto.token import TokenData
-from keepup.auth.external_accounts import AccountUnavailable
-from keepup.auth.factory import AuthProviderFactory
-from keepup.auth.identity import access
-from keepup.auth.identity import runtime as identity_runtime
-from keepup.auth.identity.contract import IdentityRejected, ProviderUnavailable
-from keepup.auth.providers.base import AuthProvider, ALGORITHM, oauth2_scheme
-from keepup.auth.signing_key import resolve_signing_key
-from keepup.auth import user_roles
+from keepup_auth.usernames import is_valid_username
+from keepup_auth import panel_session
+from keepup_auth.dto.token import TokenData
+from keepup_auth.external_accounts import AccountUnavailable
+from keepup_auth.factory import AuthProviderFactory
+from keepup_auth.identity import access
+from keepup_auth.identity import runtime as identity_runtime
+from keepup_auth.identity.contract import IdentityRejected, ProviderUnavailable
+from keepup_auth.providers.base import AuthProvider, ALGORITHM, oauth2_scheme
+from keepup_auth.signing_key import resolve_signing_key
+from keepup_auth import user_roles
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
 from keepup.db import DatabaseManagerV2
 
@@ -51,7 +51,7 @@ __all__ = [
 
 logger = logging.getLogger(__name__)
 
-from keepup.auth import seed_accounts
+from keepup_auth import seed_accounts
 
 auth_provider: AuthProvider = AuthProviderFactory.get_provider()
 
@@ -247,7 +247,7 @@ def issue_session_token(user_id: int, username: str, sid: Optional[str] = None,
     Every token the server hands a person or an agent goes through here, so every
     one of them can be revoked.
     """
-    from keepup.auth.providers.base import ACCESS_TOKEN_EXPIRE_MINUTES
+    from keepup_auth.providers.base import ACCESS_TOKEN_EXPIRE_MINUTES
     lifetime = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
     if sid is None:
         sid = panel_session.open_session(user_id, lifetime)
@@ -255,7 +255,7 @@ def issue_session_token(user_id: int, username: str, sid: Optional[str] = None,
         # Every renewal is held to the window, not only /api/auth/refresh: the
         # exchange of a token for the cookie carried a session on without the
         # check, so a stolen token could be renewed for ever (keepup-64).
-        from keepup.auth import session_lifetime
+        from keepup_auth import session_lifetime
         if not session_lifetime.is_renewable(session_started_at):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,

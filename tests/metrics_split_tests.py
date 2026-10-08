@@ -18,6 +18,20 @@ import pytest
 from keepup import metrics, metrics_api
 
 PACKAGE = Path(__file__).resolve().parents[1]
+def _paths():
+    """The environment a spawned interpreter needs to find the distributions."""
+    import os
+    from pathlib import Path
+
+    packages = [str(Path(__file__).resolve().parents[1] / "packages" / name)
+                for name in ("keepup-db", "keepup-postgres", "keepup-sqlite", "keepup-auth",
+                             "keepup-users", "keepup-ui", "keepup-audit", "keepup-metrics",
+                             "keepup-integration-log")]
+    env = dict(os.environ)
+    env["PYTHONPATH"] = os.pathsep.join(packages + [env.get("PYTHONPATH", "")]).rstrip(os.pathsep)
+    return env
+
+
 REPO = PACKAGE.parent
 
 
@@ -43,7 +57,8 @@ def test_the_collector_knows_nothing_of_the_web_or_the_api():
 def test_importing_the_collector_does_not_import_the_api():
     probe = ("import sys, keepup.metrics; "
              "print('keepup.metrics_api' in sys.modules)")
-    out = subprocess.run([sys.executable, "-c", probe], cwd=REPO, capture_output=True,
+    out = subprocess.run([sys.executable, "-c", probe], cwd=REPO,
+        env=_paths(), capture_output=True,
                          text=True, check=True).stdout.strip()
     assert out == "False"
 

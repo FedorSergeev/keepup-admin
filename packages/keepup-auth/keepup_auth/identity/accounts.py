@@ -9,9 +9,9 @@ from __future__ import annotations
 import logging
 from typing import Any, Dict, Set
 
-from keepup.auth import external_accounts, user_roles
-from keepup.auth.identity.config import IdentityProviderConfig
-from keepup.auth.identity.contract import ExternalIdentity, IdentityRejected
+from keepup_auth import external_accounts, user_roles
+from keepup_auth.identity.config import IdentityProviderConfig
+from keepup_auth.identity.contract import ExternalIdentity, IdentityRejected
 
 logger = logging.getLogger(__name__)
 

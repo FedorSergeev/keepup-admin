@@ -32,7 +32,7 @@ import httpx
 import jwt
 from jwt import PyJWTError as JWTError
 
-from keepup.auth.signing_key import resolve_signing_key
+from keepup_auth.signing_key import resolve_signing_key
 
 logger = logging.getLogger(__name__)
 

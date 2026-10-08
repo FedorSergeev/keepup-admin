@@ -132,7 +132,7 @@ def _auth_config() -> Optional[object]:
     close that loop.
     """
     try:
-        from keepup.auth.config import auth_config
+        from keepup_auth.config import auth_config
     except Exception:  # pragma: no cover - configuration is optional here
         return None
     return auth_config

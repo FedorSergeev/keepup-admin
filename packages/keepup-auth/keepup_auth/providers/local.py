@@ -22,11 +22,11 @@ from fastapi import HTTPException
 import jwt
 from starlette import status
 
-from keepup.auth import user_roles
+from keepup_auth import user_roles
 from keepup.roles import ROLE_CLIENT
-from keepup.auth.config import auth_config
+from keepup_auth.config import auth_config
 from keepup.db import DatabaseManagerV2
-from keepup.auth.signing_key import resolve_signing_key
+from keepup_auth.signing_key import resolve_signing_key
 from .base import AuthProvider, ALGORITHM
 
 logger = logging.getLogger()
@@ -95,7 +95,7 @@ class LocalAuthProvider(AuthProvider):
     async def create_user(self, user_data: Dict[str, Any]) -> bool:
         """Create a local user."""
         try:
-            from keepup.auth.dependencies import create_user as create_user_func
+            from keepup_auth.dependencies import create_user as create_user_func
 
             user_id = await create_user_func(
                 username=user_data["username"],

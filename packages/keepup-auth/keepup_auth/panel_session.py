@@ -174,7 +174,7 @@ def revoke_all(user_id: int, reason: str) -> int:
 def _closing_sockets(revoked: int) -> int:
     """A revocation also ends the sockets signed in with it, here and on the other replicas."""
     if revoked:
-        from keepup.auth import socket_sessions
+        from keepup_auth import socket_sessions
         socket_sessions.wake()
     return revoked
 
@@ -231,8 +231,8 @@ def csrf_for(token: Optional[str]) -> Optional[str]:
         return None
     try:
         import jwt
-        from keepup.auth.providers.base import ALGORITHM
-        from keepup.auth.signing_key import resolve_signing_key
+        from keepup_auth.providers.base import ALGORITHM
+        from keepup_auth.signing_key import resolve_signing_key
         key = resolve_signing_key()
         payload = jwt.decode(token, key, algorithms=[ALGORITHM],
                              options={"verify_exp": False})

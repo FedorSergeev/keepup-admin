@@ -163,7 +163,9 @@ def test_the_local_provider_reads_tokens_with_the_library_the_package_declares()
     library it declares, and python-jose -- whose `ecdsa` carries an advisory
     with no fix -- has not come back (keepup-32).
     """
-    source = (PACKAGE / "auth/providers/local.py").read_text(encoding="utf-8")
+    from keepup.tests.repository import source_of
+
+    source = source_of("keepup.auth.providers.local").read_text(encoding="utf-8")
     assert "\nimport jwt\n" in source
     assert "from jose import" not in source, \
         "python-jose is back, and with it an advisory that has no fix (keepup-32)"

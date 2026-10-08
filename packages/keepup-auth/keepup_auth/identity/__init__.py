@@ -8,16 +8,16 @@ takes that system's tokens, lets its people into the panel with its passwords,
 and asks it about rights. See doc/external_identity_provider.md.
 """
 
-from keepup.auth.identity.access import require_permission
-from keepup.auth.identity.config import IdentityProviderConfig, IdentityProviderMisconfigured
-from keepup.auth.identity.contract import (
+from keepup_auth.identity.access import require_permission
+from keepup_auth.identity.config import IdentityProviderConfig, IdentityProviderMisconfigured
+from keepup_auth.identity.contract import (
     AccessRequest,
     ExternalIdentity,
     IdentityProvider,
     IdentityRejected,
     ProviderUnavailable,
 )
-from keepup.auth.identity.loader import ENTRY_POINT_GROUP
+from keepup_auth.identity.loader import ENTRY_POINT_GROUP
 
 #: What an application or a provider plugin may import from this package.
 __all__ = [

@@ -18,8 +18,8 @@ import logging
 from importlib.metadata import entry_points
 from typing import Callable, Iterable, Optional
 
-from keepup.auth.identity.config import IdentityProviderConfig, IdentityProviderMisconfigured
-from keepup.auth.identity.contract import IdentityProvider
+from keepup_auth.identity.config import IdentityProviderConfig, IdentityProviderMisconfigured
+from keepup_auth.identity.contract import IdentityProvider
 
 logger = logging.getLogger(__name__)
 

@@ -23,9 +23,9 @@ import jwt
 from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, Field, field_validator
 
-from keepup.auth.usernames import is_valid_username
-from keepup.auth import panel_session, seed_accounts, user_routes
-from keepup.auth.dependencies import (
+from keepup_auth.usernames import is_valid_username
+from keepup_auth import panel_session, seed_accounts, user_routes
+from keepup_auth.dependencies import (
     _authenticated_by_cookie,
     _bearer_of,
     authenticate,
@@ -34,13 +34,13 @@ from keepup.auth.dependencies import (
     issue_session_token,
     refuse_foreign_session,
 )
-from keepup.auth.dto.token import Token
-from keepup.auth.external_accounts import AccountUnavailable
-from keepup.auth.identity import access
-from keepup.auth.identity import runtime as identity_runtime
-from keepup.auth.identity.contract import IdentityRejected, ProviderUnavailable
-from keepup.auth.providers.base import ALGORITHM
-from keepup.auth.signing_key import resolve_signing_key
+from keepup_auth.dto.token import Token
+from keepup_auth.external_accounts import AccountUnavailable
+from keepup_auth.identity import access
+from keepup_auth.identity import runtime as identity_runtime
+from keepup_auth.identity.contract import IdentityRejected, ProviderUnavailable
+from keepup_auth.providers.base import ALGORITHM
+from keepup_auth.signing_key import resolve_signing_key
 from keepup.db import DatabaseManagerV2
 
 #: What an application may import from this module. Everything else is
@@ -83,7 +83,7 @@ def _documents_pending(user: dict) -> bool:
         every application but one, and then the panel shell must not ask for
         them: the route belongs to the application that has them.
     """
-    from keepup.auth import dependencies
+    from keepup_auth import dependencies
 
     rule = dependencies.pending_documents
     if rule is None:
@@ -193,7 +193,7 @@ async def refresh_access_token(current_user: dict, request: Request = None,
     refused for the same reason it is refused everywhere else: status is
     checked on every request, not only at login.
     """
-    from keepup.auth import session_lifetime
+    from keepup_auth import session_lifetime
 
     # Before the window: a caller with the provider's token has no session
     # here to renew, and must not be handed one (keepup-91).
@@ -335,7 +335,7 @@ def register_auth_routes(app, manager):
 
     @app.post("/api/auth/login", response_model=Token)
     async def login(login_data: LoginRequest, request: Request, response: Response):
-        from keepup.auth import login_throttle
+        from keepup_auth import login_throttle
 
         # Guessing a password had no cost: every attempt was answered as fast as the
         # first. The count is per name and lives in the database, because the next

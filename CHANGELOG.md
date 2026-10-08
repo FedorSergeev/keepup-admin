@@ -10,6 +10,18 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The sign-in moves into its distribution (keepup-124).** `keepup/auth/` -- 22
+  paths, twenty modules and three subpackages, the largest unit of the release --
+  is now the contents of `packages/keepup-auth/keepup_auth/`, so that distribution
+  *is* the sign-in rather than holding a copy of it. The package's initialiser was
+  merged into the distribution's, 19 files were rewritten from `keepup.auth` to
+  `keepup_auth`, and `keepup.auth` answers through the compatibility layer: the 42
+  references outside the package did not change at all. Two instruments were built
+  for this move after earlier attempts failed without them -- `source_of`, so a
+  check asks a module for its file instead of building a path, and identity
+  aliasing, so `keepup.auth.routes` and `keepup_auth.routes` are one module object
+  and a setting written through either is seen by both.
+
 - **Two names for one module are one object (keepup-124).** Moving the sign-in
   package into its distribution failed on a check of the password rule -- 401 where
   it wanted 400 -- and the reason is worth having found: after a package moves,

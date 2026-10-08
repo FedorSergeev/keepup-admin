@@ -20,10 +20,10 @@ from typing import Any, Dict, List, Tuple
 from fastapi import HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
-from keepup.auth import external_accounts, oidc, oidc_policy, panel_session
-from keepup.auth.dependencies import issue_session_token
+from keepup_auth import external_accounts, oidc, oidc_policy, panel_session
+from keepup_auth.dependencies import issue_session_token
 from keepup.db import DatabaseManagerV2
-from keepup.auth import user_roles
+from keepup_auth import user_roles
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
 
 logger = logging.getLogger(__name__)

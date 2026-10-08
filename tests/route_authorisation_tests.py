@@ -15,6 +15,8 @@ from pathlib import Path
 
 import pytest
 
+from keepup.tests.repository import source_of
+
 from keepup.tests.repository import some_application
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
@@ -162,7 +164,7 @@ def test_the_user_dependency_takes_nothing_from_the_query():
     from keepup.auth import dependencies
 
     signature = ast.parse(
-        (PACKAGE / "auth/dependencies.py").read_text(encoding="utf-8"))
+        source_of("keepup.auth.dependencies").read_text(encoding="utf-8"))
     found = [node for node in ast.walk(signature)
              if isinstance(node, ast.AsyncFunctionDef) and node.name == "get_current_user"]
     assert found, "get_current_user is gone"

@@ -10,7 +10,6 @@ A catalogue that cannot start must not take the application with it: deployments
 reach this code with a catalogue that never existed.
 """
 
-from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from keepup import KeepupSettings, create_app

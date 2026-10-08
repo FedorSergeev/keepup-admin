@@ -17,8 +17,8 @@ import bcrypt
 from fastapi import Depends, HTTPException, status
 from pydantic import BaseModel, Field, field_validator
 
-from keepup.auth import panel_session, user_roles
-from keepup.auth.dependencies import (
+from keepup_auth import panel_session, user_roles
+from keepup_auth.dependencies import (
     get_all_users,
     get_current_admin,
     get_current_user,
@@ -143,7 +143,7 @@ async def notify_account_blocked(manager, user_id: int, admin: dict) -> None:
 def register_user_routes(app, manager):
     """Register the profile, user administration and role routes."""
     # The password rule is the application's, configured on the sign-in module.
-    from keepup.auth import routes as sign_in
+    from keepup_auth import routes as sign_in
 
     @app.put("/api/auth/profile", response_model=dict)
     def update_profile(

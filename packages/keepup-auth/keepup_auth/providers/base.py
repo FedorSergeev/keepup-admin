@@ -20,11 +20,11 @@ from fastapi.security import OAuth2PasswordBearer
 import jwt
 from starlette import status
 
-from keepup.auth.usernames import is_valid_username
-from keepup.auth.signing_key import resolve_signing_key
-from keepup.auth import user_roles
+from keepup_auth.usernames import is_valid_username
+from keepup_auth.signing_key import resolve_signing_key
+from keepup_auth import user_roles
 from keepup.roles import ROLE_CLIENT
-from keepup.auth.config import auth_config
+from keepup_auth.config import auth_config
 from keepup.db import DatabaseManagerV2
 
 #: What an application may import from this module. Everything else is

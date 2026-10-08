@@ -13,6 +13,7 @@ from pathlib import Path
 
 
 from keepup.auth import panel_session
+from keepup.tests.repository import source_of  # noqa: E402
 
 PACKAGE = Path(__file__).resolve().parents[1]
 REPO = PACKAGE.parent
@@ -26,7 +27,7 @@ def test_the_token_lifetime_comes_from_the_configuration():
     A deployment that asked for fifteen minutes went on handing out day-long
     tokens, and had no way to find out.
     """
-    source = (PACKAGE / "auth/providers/base.py").read_text(encoding="utf-8")
+    source = source_of("keepup.auth.providers.base").read_text(encoding="utf-8")
     assert "auth_config" in source
     assert "ACCESS_TOKEN_EXPIRE_MINUTES = 1440" not in source
 
@@ -48,7 +49,7 @@ def test_the_password_rule_applies_when_an_administrator_sets_a_password():
     """
     # The administration of users moved to user_routes.py with keepup-59; the
     # path is the only change, made with the owner's consent.
-    source = (PACKAGE / "auth/user_routes.py").read_text(encoding="utf-8")
+    source = source_of("keepup.auth.user_routes").read_text(encoding="utf-8")
 
     change = source[source.index("new_password_hash = bcrypt.hashpw") - 1200:
                     source.index("new_password_hash = bcrypt.hashpw")]
@@ -65,7 +66,7 @@ def test_blocking_an_account_revokes_its_sessions():
     so a blocked account kept whatever socket it already had open.
     """
     # Moved to user_routes.py with keepup-59; only the path changed.
-    source = (PACKAGE / "auth/user_routes.py").read_text(encoding="utf-8")
+    source = source_of("keepup.auth.user_routes").read_text(encoding="utf-8")
 
     block = source[source.index("notify_account_blocked(manager, int(user_id), admin)") - 800:
                    source.index("notify_account_blocked(manager, int(user_id), admin)")]
@@ -115,6 +116,6 @@ def test_the_external_sign_in_cookie_asks_the_same_question():
     This one was False unconditionally -- not even asking, the way the session
     cookie does.
     """
-    source = (PACKAGE / "auth/oidc_routes.py").read_text(encoding="utf-8")
+    source = source_of("keepup.auth.oidc_routes").read_text(encoding="utf-8")
     assert "secure=False" not in source
     assert "secure=panel_session.is_https(request)" in source

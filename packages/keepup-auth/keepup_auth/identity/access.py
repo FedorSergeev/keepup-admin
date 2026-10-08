@@ -25,9 +25,9 @@ from typing import Any, Mapping
 
 from fastapi import Depends, HTTPException, Request, status
 
-from keepup.auth import user_roles
-from keepup.auth.identity import runtime as identity_runtime
-from keepup.auth.identity.contract import AccessRequest, IdentityRejected, ProviderUnavailable
+from keepup_auth import user_roles
+from keepup_auth.identity import runtime as identity_runtime
+from keepup_auth.identity.contract import AccessRequest, IdentityRejected, ProviderUnavailable
 from keepup.db import DatabaseManagerV2
 from keepup.roles import ROLE_ADMIN
 
@@ -109,7 +109,7 @@ def require_permission(permission: str):
     """
     # Imported here: keepup.auth.dependencies reaches the provider through this
     # package, and a module-level import each way would be a cycle.
-    from keepup.auth.dependencies import get_current_user
+    from keepup_auth.dependencies import get_current_user
 
     async def dependency(request: Request, current_user: dict = Depends(get_current_user)):
         await check(current_user, action_of(request, permission))

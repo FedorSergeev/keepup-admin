@@ -22,7 +22,7 @@ from typing import Any, Dict, Optional
 
 from fastapi import HTTPException
 
-from keepup.auth import dependencies, panel_session, socket_sessions
+from keepup_auth import dependencies, panel_session, socket_sessions
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.

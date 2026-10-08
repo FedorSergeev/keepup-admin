@@ -10,9 +10,9 @@ from functools import wraps
 from fastapi import HTTPException, status, Depends
 
 from keepup.roles import ROLE_ADMIN
-from keepup.auth.dependencies import get_all_users, get_current_user
-from keepup.auth.identity import access
-from keepup.auth.identity.contract import AccessRequest
+from keepup_auth.dependencies import get_all_users, get_current_user
+from keepup_auth.identity import access
+from keepup_auth.identity.contract import AccessRequest
 
 
 def require_permission(permission_name: str):

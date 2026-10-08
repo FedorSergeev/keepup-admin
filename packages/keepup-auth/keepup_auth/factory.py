@@ -6,9 +6,9 @@ table -- but the choice stays a lookup rather than a call of LocalAuthProvider:
 stop the start with a message instead of silently becoming the local one.
 """
 
-from keepup.auth.providers.base import AuthProvider
-from keepup.auth.config import auth_config, AuthProviderType
-from keepup.auth.providers.local import LocalAuthProvider
+from keepup_auth.providers.base import AuthProvider
+from keepup_auth.config import auth_config, AuthProviderType
+from keepup_auth.providers.local import LocalAuthProvider
 
 
 class AuthProviderFactory:

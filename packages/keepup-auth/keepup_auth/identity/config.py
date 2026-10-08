@@ -96,7 +96,7 @@ class IdentityProviderConfig(BaseModel):
             if not value.strip():
                 raise ValueError("plugin must name a class or an entry point")
             return value.strip()
-        from keepup.auth.identity.contract import IdentityProvider
+        from keepup_auth.identity.contract import IdentityProvider
         if isinstance(value, IdentityProvider):
             return value
         raise ValueError("plugin must be 'module:Class', an entry point name, "

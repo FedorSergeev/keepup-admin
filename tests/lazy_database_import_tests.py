@@ -24,23 +24,11 @@ PACKAGE = Path(__file__).resolve().parents[1]
 #: somebody's head.
 MOVES_WITH_ITS_CAPABILITY = {
     "audit.py": "keepup-audit",
-    "auth/login_throttle.py": "keepup-auth",
-    "auth/panel_session.py": "keepup-auth",
-    "auth/user_roles.py": "keepup-users",
     "builtin/db.py": "keepup-db",
     "builtin/postgres.py": "keepup-postgres",
     "builtin/sqlite.py": "keepup-sqlite",
     "schema.py": "the declarations themselves, until each owner takes its own",
     "themes.py": "keepup-ui",
-    "auth/dependencies.py": "keepup-auth",
-    "auth/external_accounts.py": "keepup-auth",
-    "auth/identity/access.py": "keepup-auth",
-    "auth/oidc_routes.py": "keepup-auth",
-    "auth/providers/base.py": "keepup-auth",
-    "auth/providers/local.py": "keepup-auth",
-    "auth/routes.py": "keepup-auth",
-    "auth/socket_sessions.py": "keepup-auth",
-    "auth/user_routes.py": "keepup-auth",
 }
 
 #: Modules whose import can be made lazy here and now: they reach the database
