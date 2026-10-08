@@ -134,6 +134,14 @@ def test_the_document_says_in_what_order_a_move_happens():
     assert "keepup-114" in text and "keepup-124" in text
 
 
+def test_the_two_findings_of_the_failed_move_are_recorded():
+    """What a reverted attempt taught has to outlive the attempt (keepup-124)."""
+    text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")
+    assert "The two things found by trying to move a module" in text
+    assert "keepup-125" in text and "keepup-126" in text
+    assert "public_interface_tests.py" in text and "themes_tests.py" in text
+
+
 def test_the_document_says_what_the_base_stops_carrying():
     """The promise keepup-124 has to keep, written where a reader will find it."""
     text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")

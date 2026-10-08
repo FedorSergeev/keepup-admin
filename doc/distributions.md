@@ -67,3 +67,25 @@ when all three of these are true -- which is why the first attempt at moving
 So the move of a capability's code and the removal of its library from the base's
 `dependencies` are one change, not two, and the entry in `pyproject.toml` is where
 the two meet.
+
+## The two things found by trying to move a module
+
+The first attempt at moving `keepup.db` into `keepup-db` (keepup-124) was reverted,
+and it left two findings that have to be settled *before* the move is repeated --
+neither of them is visible until a module with thirty importers actually moves:
+
+1. **A moved module exports more than its new package declares.** `keepup.db` was
+   taken apart by checks that read `__file__` and by callers of private helpers,
+   and `public_interface_tests.py` refuses a name an application takes that the
+   interface does not declare. Either the declared interface grows to what the
+   module really offers, or the module stops offering it -- and that is a decision
+   about the application's interface, not about the move (keepup-125).
+2. **Resolving an old name must not drag the distribution into an import.** With
+   `keepup.db` answering through the compatibility layer, importing a module that
+   merely mentions the database began to load the distribution, and
+   `themes_tests.py` refuses exactly that: several modules are careful to touch no
+   database on import. The stand-in has to answer on attribute access, never on
+   import (keepup-126).
+
+Both are checked: `tests/distribution_layout_tests.py` holds this section to
+naming them, so the next attempt cannot quietly forget what the last one learned.
