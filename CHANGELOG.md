@@ -10,6 +10,22 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **What a second attempt at moving the module found (keepup-124, keepup-125,
+  keepup-127).** The move of `keepup.db` was attempted again with the two
+  compatibility findings fixed, and the full suite named the remaining eight
+  failures -- which is the useful result, because they are not about the module
+  being moved. Four of them (`events_split_tests.py`,
+  `log_shipping_split_tests.py`, `metrics_split_tests.py`, `themes_tests.py`) say
+  something real: `keepup.events`, `keepup.log_shipping`, `keepup.metrics` and
+  `keepup.themes` import the manager at module level, so with the module moved,
+  importing any of them loads the database distribution -- and a release whose
+  point is that the base carries no database library cannot have an import that
+  reaches for one. Those imports move inside the functions that use them
+  (keepup-127). The other four are checks that read the moved module by path and
+  follow the name into its new home, which belongs to the move itself
+  (keepup-125). `doc/distributions.md` carries the classification, and a check
+  holds it to naming all three tasks.
+
 - **A stand-in answers for the declaration of the module it replaced
   (keepup-125).** The first attempt at moving `keepup.db` was refused by the
   public-interface check, and the reason was not the module's interface: the
