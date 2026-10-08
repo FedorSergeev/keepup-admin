@@ -10,6 +10,19 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **Every declaration has a home in the map (keepup-124).** Moving declarations
+  ran into the ownership check: the map named owners only for the tables declared
+  in the kernel's schema, and the eleven declared elsewhere -- the ones that had
+  already moved and the ones the capabilities declare -- appeared in it as prose.
+  A check that cannot see a declaration cannot defend it. The map now has a row
+  for every declared table, and the check reads every home a declaration has: the
+  kernel's schema, the modules whose declarations have not moved yet, and the
+  distributions' `tables.py` files. It asks each declaration for its name instead
+  of reading the text, because two of them name their table with a constant, and a
+  text-only reading called those unowned while they sat in plain sight. "Already
+  moved" is now a question about the kernel's schema, which is what it always
+  meant.
+
 - **The snapshots declare themselves (keepup-124).** `system_metrics` moves into
   `packages/keepup-metrics/keepup_metrics/tables.py` and `keepup.schema`
   re-exports it, so the path that predates the catalogue still creates the table

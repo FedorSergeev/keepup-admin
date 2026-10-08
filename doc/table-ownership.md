@@ -20,6 +20,17 @@ it, and the distribution named here is where it goes.
 | `frontend_modules` | `keepup-ui` | the section catalogue the panel keeps |
 | `role_modules` | `keepup-ui` | which role may see which section |
 | `plugin_overrides` | `keepup-modules` | an administrator's decision about a plugin |
+| `integration_logs` | `keepup-integration-log` | moved in keepup-124 |
+| `users` | `keepup-users` | moved in keepup-124 |
+| `user_roles` | `keepup-users` | moved in keepup-124 |
+| `user_permissions` | `keepup-users` | moved in keepup-124 |
+| `external_role_mappings` | `keepup-users` | moved in keepup-124 |
+| `system_metrics` | `keepup-metrics` | moved in keepup-124 |
+| `auth_session` | `keepup-auth` | declared by the capability since keepup-116 |
+| `login_attempts` | `keepup-auth` | declared by the capability since keepup-116 |
+| `incoming_requests` | `keepup-audit` | declared by the capability since keepup-111 |
+| `app_events` | `keepup-audit` | declared by the capability since keepup-111 |
+| `visual_themes` | `keepup-ui` | declared by the capability since keepup-104 |
 
 Three tables do not appear here because they are not in the kernel's schema at
 all: the panel's sessions (`auth_session`) and login attempts

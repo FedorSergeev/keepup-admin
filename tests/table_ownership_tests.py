@@ -22,15 +22,40 @@ def declared_tables():
     """Every table the framework declares, wherever its owner lives.
 
     A declaration belongs to the capability that keeps it (keepup-124), so this
-    reads the kernel's schema and the distributions beside it.
+    reads the kernel's schema, the modules whose declarations have not moved yet,
+    and the distributions that already own theirs. The name is asked of the
+    declaration rather than read out of the text: several of them are declared
+    with the name in a constant, and a check that cannot see those would report a
+    table as unowned while it sits in plain sight.
     """
+    import importlib
+
+    sources = [SCHEMA, PACKAGE / "audit.py", PACKAGE / "events.py", PACKAGE / "themes.py",
+               PACKAGE / "auth" / "panel_session.py", PACKAGE / "auth" / "login_throttle.py"]
+    sources += sorted((PACKAGE / "packages").glob("*/keepup_*/tables.py"))
     found = set()
-    sources = [SCHEMA] + sorted((PACKAGE / "packages").glob("*/keepup_*/tables.py"))
     for path in sources:
-        text = path.read_text(encoding="utf-8")
-        found |= set(re.findall(r"^[A-Z_]+ = tables\.table\(\s*\n\s*\"([a-z_]+)\"", text, re.M))
-        found |= set(re.findall(r"^(?:\w+ )?= tables\.table\([^)]*?\"([a-z_]+)\"", text, re.M))
+        if not path.is_file():
+            continue
+        relative = path.relative_to(PACKAGE)
+        if relative.parts[0] == "packages":
+            module_name = ".".join(relative.parts[2:]).removesuffix(".py")
+        else:
+            module_name = "keepup." + ".".join(relative.parts).removesuffix(".py")
+        module = importlib.import_module(module_name)
+        for name in re.findall(r"^([A-Z_]+) = tables\.table\(", path.read_text(encoding="utf-8"),
+                               re.M):
+            declaration = getattr(module, name, None)
+            table = getattr(declaration, "name", None)
+            if table:
+                found.add(str(table))
     return found
+
+
+def kernel_declarations():
+    """The table names the kernel's own schema still declares."""
+    text = SCHEMA.read_text(encoding="utf-8")
+    return set(re.findall(r"^[A-Z_]+ = tables\.table\(\s*\n\s*\"([a-z_]+)\"", text, re.M))
 
 
 def ownership_map():
@@ -66,8 +91,9 @@ def test_each_owner_is_a_distribution_or_a_named_later_one():
 
 def test_the_tables_that_already_moved_are_not_in_the_kernel_schema():
     """Sessions, attempts, incoming requests and events are declared where they live."""
-    declared = declared_tables()
-    for table in ("auth_session", "login_attempts", "incoming_requests", "app_events"):
+    declared = kernel_declarations()
+    for table in ("auth_session", "login_attempts", "incoming_requests", "app_events",
+                  "integration_logs", "system_metrics", "users", "user_roles"):
         assert table not in declared, f"{table} is declared twice: it moved already"
 
 
