@@ -22,7 +22,6 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
-from keepup.db import DatabaseManagerV2
 from keepup.metrics import SNAPSHOT_METRIC_NAMES
 from keepup.metrics_api import PANEL_HISTORY_HOURS
 
@@ -202,6 +201,7 @@ def _delete_ids(ids: Sequence[Any]) -> int:
     Returns:
         How many rows were deleted.
     """
+    from keepup.db import DatabaseManagerV2
     removed = 0
     for start in range(0, len(ids), DELETE_CHUNK_ROWS):
         chunk = ids[start:start + DELETE_CHUNK_ROWS]
@@ -223,6 +223,7 @@ def purge_expired(policy: RetentionPolicy, now: Optional[datetime] = None) -> in
     Returns:
         How many rows were deleted.
     """
+    from keepup.db import DatabaseManagerV2
     _, expired_before = policy.horizons(now)
     removed = 0
     for _ in range(MAX_BATCHES_PER_PASS):
@@ -254,6 +255,7 @@ def thin_old(policy: RetentionPolicy, now: Optional[datetime] = None) -> int:
     Returns:
         How many rows were deleted.
     """
+    from keepup.db import DatabaseManagerV2
     detailed_from, expired_before = policy.horizons(now)
     interval = policy.thinned_interval_seconds
     removed = 0

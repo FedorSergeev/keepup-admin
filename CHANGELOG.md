@@ -10,6 +10,13 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The second import comes off the debt list (keepup-127).**
+  `metrics_retention.py` took the database manager at module level and used it in
+  three functions; the import moved into them, and the module can be imported by
+  a stand with no database. The list of modules that still load a database while
+  being imported is down to thirty-one, and striking an entry off remains the
+  shape of the work: the check refuses one that no longer needs the database.
+
 - **The first import comes off the debt list (keepup-127).** The list of modules
   that load a database while being imported has thirty-three names on it, and the
   only way to pay that debt is one module at a time with the entry struck off in

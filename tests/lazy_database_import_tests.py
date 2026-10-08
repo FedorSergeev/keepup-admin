@@ -46,7 +46,6 @@ AT_IMPORT_TIME = {
     "locks.py": "its capability keeps its own table",
     "metrics.py": "its capability keeps its own table",
     "metrics_api.py": "its capability keeps its own table",
-    "metrics_retention.py": "its capability keeps its own table",
     "modules.py": "its capability keeps its own table",
     "notification_bus.py": "its capability keeps its own table",
     "plugins/admin.py": "its capability keeps its own table",
