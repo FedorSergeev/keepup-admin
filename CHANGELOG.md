@@ -10,6 +10,15 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **A check asks the module where it is, not the filesystem (keepup-124).** Moving
+  the event log into the audit capability failed on the checks rather than on the
+  code: two of them read the source as `PACKAGE / "events.py"`, and a module that
+  moves into a distribution keeps its old name through the compatibility layer
+  while the file it used to be stops existing -- so the move looked like a broken
+  check. They now use `source_of("keepup.events")`, which asks the module for its
+  file and therefore follows it. This is the same order the ownership map taught:
+  the instrument first, the move second.
+
 - **The units that still move, and why they move whole (keepup-124).** The list of
   modules that keep a library in the base invited the obvious next step -- move one
   of them -- and the sizes say why that step is wrong for most of them:

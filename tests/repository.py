@@ -146,3 +146,23 @@ def alongside(*relative):
         pytest.skip(f"{'/'.join(relative)} belongs to the repository the package "
                     f"grew in, and is not in this one")
     return path
+
+
+def source_of(module_name: str) -> Path:
+    """The file of a module, asked of the module rather than built from a path.
+
+    A module that moves into a distribution keeps its old name through
+    `keepup.compat` (keepup-124), so a check that *asks for the module* follows it
+    and keeps testing what it meant to test. A check that builds
+    `PACKAGE / "events.py"` does not: it reports a missing file, and the move looks
+    like a broken check rather than a moved module.
+
+    Args:
+        module_name: the import path, the old one included.
+
+    Returns:
+        The file the module is defined in.
+    """
+    import importlib
+
+    return Path(importlib.import_module(module_name).__file__)

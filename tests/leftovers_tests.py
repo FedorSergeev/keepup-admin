@@ -56,7 +56,10 @@ def test_the_interval_is_not_built_out_of_a_string_literal():
     left the literal. Nothing exploited it only because the one caller passes
     an int from a bounded query parameter -- and the method is public.
     """
-    source = (PACKAGE / "events.py").read_text(encoding="utf-8")
+    # By name, not by path: the journal may live in its distribution (keepup-124).
+    from keepup.tests.repository import source_of
+
+    source = source_of("keepup.events").read_text(encoding="utf-8")
     # The statements themselves, not the comment above them that quotes the
     # old shape in order to explain it.
     statements = "\n".join(line for line in source.splitlines()

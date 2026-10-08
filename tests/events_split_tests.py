@@ -45,7 +45,10 @@ def module_imports(path: Path):
 
 
 def test_the_journal_knows_nothing_of_the_web_or_its_routes():
-    loaded = module_imports(PACKAGE / "events.py")
+    # By name, not by path: the journal may live in its distribution (keepup-124).
+    from keepup.tests.repository import source_of
+
+    loaded = module_imports(source_of("keepup.events"))
     assert not {name for name in loaded
                 if name.startswith(("fastapi", "pydantic", "keepup.events_api",
                                     "keepup.auth"))}
