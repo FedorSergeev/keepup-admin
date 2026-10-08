@@ -53,12 +53,10 @@ dependencies = [
     "pydantic>=2.11,<3",
     "sqlalchemy>=2.0,<3",
     "apscheduler>=3.10,<4",
-    # PyJWT rather than python-jose: the latter pulls `ecdsa` unconditionally,
-    # and `ecdsa` carries an advisory with no fixed version at all. The path to
-    # it was reachable -- sign-in through a provider allows the ES curves that
-    # `ecdsa` implements -- so no installation of this package could be made
-    # clean (keepup-32). The [crypto] extra brings `cryptography`, which is
-    # what serves the asymmetric algorithms now.
+    # PyJWT and bcrypt are not here any more: they belong to the sign-in, which
+    # declares them in its own distribution and audits them there (keepup-124).
+    # The note that chose PyJWT over python-jose -- `ecdsa` carries an advisory
+    # with no fixed version at all (keepup-32) -- travelled with it.
     # Floors are the first versions with no published advisory, checked by the
     # security workflow against the floors themselves, not only against what a
     # fresh install happens to resolve today (keepup-69): an installation that
