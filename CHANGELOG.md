@@ -10,6 +10,17 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The last move, measured and written down as a runbook (keepup-124).** The
+  sign-in package is the last unit of the release that moves, and its size is
+  measured rather than feared: 75 import lines inside the package name it by its
+  old path, 42 references outside it do -- and those do not change, because
+  `keepup.auth` answers through the compatibility layer. `doc/distributions.md`
+  now carries the six steps (move the contents, merge the initialisers, rewrite
+  the 75 lines, strike the debt entries, point any check that reads a sign-in
+  source at `source_of`, run the suite and know the one-command revert), and a
+  check holds it there. Writing the order down is what made the last three moves
+  work on the first attempt; this is the same instrument for the largest one.
+
 - **The edges of the sign-in package, surveyed before it moves (keepup-124).**
   `keepup/auth/` is the last unit of the release that still moves and the largest:
   32 files that import each other by fifteen internal names, reaching outwards

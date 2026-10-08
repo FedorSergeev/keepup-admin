@@ -103,6 +103,39 @@ is what the layer was built for and has now been used for three times.
 `keepup_auth.tables`), its own modules, and nothing of the base. The base's
 modules that import it stay where they are until their own capabilities move.
 
+## The runbook for the last move
+
+The sign-in package is the last unit of 0.4.0 that moves, and its size is measured
+rather than feared: **75 import lines** inside the package name it by its old path
+(`from keepup.auth...`), **42 references** outside it do, and the package is 20
+top-level modules plus the subpackages `dto/`, `identity/` and `providers/`. The 42
+outside references do not change -- `keepup.auth` answers through the compatibility
+layer -- so the move is the 75 lines and the files.
+
+In this order, one change:
+
+1. `git mv auth/* packages/keepup-auth/keepup_auth/` -- the package's contents
+   become the distribution's, so `keepup_auth/` *is* the sign-in rather than
+   holding a copy of it.
+2. Merge the two `__init__.py`: the distribution's keeps its docstring and
+   `__version__`, and takes the exports the package declared.
+3. Rewrite the 75 lines: `from keepup.auth` becomes `from keepup_auth`,
+   `import keepup.auth` becomes `import keepup_auth`. Nothing else in them changes.
+4. Strike `auth/` from `CAN_BE_MADE_LAZY`-style lists -- the entries in
+   `MOVES_WITH_ITS_CAPABILITY` for the files that moved -- and let the shrinking
+   check confirm.
+5. Checks that read a sign-in source read it by name already, or are named here:
+   `grep -rn "auth/" tests/*.py` before starting, and convert each hit to
+   `source_of("keepup.auth.<module>")`.
+6. Full suite. If it is not green, `git checkout -- . && rm -rf
+   packages/keepup-auth/keepup_auth/*` restores the state -- the move is a rename
+   plus 75 lines, and a revert is one command.
+
+The libraries leave in the same change: `sqlalchemy`, `bcrypt` and `pyjwt` have no
+keeper left in the base once this package is out, and
+`tests/base_package_freedom_tests.py` fails on purpose the moment one of them is
+still declared and unused.
+
 ## In what order the move happens
 
 A declaration or a module moves in one change, and the change is only complete

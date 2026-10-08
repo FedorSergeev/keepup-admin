@@ -167,6 +167,15 @@ def test_the_document_says_how_a_payment_is_made():
     assert "reverted whole" in text
 
 
+def test_the_document_has_a_runbook_for_the_last_move():
+    """The last move, measured and written down before it is attempted."""
+    text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")
+    assert "The runbook for the last move" in text
+    assert "75 import lines" in text and "42 references" in text
+    assert "git mv auth/*" in text
+    assert "restores the state" in text
+
+
 def test_the_document_surveys_the_sign_in_before_it_moves():
     """The last unit's edges, written down so the move is a move (keepup-124)."""
     text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")
