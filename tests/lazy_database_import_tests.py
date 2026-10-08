@@ -50,10 +50,6 @@ MOVES_WITH_ITS_CAPABILITY = {
 #: only inside functions, so the import belongs there. This is keepup-127's own
 #: work, and it is finite -- nine of them.
 CAN_BE_MADE_LAZY = {
-    "metrics.py": "the collector reads the pool when it is asked to",
-    "metrics_api.py": "the panel's view reads the database per request",
-    "modules.py": "the section catalogue is read per request",
-    "plugins/admin.py": "the plugin decisions are read per request",
 }
 
 #: What "takes the database" means.

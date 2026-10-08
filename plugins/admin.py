@@ -25,7 +25,6 @@ from fastapi import Depends, HTTPException
 from keepup.auth.dependencies import get_current_admin, get_current_user
 from keepup import admin_trail
 from keepup.auth import user_roles
-from keepup.db import DatabaseManagerV2
 from keepup.plugins import enablement
 from keepup.plugins import route_mask
 
@@ -69,6 +68,7 @@ def read_plugin_overrides():
     starting. Without the overrides the file and the environment still decide,
     which is the behaviour that existed before the panel could.
     """
+    from keepup.db import DatabaseManagerV2
     try:
         rows = DatabaseManagerV2.execute(
             "SELECT plugin_id, enabled FROM plugin_overrides", {})
@@ -80,6 +80,7 @@ def read_plugin_overrides():
 
 def write_plugin_override(plugin_id: str, enabled: bool, changed_by=None) -> None:
     """Record the panel's decision about one plugin, replacing any previous."""
+    from keepup.db import DatabaseManagerV2
     updated = DatabaseManagerV2.execute_commit(
         "UPDATE plugin_overrides SET enabled = :enabled, changed_by = :who, "
         "changed_at = :now WHERE plugin_id = :pid",
@@ -93,6 +94,7 @@ def write_plugin_override(plugin_id: str, enabled: bool, changed_by=None) -> Non
 
 def clear_plugin_override(plugin_id: str) -> None:
     """Give the decision back to the file and the environment."""
+    from keepup.db import DatabaseManagerV2
     DatabaseManagerV2.execute_commit(
         "DELETE FROM plugin_overrides WHERE plugin_id = :pid", {"pid": plugin_id})
 

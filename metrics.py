@@ -26,7 +26,6 @@ from typing import Dict, List, Optional, Set, Tuple
 import psutil
 from prometheus_client import Counter, Gauge, Histogram, REGISTRY
 
-from keepup.db import DatabaseManagerV2
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -388,6 +387,7 @@ class SystemMetricsCollector:
         Args:
             metrics: the values just collected, by metric name.
         """
+        from keepup.db import DatabaseManagerV2
         try:
             timestamp = datetime.utcnow()
             params_list = [{

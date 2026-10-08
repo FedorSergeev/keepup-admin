@@ -10,6 +10,18 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The import debt is paid (keepup-127).** The last four modules that reached
+  the database only inside functions -- the metrics collector, the metrics API,
+  the section catalogue and the plugin decisions -- now take the manager where
+  they use it, and the list of modules that load a database while being imported
+  holds nothing but the ones that declare tables, each with the distribution it
+  moves into (keepup-124). Nine payments were made one module at a time, and the
+  two checks that patched a manager as an attribute of a module that no longer
+  imports it were pointed at `keepup.db.DatabaseManagerV2`, which is where the
+  name lives. The release's promise that a stand without storage can import the
+  framework is now true of every module the base ships, except those the
+  capabilities will take with them.
+
 - **The eighth import comes off the debt list (keepup-127).** `locks.py` -- the
   distributed locks and the routes an administrator reads them by -- took the
   manager at module level in eight functions' worth of use, and the import now

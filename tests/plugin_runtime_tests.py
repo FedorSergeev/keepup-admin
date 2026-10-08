@@ -993,7 +993,11 @@ def test_a_database_that_cannot_answer_does_not_keep_the_server_from_starting(mo
         def execute(*args, **kwargs):
             raise RuntimeError("could not connect to the database")
 
-    monkeypatch.setattr(admin, "DatabaseManagerV2", Unreachable)
+    # Patched where the name lives, not on the module that used to take it at
+    # import time: the import moved into the function that needs it (keepup-127).
+    from keepup.db import DatabaseManagerV2 as _manager
+
+    monkeypatch.setattr(_manager, "execute", staticmethod(Unreachable.execute))
 
     assert admin.read_plugin_overrides() == {}
 

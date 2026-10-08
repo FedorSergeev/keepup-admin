@@ -21,7 +21,6 @@ from keepup.auth.dependencies import get_current_admin, get_current_user
 from keepup.auth import user_roles
 from keepup import admin_trail, cache
 from keepup.logging_setup import for_log
-from keepup.db import DatabaseManagerV2, db_config
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -93,6 +92,7 @@ class RoleModulesUpdate(BaseModel):
 
 def get_all_modules_from_db():
     """Return every module from the database."""
+    from keepup.db import DatabaseManagerV2
     return DatabaseManagerV2.execute('''
     SELECT * FROM frontend_modules 
     WHERE is_active = TRUE 
@@ -102,6 +102,7 @@ def get_all_modules_from_db():
 
 def get_module_by_id(module_id: str):
     """Return a module by id."""
+    from keepup.db import DatabaseManagerV2
     return DatabaseManagerV2.execute_one('''
     SELECT * FROM frontend_modules 
     WHERE module_id = :module_id AND is_active = TRUE
@@ -157,6 +158,7 @@ def _sections_changed() -> None:
 
 
 def _read_modules_for_role(role_name: str):
+    from keepup.db import DatabaseManagerV2
     return DatabaseManagerV2.execute('''
     SELECT fm.* 
     FROM frontend_modules fm
@@ -170,6 +172,7 @@ def _read_modules_for_role(role_name: str):
 
 def create_or_update_module(module_data: Dict[str, Any]):
     """Create or update a module."""
+    from keepup.db import DatabaseManagerV2, db_config
     try:
         module_id = module_data['id']
         logger.info(f"=== Processing module: {module_id} ===")
@@ -261,6 +264,7 @@ def _changed_entry(existing: Dict[str, Any], changes: Dict[str, Any]) -> Dict[st
 
 def update_role_modules(role_name: str, module_ids: List[str]):
     """Update the modules granted to a role."""
+    from keepup.db import DatabaseManagerV2, db_config
     DatabaseManagerV2.execute_commit('''
     UPDATE role_modules 
     SET is_active = FALSE 
@@ -285,6 +289,7 @@ def update_role_modules(role_name: str, module_ids: List[str]):
 
 def delete_module(module_id: str):
     """Delete a module (soft delete)."""
+    from keepup.db import DatabaseManagerV2
     DatabaseManagerV2.execute_commit('''
     UPDATE frontend_modules 
     SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
@@ -372,6 +377,7 @@ def sync_framework_sections(path: str = FRAMEWORK_SECTIONS) -> Dict[str, int]:
     Returns:
         How many rows were added and how many had their paths corrected.
     """
+    from keepup.db import DatabaseManagerV2, db_config
     counted = {"modules": 0, "repointed": 0, "grants": 0}
     try:
         with open(path, "r", encoding="utf-8") as catalogue:
@@ -434,6 +440,7 @@ def sync_new_modules_from_json(path: str = None) -> Dict[str, int]:
         path: the catalogue to read; the deployment's own by default, which is
             the path the application named (configure()).
     """
+    from keepup.db import DatabaseManagerV2
     path = path or MODULES_CONFIG_PATH
     added = {"modules": 0, "grants": 0}
     try:
@@ -574,6 +581,7 @@ def register_module_routes(app):
     @app.get("/api/admin/role-modules")
     def get_role_modules(admin: dict = Depends(get_current_admin)):
         """Return the modules granted to each role."""
+        from keepup.db import DatabaseManagerV2
         roles_modules = {}
         roles = DatabaseManagerV2.execute('''
         SELECT DISTINCT role_name FROM role_modules WHERE is_active = TRUE
@@ -616,6 +624,7 @@ def register_module_routes(app):
     @app.post("/api/admin/modules/export-to-json")
     def export_modules_to_json_endpoint(admin: dict = Depends(get_current_admin)):
         """Export the modules to the JSON file."""
+        from keepup.db import DatabaseManagerV2
         try:
             modules = get_all_modules_from_db()
             roles_modules = {}

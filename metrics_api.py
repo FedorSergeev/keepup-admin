@@ -21,7 +21,6 @@ from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 
 from keepup.auth.dependencies import get_current_admin
-from keepup.db import DatabaseManagerV2
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -99,6 +98,7 @@ def get_latest_metric_value(instance_id: str, metric_name: str):
     Returns:
         The value, or 0 when there is no row or the read failed.
     """
+    from keepup.db import DatabaseManagerV2
     try:
         row = DatabaseManagerV2.execute_one(
             "SELECT metric_value FROM system_metrics "
@@ -127,6 +127,7 @@ def get_historical_metrics(metric_name: str, hours: int):
     Returns:
         The rows of the history, newest ordering as the query returns them.
     """
+    from keepup.db import DatabaseManagerV2
     try:
         since = datetime.utcnow() - timedelta(hours=int(hours))
         rows = DatabaseManagerV2.execute(
@@ -175,6 +176,7 @@ def register_metrics_routes(app, public=False):
     @app.get("/api/admin/metrics/system", response_model=SystemMetricsResponse)
     def get_system_metrics(admin: dict = Depends(get_current_admin)):
         """Return the current system metrics of every instance."""
+        from keepup.db import DatabaseManagerV2
         try:
             since = fresh_since()
             instances = DatabaseManagerV2.execute(
@@ -235,6 +237,7 @@ def register_metrics_routes(app, public=False):
     @app.get("/api/admin/instances/{instance_id}")
     def get_instance_details(instance_id: str, admin: dict = Depends(get_current_admin)):
         """Return the details of one instance."""
+        from keepup.db import DatabaseManagerV2
         try:
             instance_info = {
                 "instance_id": instance_id,
