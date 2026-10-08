@@ -10,6 +10,14 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The snapshots declare themselves (keepup-124).** `system_metrics` moves into
+  `packages/keepup-metrics/keepup_metrics/tables.py` and `keepup.schema`
+  re-exports it, so the path that predates the catalogue still creates the table
+  and every reader keeps working. Three declarations have now moved -- the log,
+  the accounts and the snapshots -- and the shape is settled: take the block, take
+  the names it uses, re-export from the kernel for one release, and let the checks
+  report anything the block needed and did not bring.
+
 - **The accounts declare their own tables (keepup-124).** `users`, `user_roles`,
   `user_permissions` and `external_role_mappings` move into
   `packages/keepup-users/keepup_users/tables.py`, and `keepup.schema`

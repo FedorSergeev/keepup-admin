@@ -12,7 +12,7 @@ through edits here -- the framework has no payments and no feeds.
 import logging
 import os
 
-from sqlalchemy import REAL, Boolean, Column, DateTime, Index, Integer, Text, UniqueConstraint
+from sqlalchemy import Boolean, Column, DateTime, Index, Integer, Text, UniqueConstraint
 from sqlalchemy import text as sql_text
 
 from keepup import tables
@@ -53,17 +53,10 @@ DISTRIBUTED_LOCKS = tables.table(
 
 
 
-SYSTEM_METRICS = tables.table(
-    "system_metrics",
-    tables.auto_id(),
-    Column("metric_name", Text, nullable=False),
-    Column("metric_value", REAL, nullable=False),
-    Column("timestamp", DateTime, server_default=tables.NOW),
-    Column("app_instance", Text, server_default="main"),
-    Column("tags", Text),
-    Index("idx_metrics_timestamp", "timestamp"),
-    Index("idx_metrics_name", "metric_name"),
-)
+
+# The metrics capability declares its own table (keepup-124); it is re-exported
+# here so the path that predates the catalogue still creates it.
+from keepup_metrics.tables import SYSTEM_METRICS  # noqa: E402
 
 FRONTEND_MODULES = tables.table(
     "frontend_modules",

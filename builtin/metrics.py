@@ -28,7 +28,7 @@ from typing import Any, Dict, List, Optional
 from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.descriptor import KIND_OPTIONAL, PluginDescriptor
 from keepup.plugins.base import BasePlugin
-from keepup.schema import SYSTEM_METRICS
+from keepup_metrics.tables import SYSTEM_METRICS
 
 logger = logging.getLogger(__name__)
 
