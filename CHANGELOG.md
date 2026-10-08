@@ -10,6 +10,14 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The eighth import comes off the debt list (keepup-127).** `locks.py` -- the
+  distributed locks and the routes an administrator reads them by -- took the
+  manager at module level in eight functions' worth of use, and the import now
+  sits in each of them. Eight of the nine modules this task owns are paid:
+  retention, metrics retention, integrations, web, positional_sql,
+  notification_bus, cluster, locks. What remains is the metrics pair with the
+  section catalogue and the plugin decisions, which are read per request.
+
 - **The seventh import comes off the debt list (keepup-127).** `cluster.py` -- the
   replica registry, the commands between replicas and the routes an administrator
   reads them by -- took the manager at module level in thirteen functions' worth
