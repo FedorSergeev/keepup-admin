@@ -272,6 +272,7 @@ There is no leader election: a scheduled job that must run once takes a lock.
 ## Checking your work
 
 ```bash
+python .github/scripts/dependency_graph.py  # who depends on whom, and what installs what
 python -m pytest tests/ -q                 # the framework's own suite
 python -m pytest path/to/your_tests.py -v  # an application's test, by path
 tests/security_audit_tests/run_security_audit.sh  # the security audit, with a report
@@ -283,8 +284,7 @@ every route they register. A route that answers without a sign-in must be in
 `PUBLIC_ROUTES` of `tests/security_audit_tests/route_sweep_tests.py`, with the reason;
 adding one there is a decision, not a fix for a red check.
 
-Tests are named `*_tests.py`. A test that needs the browser runs the JavaScript
-under `node` against a stand-in document -- see `tests/header_badge_tests.py`.
+Tests are named `*_tests.py`; a test that needs the browser runs the JavaScript under `node` against a stand-in document -- see `tests/header_badge_tests.py`.
 
 ## Glossary
 

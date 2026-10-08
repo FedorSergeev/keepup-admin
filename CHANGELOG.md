@@ -10,6 +10,21 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **Capabilities are installed by name, and the graph is one command (keepup-128,
+  keepup-129).** The base depends on no distribution, so "install the panel" had
+  no expression: the extras named libraries rather than capabilities. They now
+  name the distributions -- `db`, `auth`, `users`, `ui`, `audit`, `metrics`,
+  `integration_log`, `panel`, `postgres`, `sqlite` -- and every library is
+  declared by the distribution that needs it, so `keepup-admin[panel,postgres]` is
+  the full admin panel and pulls in nothing it does not use. The base's version is
+  the release's. And the rules that were spread over four checks -- the layout, the
+  ownership map, the packaging accounting and the floors -- now have one command
+  that puts the picture together: `.github/scripts/dependency_graph.py` prints what
+  the base declares, what each capability carries, the plugins it brings, what
+  every extra installs, and that no distribution depends on one that depends on
+  it. `--json` for machines, and a line in the guide, because a command nobody
+  knows about is a command nobody runs.
+
 - **The libraries leave the base package (keepup-124).** `psycopg2-binary`,
   `bcrypt` and `pyjwt[crypto]` are gone from `pyproject.toml`: no module of the
   base imports them any more, and the distributions that need them declare them --

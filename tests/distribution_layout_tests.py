@@ -77,6 +77,55 @@ def test_every_distribution_is_importable_by_its_own_name():
         assert module.__version__ == "0.4.0", f"{package} does not carry the release"
 
 
+def test_every_capability_is_named_by_an_extra_of_the_base():
+    """Installing a capability is `pip install keepup-admin[its name]` (keepup-124).
+
+    The base depends on no distribution, so the extras are how a deployment names
+    what it wants -- and they are not dependencies: `panel` is a list of names a
+    person types, and `pip` resolves each of them, which declares its own
+    libraries in turn.
+    """
+    import tomllib
+
+    metadata = tomllib.loads((PACKAGE / "pyproject.toml").read_text(encoding="utf-8"))
+    extras = metadata["project"]["optional-dependencies"]
+    named = {requirement.split(">")[0] for group in extras.values() for requirement in group}
+    missing = sorted(name for name in EXPECTED if name not in named)
+    assert missing == [], f"no extra installs {missing}"
+    assert "keepup-admin" not in named, "the base is not an extra of itself"
+
+
+def test_the_panel_extra_names_what_the_panel_profile_enables():
+    """Install time and run time say the same thing about a full panel.
+
+    The profile names plugins; an extra names distributions. The entry points of
+    the distributions are what maps one to the other, and a plugin the profile
+    enables that no distribution carries is a capability that still lives in the
+    base -- 0.5.0 work, named in `doc/distributions.md` rather than installed by
+    this extra.
+    """
+    import json
+    import tomllib
+
+    catalogue = json.loads((PACKAGE / "plugins" / "builtin.json").read_text(encoding="utf-8"))
+    enabled = set(catalogue["profiles"]["panel"]["enable"])
+    carries = {}
+    for name in EXPECTED:
+        entry_points = tomllib.loads(
+            (PACKAGES / name / "pyproject.toml").read_text(encoding="utf-8")
+        )["project"]["entry-points"]["keepup.plugins"]
+        for plugin_id in entry_points:
+            carries[plugin_id] = name
+    installed = {requirement.split(">")[0].split("[")[0]
+                 for requirement in tomllib.loads(
+                     (PACKAGE / "pyproject.toml").read_text(encoding="utf-8")
+                 )["project"]["optional-dependencies"]["panel"]}
+    missing = sorted(carries[plugin] for plugin in enabled if plugin in carries
+                     and carries[plugin] not in installed)
+    assert missing == [], f"the panel profile enables what the extra does not install: {missing}"
+    assert "keepup-admin" not in installed, "the base is not an extra of itself"
+
+
 def test_the_base_depends_on_no_distribution():
     """The reverse edge would point both ways, so no distribution is a dependency.
 

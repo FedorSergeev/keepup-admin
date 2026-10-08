@@ -17,7 +17,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "keepup-admin"
-version = "0.3.0"
+version = "0.4.0"
 description = "An admin framework over FastAPI: plugins, panel, users, replicas"
 readme = "README.md"
 requires-python = ">=3.11"
@@ -92,10 +92,35 @@ test = [
     # developer's checkout has uvicorn from elsewhere and never notices.
     "uvicorn>=0.30",
 ]
-# The bus between replicas listens on PostgreSQL with asyncpg. Optional because
-# a single-process deployment on SQLite runs the in-memory bus instead and has
-# no use for it.
-postgres = ["asyncpg>=0.31"]
+# The capabilities of the release, by name (keepup-124). Installing an extra
+# installs the distribution that carries the capability, and that distribution
+# declares its own libraries: `keepup-auth` brings bcrypt and PyJWT,
+# `keepup-postgres` the driver. The base package depends on none of them, because
+# each of them depends on the base for the kernel it is loaded by.
+db = ["keepup-db>=0.4.0"]
+auth = ["keepup-auth>=0.4.0"]
+users = ["keepup-users>=0.4.0"]
+ui = ["keepup-ui>=0.4.0"]
+audit = ["keepup-audit>=0.4.0"]
+metrics = ["keepup-metrics>=0.4.0"]
+integration_log = ["keepup-integration-log>=0.4.0"]
+
+# `pip install keepup-admin[panel,postgres]` is the full admin panel: the
+# capabilities the `panel` profile enables, plus one driver -- one, because two
+# drivers of one required service stop the start on purpose (keepup-107). The
+# bus between replicas listens on PostgreSQL with asyncpg, which keepup-postgres
+# brings.
+panel = [
+    "keepup-db>=0.4.0",
+    "keepup-auth>=0.4.0",
+    "keepup-users>=0.4.0",
+    "keepup-ui>=0.4.0",
+    "keepup-audit>=0.4.0",
+    "keepup-metrics>=0.4.0",
+    "keepup-integration-log>=0.4.0",
+]
+postgres = ["keepup-postgres>=0.4.0"]
+sqlite = ["keepup-sqlite>=0.4.0"]
 
 [project.urls]
 # The index draws its sidebar from these, and a reader who arrives from there
