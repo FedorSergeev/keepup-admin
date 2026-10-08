@@ -21,7 +21,7 @@ from typing import Any, Dict, Optional
 from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.descriptor import KIND_OPTIONAL, PluginDescriptor
 from keepup.plugins.base import BasePlugin
-from keepup.schema import INTEGRATION_LOGS
+from keepup_integration_log.tables import INTEGRATION_LOGS
 
 logger = logging.getLogger(__name__)
 

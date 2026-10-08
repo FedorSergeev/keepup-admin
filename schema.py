@@ -65,24 +65,6 @@ USERS = tables.table(
           sqlite_where=sql_text("external_id IS NOT NULL")),
 )
 
-INTEGRATION_LOGS = tables.table(
-    "integration_logs",
-    tables.auto_id(),
-    Column("user_id", Integer, nullable=False),
-    Column("username", Text, nullable=False),
-    Column("host", Text, nullable=False),
-    Column("endpoint", Text, nullable=False),
-    Column("method", Text, nullable=False),
-    Column("request_body", Text),
-    Column("response_body", Text),
-    Column("status_code", Integer),
-    Column("duration_ms", Integer),
-    Column("created_at", DateTime, server_default=tables.NOW),
-    tables.foreign_key("user_id", "users", ("id",)),
-    Index("idx_integration_logs_user_id", "user_id"),
-    Index("idx_integration_logs_created_at", "created_at"),
-    Index("idx_integration_logs_host", "host"),
-)
 
 SYSTEM_METRICS = tables.table(
     "system_metrics",
@@ -227,7 +209,7 @@ EXTERNAL_ROLE_MAPPINGS = tables.table(
 
 #: In the order their foreign keys need: ``users`` before what references it.
 CORE_TABLES = (
-    DISTRIBUTED_LOCKS, USERS, INTEGRATION_LOGS, SYSTEM_METRICS, FRONTEND_MODULES,
+    DISTRIBUTED_LOCKS, USERS, SYSTEM_METRICS, FRONTEND_MODULES,
     PLUGIN_OVERRIDES, CLUSTER_MEMBERS, CLUSTER_COMMANDS, ROLE_MODULES, USER_ROLES,
     USER_PERMISSIONS, EXTERNAL_ROLE_MAPPINGS,
 )

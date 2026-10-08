@@ -19,9 +19,18 @@ LATER = {"keepup-tasks", "keepup-cluster", "keepup-modules"}
 
 
 def declared_tables():
-    """The table names the kernel's schema declares."""
-    text = SCHEMA.read_text(encoding="utf-8")
-    return set(re.findall(r"^[A-Z_]+ = tables\.table\(\s*\n\s*\"([a-z_]+)\"", text, re.M))
+    """Every table the framework declares, wherever its owner lives.
+
+    A declaration belongs to the capability that keeps it (keepup-124), so this
+    reads the kernel's schema and the distributions beside it.
+    """
+    found = set()
+    sources = [SCHEMA] + sorted((PACKAGE / "packages").glob("*/keepup_*/tables.py"))
+    for path in sources:
+        text = path.read_text(encoding="utf-8")
+        found |= set(re.findall(r"^[A-Z_]+ = tables\.table\(\s*\n\s*\"([a-z_]+)\"", text, re.M))
+        found |= set(re.findall(r"^(?:\w+ )?= tables\.table\([^)]*?\"([a-z_]+)\"", text, re.M))
+    return found
 
 
 def ownership_map():

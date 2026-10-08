@@ -10,6 +10,19 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The first declaration leaves the kernel's schema for its owner
+  (keepup-124).** With a capability creating what it declares (keepup-123), a
+  declaration can finally move: the integration log's table now lives in
+  `packages/keepup-integration-log/keepup_integration_log/tables.py`, the
+  capability's plugin takes it from there, and it is gone from `keepup.schema`
+  and from the list `init_db` used to create -- the capability creates it. Two
+  checks grew with it: the ownership map reads declarations in the distributions
+  as well as in the kernel, and the packaging check now tells a *dependency* from
+  a *capability* -- the base's own plugin file references a distribution it must
+  not depend on, because every distribution depends on the base and the reverse
+  edge would make neither installable on its own. That distinction is what the
+  other declarations need as they follow.
+
 - **The profile brings the capabilities up in a real application (keepup-123).**
   With the runtime raised inside `create_app` and the deployment's dialect
   choosing the driver, an application that names the `panel` profile brings its

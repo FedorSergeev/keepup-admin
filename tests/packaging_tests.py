@@ -38,6 +38,17 @@ PYPROJECT = PACKAGE / "pyproject.toml"
 #: package that installs itself must ask for everything it imports and nothing
 #: else -- an application's dependency that happens to be installed here is
 #: exactly what makes a package work in this repository and nowhere else.
+#: The distributions the framework's own plugin files reference, and which the
+#: base package must therefore *not* declare. A capability is installed by the
+#: deployment that wants it; a base that depended on one would point both ways
+#: (each of them depends on `keepup-admin` for the kernel it is loaded by) and
+#: neither could be installed alone. `keepup-124` moves a declaration into its
+#: capability, and the capability's plugin file -- which still lives here until
+#: it travels -- is what imports it.
+OPTIONAL_CAPABILITY_IMPORTS = {
+    "keepup_integration_log": "keepup-integration-log",
+}
+
 DEPENDENCY_IMPORTS = {
     "apscheduler", "bcrypt", "fastapi", "httpx", "jwt", "prometheus_client",
     "psutil", "psycopg2", "pydantic", "requests", "sqlalchemy", "starlette",
@@ -199,10 +210,29 @@ def test_the_package_asks_for_everything_it_imports():
     """An application's dependency that happens to be installed here is what
     makes a package work in this repository and nowhere else."""
     outside = framework_imports() - STANDARD_LIBRARY - {"keepup"}
-    undeclared = sorted(outside - DEPENDENCY_IMPORTS)
+    undeclared = sorted(outside - DEPENDENCY_IMPORTS - set(OPTIONAL_CAPABILITY_IMPORTS))
     assert undeclared == [], (
         "the framework imports these and the package does not account for them: "
         + ", ".join(undeclared))
+
+
+def test_a_capability_the_framework_references_is_not_a_dependency():
+    """The base declares no distribution: every one of them needs the base."""
+    import tomllib
+
+    metadata = tomllib.loads(pyproject_text())["project"]
+    declared = " ".join(metadata["dependencies"])
+    for name, distribution in OPTIONAL_CAPABILITY_IMPORTS.items():
+        assert _dashed(distribution) not in declared, (
+            f"{distribution} is a dependency of the base: neither it nor the base "
+            "could then be installed alone")
+        assert (PACKAGE / "packages" / distribution).is_dir(), (
+            f"{distribution} is referenced and is not a declared distribution")
+
+
+def _dashed(name: str) -> str:
+    """A distribution's name as a dependency would write it."""
+    return name
 
 
 @pytest.mark.parametrize("name", sorted(DEPENDENCY_IMPORTS - {"uvicorn"}))
