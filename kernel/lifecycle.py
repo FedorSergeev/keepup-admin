@@ -302,6 +302,12 @@ class Runtime:
         # transport mounts routes, sections, middleware and jobs from here
         # (kernel/contributions.py).
         self.contributions = collect_contributions(self)
+        # Collecting builds a new collection, so every plugin that was handed the
+        # old one is handed this: a capability reads the sections of the others
+        # through it (keepup-104).
+        for state in self.states.values():
+            if state.instance is not None:
+                state.instance.contributions = self.contributions
 
         for mounter in self._mounters:
             await maybe_await(mounter(self))
@@ -647,6 +653,9 @@ class Runtime:
                     raise KernelError(f"{state.plugin_id}: {state.reason}") from error
                 continue
             instance.services = self.services
+            # The live collection, so a plugin that offers sections or themes can
+            # see what the others offered without asking the kernel (keepup-104).
+            instance.contributions = self.contributions
             state.instance = instance
             state.loaded = True
             self._loaded[state.plugin_id] = instance

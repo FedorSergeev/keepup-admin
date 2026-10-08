@@ -10,6 +10,21 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The panel becomes a capability (keepup-104, first half).** The shell, its
+  sections and its theme chrome are what a deployment shows people, and they
+  were the kernel's -- served, catalogued and themed by modules every deployment
+  carried, including the ones whose only purpose was a socket. `builtin/ui.py`
+  claims them, owns the theme table, declares its contributions and publishes
+  the `ui` service: the sections other capabilities contributed, what the
+  catalogue granted a role, and the themes a deployment keeps. Storage is a
+  *want* rather than a requirement -- a panel whose sections come from code is
+  served with no database at all, which is the deployment the specification
+  calls a server that is not an admin panel -- and the report marks it
+  `degraded` instead of refusing to start. Plugins are now handed the live
+  collection of contributions once it is collected, so a capability reads the
+  sections of the others without importing them. The shell's routes, its static
+  mounts and its CSP middleware travel here in keepup-124.
+
 - **The accounts become a capability (keepup-105, first half).** Accounts, the
   roles they hold and the rights granted are what everything else points at -- a
   session belongs to a user, an audit row is attributed to one, a section is
