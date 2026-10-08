@@ -87,6 +87,32 @@ def test_a_stand_in_answers_for_a_module_not_only_a_package():
         sys.modules.pop("keepup_fake_package.inner", None)
 
 
+def test_installing_a_stand_in_imports_nothing(monkeypatch):
+    """An import must not drag a distribution in: several modules stay lazy.
+
+    `keepup.themes` and the metrics API are careful not to touch the database
+    when they are imported (keepup-112), and a stand-in that imported its
+    destination while it was being installed would break that from a distance.
+    """
+    calls = []
+
+    def spy(name, *args, **kwargs):
+        calls.append(name)
+        raise ModuleNotFoundError(name)
+
+    monkeypatch.setattr(compat.importlib, "import_module", spy)
+
+    # Installing one, and installing everything that has moved, imports nothing.
+    stand_in = compat.shim("keepup.fake_lazy", "keepup_fake_lazy_target")
+    compat.install()
+    assert calls == [], f"installing a stand-in imported {calls}"
+
+    # The destination is reached on attribute access, and only then.
+    with pytest.raises(ModuleNotFoundError):
+        stand_in.anything
+    assert calls == ["keepup_fake_lazy_target"]
+
+
 def test_a_name_that_did_not_move_needs_no_stand_in():
     """The layer does not invent history for a module that is where it was."""
     with pytest.raises(KeyError):

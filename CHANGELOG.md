@@ -10,6 +10,17 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **A stand-in imports nothing, and a distribution re-exports what is declared
+  (keepup-126).** Two of the reasons the first attempt at moving `keepup.db`
+  failed were about laziness. Installing a stand-in imports nothing -- the
+  destination is reached when an attribute is asked for, and only then -- which
+  is what `keepup.themes` and the metrics API depend on when they refuse to touch
+  a database on import. And a distribution's `__init__` re-exports what its
+  module declares (`__all__`) instead of looping over `dir(module)`: a loop reads
+  every attribute a module happens to hold, which is a way to import what nobody
+  asked for and to open a database during an import. Both rules are checked, so
+  the next attempt at the move starts from them instead of rediscovering them.
+
 - **A stand-in answers for a module, not only for a package (keepup-124).** The
   first attempt at moving `db.py` into `keepup-db` failed at test collection, and
   the failure was worth keeping: the compatibility layer stood in for a *package*

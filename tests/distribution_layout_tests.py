@@ -92,6 +92,23 @@ def test_the_base_depends_on_no_distribution():
         assert not base.startswith("keepup-"), f"the base depends on {base}"
 
 
+def test_a_distribution_does_not_loop_over_its_modules_attributes():
+    """Re-export what the module declares, not everything it happens to hold.
+
+    A loop over `dir(module)` reads every attribute the module has, which is both
+    a way to import something nobody asked for and a way to touch a database on
+    import -- the mistake the first attempt at moving `keepup.db` made
+    (keepup-126). The moved module declares `__all__`; that is the list.
+    """
+    for name in EXPECTED:
+        metadata = tomllib.loads(
+            (PACKAGES / name / "pyproject.toml").read_text(encoding="utf-8"))
+        package = metadata["tool"]["setuptools"]["packages"][0]
+        text = (PACKAGES / name / package / "__init__.py").read_text(encoding="utf-8")
+        assert "dir(" not in text, f"{name} loops over what its module happens to hold"
+        assert not re.search(r"for \w+ in vars\(", text), f"{name} loops over its module's namespace"
+
+
 def test_the_graph_points_one_way():
     """A capability depends on the abstraction, never on another capability."""
     for name in EXPECTED:
