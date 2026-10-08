@@ -10,6 +10,18 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The edges of the sign-in package, surveyed before it moves (keepup-124).**
+  `keepup/auth/` is the last unit of the release that still moves and the largest:
+  32 files that import each other by fifteen internal names, reaching outwards
+  only for `keepup.instance`, `keepup.kernel`, `keepup.roles` and the tables and
+  manager of `keepup_db`. Twenty modules of the base name it -- the panel's routes,
+  the API documentation, the plugin files of the sign-in and the accounts, the
+  cluster, locks, the scheduler, the section catalogue, metrics, the themes, the
+  notification bus, the integration log, the event API and the composition root --
+  and not one of them has to change, because `keepup.auth` keeps answering through
+  the compatibility layer. The survey is in `doc/distributions.md` with a check
+  holding it there, so the last move starts from its shape.
+
 - **The journal moves into the audit capability (keepup-124).** The event log --
   the table, writing, reading and retention -- was a module of the base package
   that belongs to the audit capability. It now lives in

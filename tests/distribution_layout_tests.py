@@ -167,6 +167,14 @@ def test_the_document_says_how_a_payment_is_made():
     assert "reverted whole" in text
 
 
+def test_the_document_surveys_the_sign_in_before_it_moves():
+    """The last unit's edges, written down so the move is a move (keepup-124)."""
+    text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")
+    assert "The edges of the sign-in package, before it moves" in text
+    assert "fifteen internal names" in text
+    assert "twenty modules of the base name it" in text
+
+
 def test_the_document_says_which_units_move_whole():
     """A package that imports itself moves as one, and the sizes say so."""
     text = (PACKAGE / "doc" / "distributions.md").read_text(encoding="utf-8")

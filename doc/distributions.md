@@ -80,6 +80,29 @@ An attempt to move a single file out of `keepup/auth/` would be an attempt to ma
 unit is the package. That is why this list is written down rather than discovered
 by whoever tries next.
 
+## The edges of the sign-in package, before it moves
+
+`keepup/auth/` is the last unit of 0.4.0 that still moves, and it is the largest:
+32 files that import each other by fifteen internal names. Its edges are surveyed
+here so the move is a move rather than a discovery.
+
+**What it reaches outwards** -- `keepup.instance`, `keepup.kernel`, `keepup.roles`,
+`keepup.retention`-style helpers, the tables and the manager (through
+`keepup_db`), and its own declarations (`keepup_auth.tables`). Everything else it
+uses is inside the package: those fifteen internal names are why it moves whole.
+
+**What reaches inwards** -- twenty modules of the base name it: the routes of the
+panel and the API documentation, the plugin files of the sign-in and the accounts,
+the cluster, locks, the scheduler, the section catalogue, metrics, the themes, the
+notification bus, the integration log, the event API, `factory`, `settings`,
+`schema`, `roles`, `compat` and the route runtime. Not one of them has to change:
+`keepup.auth` keeps answering through the compatibility layer, name by name, which
+is what the layer was built for and has now been used for three times.
+
+**What the move has to carry** -- the four declarations it owns (already in
+`keepup_auth.tables`), its own modules, and nothing of the base. The base's
+modules that import it stay where they are until their own capabilities move.
+
 ## In what order the move happens
 
 A declaration or a module moves in one change, and the change is only complete
