@@ -20,8 +20,7 @@ import logging
 import json
 from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
-from sqlalchemy import Column, DateTime, Index, String, Text
-from sqlalchemy.dialects import postgresql
+from sqlalchemy import Index
 
 from keepup import retention, tables
 from keepup.db import DatabaseManagerV2
@@ -36,21 +35,11 @@ __all__ = [
     "init_event_manager",
 ]
 
+# Declared by the audit capability, which keeps the events (keepup-124).
+from keepup_audit.tables import APP_EVENTS  # noqa: E402
+
 logger = logging.getLogger(__name__)
 
-APP_EVENTS = tables.table(
-    "app_events",
-    tables.big_auto_id(),
-    Column("event_type", String(100), nullable=False),
-    Column("event_text", Text, nullable=False),
-    Column("event_data", postgresql.JSONB().with_variant(Text(), "sqlite")),
-    Column("instance_id", String(100), nullable=False),
-    Column("instance_name", String(100)),
-    Column("created_at", DateTime, server_default=tables.NOW),
-    Index("idx_app_events_event_type", "event_type"),
-    Index("idx_app_events_instance_id", "instance_id"),
-    Index("idx_app_events_instance_name", "instance_name"),
-)
 # Newest first, as the listing pages; the type-and-date pair was only ever
 # created on PostgreSQL.
 Index("idx_app_events_created_at", APP_EVENTS.c.created_at.desc())

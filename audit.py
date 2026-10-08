@@ -22,8 +22,6 @@ from contextlib import asynccontextmanager
 from datetime import datetime
 from typing import Any, Dict, Optional
 
-from sqlalchemy import CheckConstraint, Column, DateTime, Index, Integer, Text, UniqueConstraint
-from sqlalchemy.dialects import postgresql
 
 from keepup import retention, tables
 from keepup.db import DatabaseManagerV2, db_config
@@ -47,6 +45,10 @@ __all__ = [
     "purge_old_requests",
     "retention_days",
 ]
+
+# The audit capability declares its own tables (keepup-124); re-exported here so
+# the path that predates the catalogue still creates them.
+from keepup_audit.tables import INCOMING_REQUESTS  # noqa: E402
 
 logger = logging.getLogger(__name__)
 
@@ -389,33 +391,6 @@ async def audit_retention_background():
             await asyncio.sleep(AUDIT_ERROR_BACKOFF_SECONDS)
 
 
-INCOMING_REQUESTS = tables.table(
-    "incoming_requests",
-    tables.auto_id(),
-    Column("instance_id", Text, nullable=False),
-    Column("method", Text, nullable=False),
-    Column("endpoint", Text, nullable=False),
-    Column("host", Text, nullable=False),
-    Column("request_data", postgresql.JSONB().with_variant(Text(), "sqlite")),
-    Column("request_start_at", DateTime, nullable=False),
-    Column("request_end_at", DateTime),
-    Column("duration_ms", Integer),
-    Column("http_status", Integer),
-    Column("response_data", postgresql.JSONB().with_variant(Text(), "sqlite")),
-    Column("error_message", Text),
-    Column("created_at", DateTime, server_default=tables.NOW),
-    UniqueConstraint("instance_id", "method", "endpoint", "request_start_at",
-                     name="incoming_requests_instance_method_endpoint_unique").ddl_if(dialect="postgresql"),
-    CheckConstraint("duration_ms >= 0",
-                    name="incoming_requests_check_duration").ddl_if(dialect="postgresql"),
-    CheckConstraint("(http_status IS NULL) OR (http_status >= 100 AND http_status <= 599)",
-                    name="incoming_requests_check_http_status").ddl_if(dialect="postgresql"),
-    Index("incoming_requests_instance_method_endpoint_unique",
-          "instance_id", "method", "endpoint", "request_start_at", unique=True).ddl_if(dialect="sqlite"),
-    Index("idx_incoming_requests_instance_id", "instance_id"),
-    Index("idx_incoming_requests_endpoint", "endpoint"),
-    Index("idx_incoming_requests_created_at", "created_at"),
-)
 
 
 def init_incoming_requests_table():

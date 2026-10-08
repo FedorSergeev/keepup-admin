@@ -10,6 +10,18 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **The audit declares its own tables (keepup-124).** The incoming calls and the
+  events the application decided about were declared in the base package's
+  `audit.py` and `events.py`; they now live in
+  `packages/keepup-audit/keepup_audit/tables.py`, and those two modules re-export
+  them so the path that predates the catalogue still creates them while
+  `builtin/audit.py`, the event API and the administrator's trail keep working.
+  The blocks brought `postgresql`, `CheckConstraint`, `String` and `sql_text` with
+  them -- the checks named every one -- and left the source modules with imports
+  they no longer needed, which the linter removed in the same change. Four
+  capabilities now declare their own tables: the log, the accounts, the snapshots
+  and the audit.
+
 - **Every declaration has a home in the map (keepup-124).** Moving declarations
   ran into the ownership check: the map named owners only for the tables declared
   in the kernel's schema, and the eleven declared elsewhere -- the ones that had
