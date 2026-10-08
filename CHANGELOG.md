@@ -10,6 +10,17 @@ plugins. This entry grows as the tasks of 0.4.0 land.
 
 ### Added
 
+- **Nobody decides by the role mirror (keepup-83).** `users.role` is the
+  deprecated mirror of the set in `user_roles`: ADMIN when it is held, otherwise
+  the first role granted. It is written in one transaction with the set and is
+  still carried in the payloads so an older panel keeps working -- and it is read
+  by nothing, which is the part worth guarding, because `user["role"] ==
+  ROLE_ADMIN` is the mistake that hides a second role. A check now refuses any
+  comparison against the mirror anywhere in the framework, refuses a mention of
+  it outside a named list with a reason, and pins the decision to the set even
+  when the mirror disagrees. No code changed: the check records what is already
+  true, so that it stays true until the mirror goes away in keepup-122.
+
 - **The abstraction becomes a plugin, and storage finally has a name
   (keepup-124, first slice).** The shapes and the two names were in place
   (keepup-106) and the drivers answered `spec()` (keepup-107, 108), but nothing
