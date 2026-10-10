@@ -2,11 +2,21 @@
 
 Notable changes to `keepup-admin`.
 
-## 0.4.0 — unreleased
+## 0.4.0 — 2026-10-10
 
 The release that turns the framework into a constructor: a kernel that knows
 nothing about the capabilities it ships, and capabilities that arrive as
-plugins. This entry grows as the tasks of 0.4.0 land.
+plugins.
+
+**Upgrading from 0.3.0.** The base is the kernel now, and the panel, the sign-in,
+the accounts, the database and the rest are distributions of their own -- ten in
+all. `pip install keepup-admin` installs the kernel with its own libraries and no
+panel at all; an application that wants the admin panel installs the capabilities
+by name: `pip install "keepup-admin[panel,postgres]"`. The names that moved
+(`keepup.db`, `keepup.auth`, `keepup.users`, ...) keep answering for one release
+through the compatibility layer, and an import of a moved name says which
+distribution to install; the layer goes away in 0.5.0. `KeepupSettings` keeps its
+`disable_http_server`, and `profile` is what a deployment uses instead.
 
 ### Added
 
