@@ -245,8 +245,16 @@ def _attach(name: str, module: types.ModuleType) -> None:
     """
     parent, _, child = name.rpartition(".")
     package = sys.modules.get(parent)
-    if package is not None and child:
-        setattr(package, child, module)
+    if package is None or not child:
+        return
+    if isinstance(package, _Moved):
+        # The parent is itself a stand-in: attaching a submodule is the
+        # stand-in's own bookkeeping and must not be forwarded to the module it
+        # stands for -- that would import a distribution while `keepup` is still
+        # being imported, which is exactly what a deployment without it cannot do.
+        package.__dict__[child] = module
+        return
+    setattr(package, child, module)
 
 
 def _module_exists(name: str) -> bool:

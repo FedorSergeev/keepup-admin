@@ -36,6 +36,12 @@ NOT_THE_PACKAGE = {
     # The distributions a capability travels in (keepup-115): directories with
     # metadata of their own, beside the package rather than inside it.
     "packages",
+    # The initializr and the keepup site: projects of the repository kept on
+    # disk while they are not tracked. They sit in the package directory and are
+    # not part of it -- the site carries its own environment, and walking that
+    # reported a site-packages as the framework.
+    "initializr",
+    "keepupproject.ru",
 }
 
 

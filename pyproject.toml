@@ -140,10 +140,10 @@ Issues = "https://github.com/FedorSergeev/keepup-admin/issues"
 # and `import keepup` would fail on an installation that looked healthy.
 packages = [
     "keepup",
-    "keepup.auth",
-    "keepup.auth.dto",
-    "keepup.auth.identity",
-    "keepup.auth.providers",
+    # The sign-in is a distribution of its own since keepup-124
+    # (packages/keepup-auth), and the base no longer contains its files: listing
+    # it here makes `pip install .` fail with "package directory './auth' does
+    # not exist", which is how this was found.
     "keepup.kernel",
     "keepup.plugins",
 ]

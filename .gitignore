@@ -40,3 +40,16 @@ ci/keepup/
 # itself: the application log, and the SQLite file of a local database.
 logs/
 data/
+
+# The initializr and the keepup site: projects of the repository kept on disk
+# while they are not tracked. The work continues outside git for now, and the
+# suite's walks step over them (tests/repository.NOT_THE_PACKAGE).
+/initializr/
+/keepupproject.ru/
+/keepup_site.example.zip
+/tests/initializr_tests.py
+/tests/initializr_service_tests.py
+/openspec/changes/the-initializr/
+/openspec/changes/the-initializr-service/
+/openspec/changes/capability-tickboxes/
+/openspec/changes/keepup-site/

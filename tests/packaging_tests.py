@@ -144,7 +144,9 @@ def test_the_package_is_mapped_to_this_directory():
     """
     text = pyproject_text()
     assert re.search(r'^\s*keepup\s*=\s*"\."', text, re.M)
-    for subpackage in ("keepup.auth", "keepup.plugins", "keepup.auth.providers"):
+    # The sign-in is a distribution of its own since keepup-124: what the base
+    # must list is what the base still holds.
+    for subpackage in ("keepup.kernel", "keepup.plugins"):
         assert f'"{subpackage}"' in text, f"{subpackage} is not in the package list"
 
 
