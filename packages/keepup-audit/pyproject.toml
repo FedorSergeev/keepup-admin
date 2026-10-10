@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "keepup-audit"
 version = "0.4.0"
 description = "Incoming calls, the application's events, the administrator's trail and their retention."
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "keepup-db>=0.4.0",

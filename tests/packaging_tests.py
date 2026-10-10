@@ -163,6 +163,32 @@ def test_every_subpackage_is_declared():
     assert missing == [], f"not declared in pyproject.toml: {missing}"
 
 
+#: The distributions in packages/: the code of a capability, each with its own
+#: metadata since keepup-124.
+CAPABILITIES = sorted((PACKAGE / "packages").glob("*/pyproject.toml"))
+
+
+@pytest.mark.parametrize("metadata", CAPABILITIES, ids=lambda path: path.parent.name)
+def test_every_subpackage_of_a_capability_is_declared(metadata):
+    """The same rule as above, for a distribution that is not the base.
+
+    A capability ships the code under the name it declares (`keepup_auth`,
+    `keepup_db`, ...), so a subdirectory with an `__init__.py` the metadata does
+    not list is a module an installation will not have: `keepup_auth.dto`
+    missing made an installed keepup-auth fail on its first import, and the
+    check above could not see it because it reads the base's metadata only.
+    """
+    distribution = metadata.parent
+    text = metadata.read_text(encoding="utf-8")
+    on_disk = {
+        ".".join(path.parent.relative_to(distribution).parts)
+        for path in distribution.rglob("__init__.py")
+        if path.parent != distribution and not is_not_the_package(path)
+    }
+    missing = sorted(name for name in on_disk if f'"{name}"' not in text)
+    assert missing == [], f"not declared in {metadata.relative_to(PACKAGE)}: {missing}"
+
+
 def test_the_panel_shell_travels_with_the_package():
     """Without it an installed keepup serves no panel at all (keepup-3)."""
     text = pyproject_text()

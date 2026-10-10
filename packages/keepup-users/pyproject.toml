@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "keepup-users"
 version = "0.4.0"
 description = "Accounts, the roles they hold and the rights granted."
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "keepup-db>=0.4.0",

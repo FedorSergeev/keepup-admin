@@ -178,18 +178,41 @@ keepup = [
 ]
 
 [tool.coverage.run]
-source = ["keepup"]
+# The base and every capability: since keepup-124 the code lives in more than
+# one distribution (`packages/keepup-*`, imported as `keepup_auth`,
+# `keepup_db`, ...), and a figure that measured the base alone would speak
+# about half of the framework while looking like the whole of it.
+source = [
+    "keepup",
+    "keepup_auth",
+    "keepup_db",
+    "keepup_users",
+    "keepup_ui",
+    "keepup_audit",
+    "keepup_metrics",
+    "keepup_integration_log",
+]
 # The tests live inside the package, and without this they would count as
 # their own coverage: a test file that has just run is covered almost
 # entirely, so the number would grow by writing tests rather than by covering
 # code. The very first run reported 68% instead of the real 56 (keepup-6).
 omit = [
-    "*/keepup/tests/*",
+    "*/tests/*",
+    # A local environment of any project in this working copy. The site project
+    # beside the package keeps one under its own tree, and measuring a
+    # site-packages reported 2% for the whole repository.
+    "*/.venv/*",
+    "*/venv/*",
     # What a local `python -m build` leaves behind: a copy of the sources that
     # no test imports, counted as uncovered and dragging the figure down by
     # sixteen points on a machine that had built a wheel (keepup-28).
     "*/build/*",
     "*/dist/*",
+    # The site project is a repository of its own kept beside the package
+    # (keepup-132): its code is not this package's and this suite does not
+    # cover it. The repository's tooling is the same case.
+    "*/keepupproject.ru/*",
+    "*/.github/*",
 ]
 
 [tool.coverage.report]

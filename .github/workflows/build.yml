@@ -28,16 +28,25 @@ jobs:
 
       - run: python -m pip install --upgrade pip build twine
 
-      - name: Build the wheel and the source distribution
-        run: python -m build
+      - name: Build every distribution
+        # The base is one distribution of several since keepup-124: each
+        # capability in packages/ carries its own metadata and its own wheel,
+        # and the release publishes them together.
+        run: |
+          python -m build
+          for package in packages/*; do
+            python -m build --outdir dist "$package"
+          done
 
       - name: Check what the index will check
         run: python -m twine check --strict dist/*
 
-      - name: Install the wheel somewhere with nothing of ours around it
+      - name: Install the wheels somewhere with nothing of ours around it
         # The framework's whole claim is that it stands up from settings alone.
-        # This is that claim, as one command, against the built artefact rather
-        # than against the checkout.
+        # This is that claim, as one command, against the built artefacts rather
+        # than against the checkout -- all of them: a base installed alone
+        # answers "keepup.db moved to keepup_db: install keepup-db" and serves
+        # no panel section at all.
         run: |
           python -m venv /tmp/elsewhere
           /tmp/elsewhere/bin/pip install --upgrade pip

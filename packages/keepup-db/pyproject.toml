@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "keepup-db"
 version = "0.4.0"
 description = "The abstraction that holds SQLAlchemy: the table language, the pool, the dialect registry and the creation of declared tables."
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "keepup-admin>=0.4.0",

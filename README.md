@@ -80,16 +80,17 @@ between replicas needs.
 ## Tests
 
 ```bash
-pip install -e ".[test]"
+pip install -e ".[test]" -e packages/keepup-*
 pytest tests/
 ```
 
 **Install first, then test.** Pointing pytest at the checkout does not work on
 its own: `import keepup` has to resolve, and the directory a clone lands in is
 called `keepup-admin`, so nothing is named `keepup` until the package is
-installed. The `test` extra carries what the suite needs beyond the package —
-notably `cryptography`, which the framework itself never imports and the OIDC
-tests sign tokens with.
+installed. The capabilities are distributions of their own in `packages/` —
+each carries the libraries it needs, and the suite imports them — so a clone
+installs them from the tree; the extras name the same ones for an installation
+from the index.
 
 The suite runs against SQLite with no network, needs no application beside the
 package, and holds a coverage floor declared in `pyproject.toml`. Checks that

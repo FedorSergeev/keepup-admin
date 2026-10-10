@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "keepup-auth"
 version = "0.4.0"
 description = "Sign-in, sessions, login throttling, roles, OIDC and somebody else's identity system."
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "keepup-db>=0.4.0",
@@ -18,4 +19,13 @@ dependencies = [
 auth = "keepup_auth:AuthPlugin"
 
 [tool.setuptools]
-packages = ["keepup_auth"]
+# Every subpackage, spelled out: the code lives under the import name, and a
+# subdirectory with an __init__.py that is not listed here never reaches an
+# installation -- `keepup_auth.dto` was missing, and an installed keepup-auth
+# failed to import at all.
+packages = [
+    "keepup_auth",
+    "keepup_auth.dto",
+    "keepup_auth.identity",
+    "keepup_auth.providers",
+]

@@ -32,12 +32,15 @@ jobs:
           cache: pip
 
       - name: Install the package as a consumer would
+        # The capabilities are distributions of their own since keepup-124, and
+        # they carry most of the third-party libraries now: auditing the base
+        # alone would say nothing about what an installation pulls in.
         # pip itself is upgraded first: the runner's own pip is otherwise
         # reported as vulnerable, which is true and none of this package's
         # business.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e .
+          python -m pip install -e . -e packages/keepup-*
           python -m pip install pip-audit
 
       - name: Audit the installed dependency set

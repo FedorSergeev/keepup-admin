@@ -33,10 +33,16 @@ jobs:
           python-version: ${{ matrix.python }}
           cache: pip
 
-      - name: Install the package and what its suite needs
+      - name: Install the package, its capabilities and what the suite needs
+        # The capabilities are distributions of their own since keepup-124
+        # (packages/), and the suite imports them: with the base alone,
+        # `import keepup.auth` and `keepup.db` do not resolve. The extras name
+        # them for an installation from the index; in the repository they are
+        # installed from the tree, together, so pip settles their mutual
+        # requirements from the local packages.
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -e ".[test]"
+          python -m pip install -e ".[test]" -e packages/keepup-*
 
       - name: Report what was actually installed
         # The dependencies are ranges, so the resolved versions are the only
@@ -47,5 +53,5 @@ jobs:
       - name: Run the suite
         run: |
           python -m pytest tests/ -q \
-            --cov=keepup --cov-config=pyproject.toml \
+            --cov --cov-config=pyproject.toml \
             --cov-report=term-missing:skip-covered

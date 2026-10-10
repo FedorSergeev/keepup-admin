@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "keepup-sqlite"
 version = "0.4.0"
 description = "SQLite behind the abstraction, and the two things it cannot do: RETURNING and messages between replicas."
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "keepup-db>=0.4.0",

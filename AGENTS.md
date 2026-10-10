@@ -273,7 +273,7 @@ There is no leader election: a scheduled job that must run once takes a lock.
 
 ```bash
 python .github/scripts/dependency_graph.py  # who depends on whom, and what installs what
-python -m pytest tests/ -q                 # the framework's own suite
+pip install -e ".[test]" -e packages/keepup-* && python -m pytest tests/ -q  # the suite
 python -m pytest path/to/your_tests.py -v  # an application's test, by path
 tests/security_audit_tests/run_security_audit.sh  # the security audit, with a report
 ```

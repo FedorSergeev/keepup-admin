@@ -6,6 +6,7 @@ build-backend = "setuptools.build_meta"
 name = "keepup-ui"
 version = "0.4.0"
 description = "The panel: the shell, its sections, its themes and the static files it serves."
+readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
     "keepup-admin>=0.4.0",
