@@ -137,3 +137,42 @@ def test_a_real_socket_is_closed_after_logout(monkeypatch):
             listener.start()
             listener.join(timeout=5)
             assert closed.get("code") == socket_sessions.CLOSE_CODE, "the socket outlived its session"
+
+async def test_a_stopping_sweeper_does_not_disarm_one_still_running(monkeypatch):
+    """The one that stops first must not take the other's event away (keepup-135).
+
+    Found by the whole suite on 3.13: the sweeper read the module global after
+    waking, the `finally` of the sweeper that stopped set it to None, and the one
+    still running called `clear` on None while an application was shutting down.
+    The quieter half of the same bug is checked here -- a wake that no longer
+    reaches the sweeper that is still there.
+    """
+    monkeypatch.setenv(socket_sessions.RECHECK_ENV, "60")
+    swept = []
+
+    async def counted():
+        swept.append(True)
+        return 0
+
+    monkeypatch.setattr(socket_sessions, "sweep", counted)
+
+    first = asyncio.create_task(socket_sessions.run_forever())
+    await asyncio.sleep(0)
+    second = asyncio.create_task(socket_sessions.run_forever())
+    await asyncio.sleep(0)
+
+    first.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await first
+    assert not second.done(), "the second sweeper did not survive the first one's exit"
+
+    socket_sessions.wake(tell_others=False)
+    for _ in range(50):
+        if swept:
+            break
+        await asyncio.sleep(0.01)
+    assert swept, "the sweeper still running was not woken"
+
+    second.cancel()
+    with pytest.raises(asyncio.CancelledError):
+        await second

@@ -158,19 +158,30 @@ def detach_from_bus() -> None:
 async def run_forever() -> None:
     """The sweeper: one per replica, started and cancelled by the application's lifespan."""
     global _loop, _woken
-    _loop = asyncio.get_running_loop()
-    _woken = asyncio.Event()
+    loop = asyncio.get_running_loop()
+    woken = asyncio.Event()
+    _loop = loop
+    _woken = woken
     try:
         while True:
             try:
-                await asyncio.wait_for(_woken.wait(), timeout=recheck_seconds())
+                await asyncio.wait_for(woken.wait(), timeout=recheck_seconds())
             except asyncio.TimeoutError:
                 pass
-            _woken.clear()
+            woken.clear()
             try:
                 await sweep()
             except Exception as error:
                 logger.warning(f"Could not check the sessions of open sockets: {error}")
     finally:
-        _loop = None
-        _woken = None
+        # Only the event this task installed is given up, and only while it is
+        # still the one installed. Reaching for the global in the loop above and
+        # nulling it here are the same bug seen twice: a second sweeper -- a
+        # second application in one process, or a start that overlaps a shutdown
+        # -- has its own event, and clearing the global out from under it left it
+        # calling `clear` on None while an application shut down, or simply deaf
+        # to a wake (keepup-135, found by the whole suite on 3.13). The loop is
+        # left as it is: every sweeper of the process shares it, a new one
+        # installs its own, and `wake` steps over a closed one.
+        if _woken is woken:
+            _woken = None
