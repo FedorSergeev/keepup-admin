@@ -5,16 +5,27 @@
 # exchanges a short-lived OIDC token for upload rights. Nothing is stored -- no
 # token in a secret, none in anybody's ~/.pypirc.
 #
-# ONE-TIME SETUP, without which this workflow fails at the upload step:
-#   pypi.org -> the project -> Settings -> Publishing -> Add a new publisher
+# ONE JOB PER PROJECT, and that is not a style choice. The publishing action
+# mints one token per invocation, and the token is scoped to the project whose
+# publisher matched: a job that uploaded two projects would get the first one
+# through and then be refused for the second ("the pending publisher created the
+# project successfully, but the project name supplied in the upload's metadata
+# does not match it"). The action says the same thing itself: one publishing job
+# per upload. The capabilities go first, in parallel, and the base waits for all
+# of them -- an installation that reads the base's extras must never be pointed
+# at a project the index does not have.
+#
+# ONE-TIME SETUP, without which the publishing job of a new project fails:
+#   pypi.org -> account -> Publishing -> Add a pending publisher (one per name)
 #     Owner: FedorSergeev     Repository: keepup-admin
 #     Workflow: release.yml   Environment: pypi
-# The base has had one since 0.3.0. Every capability is a project of its own
-# (keepup-db, keepup-auth, keepup-users, keepup-ui, keepup-audit,
-# keepup-metrics, keepup-integration-log, keepup-postgres, keepup-sqlite) and
-# needs the same publisher -- added as a *pending* publisher, because none of
-# them exists on the index before its first release. Until those exist, cut a
-# release by hand with twine instead.
+# The base has had one since 0.3.0; each capability is a project of its own and
+# needs the same, added as *pending* because it does not exist yet. A pending
+# publisher does not reserve the name: the project appears at the first upload.
+#
+# An account-scoped API token in the `pypi` environment, named PYPI_API_TOKEN,
+# is used instead when it is set -- the way out if the publishers cannot be
+# registered; attestations are then off, because they need Trusted Publishing.
 #
 # The tag is the trigger, and the version is not taken from it: the version is
 # what the metadata declares, and the job refuses a tag any distribution
@@ -31,13 +42,30 @@ permissions:
   contents: read
 
 jobs:
-  publish:
+  capabilities:
+    name: ${{ matrix.project }}
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
+      contents: read
       # The OIDC token PyPI checks. Nothing else is needed, and nothing else
       # should be granted.
       id-token: write
+    strategy:
+      # One project failing must not cancel the others: a missing publisher is
+      # named by the job that failed, and re-running that job is the whole fix.
+      fail-fast: false
+      matrix:
+        project:
+          - keepup-audit
+          - keepup-auth
+          - keepup-db
+          - keepup-integration-log
+          - keepup-metrics
+          - keepup-postgres
+          - keepup-sqlite
+          - keepup-ui
+          - keepup-users
 
     steps:
       - uses: actions/checkout@v4
@@ -59,32 +87,61 @@ jobs:
             python .github/scripts/release_versions.py
           fi
 
-      - name: Build and check every distribution
-        # The base is one distribution of several since keepup-124, and the
-        # release publishes the capabilities too. They are built into their own
-        # directory so that they can be uploaded before the base: an
-        # installation that reads the base's extras must never be pointed at a
-        # project the index does not have yet.
+      - name: Build and check ${{ matrix.project }}
         run: |
-          python -m build --outdir dist/base
-          for package in packages/*; do
-            python -m build --outdir dist/capabilities "$package"
-          done
-          python -m twine check --strict dist/base/* dist/capabilities/*
+          python -m build --outdir dist "packages/${{ matrix.project }}"
+          python -m twine check --strict dist/*
 
-      - name: Publish the capabilities
-        # Nine projects cannot be uploaded in one atomic step, and a version
-        # once uploaded cannot be replaced: a re-run after a failure has to be
-        # able to finish the set, so a file that is already there is skipped.
+      - name: Publish ${{ matrix.project }}
+        # `skip-existing` because the files of one project are not uploaded
+        # atomically either: a release interrupted between its wheel and its
+        # sdist is finished by re-running this job, not by a new version.
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: dist/capabilities
+          packages-dir: dist
           skip-existing: true
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          attestations: ${{ secrets.PYPI_API_TOKEN == '' }}
 
-      - name: Publish the base
-        # Last, and strict: by now everything the extras name is on the index,
-        # and a second upload of the base's own version is a mistake worth
+  base:
+    name: keepup-admin
+    # Last, and only if every capability is up: by then everything the extras
+    # name is on the index.
+    needs: capabilities
+    runs-on: ubuntu-latest
+    environment: pypi
+    permissions:
+      contents: read
+      id-token: write
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - run: python -m pip install --upgrade pip build twine
+
+      - name: The tag and every distribution must agree
+        run: |
+          if [ "${GITHUB_REF_TYPE:-}" = "tag" ]; then
+            python .github/scripts/release_versions.py "${GITHUB_REF_NAME#v}"
+          else
+            python .github/scripts/release_versions.py
+          fi
+
+      - name: Build and check keepup-admin
+        run: |
+          python -m build --outdir dist
+          python -m twine check --strict dist/*
+
+      - name: Publish keepup-admin
+        # Strict: a second upload of the base's own version is a mistake worth
         # stopping for.
         uses: pypa/gh-action-pypi-publish@release/v1
         with:
-          packages-dir: dist/base
+          packages-dir: dist
+          password: ${{ secrets.PYPI_API_TOKEN }}
+          attestations: ${{ secrets.PYPI_API_TOKEN == '' }}

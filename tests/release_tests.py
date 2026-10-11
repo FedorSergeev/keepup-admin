@@ -1,10 +1,11 @@
-"""The release publishes every distribution, and the tag names its version.
+"""The release publishes every distribution, one project per job, and the tag names its version.
 
 The base became one distribution of several (keepup-124): a release that builds
 and uploads the base alone leaves its extras pointing at projects the index does
-not have -- before 0.4.0 every capability name answered 404 -- and a version,
-once uploaded, cannot be replaced. The workflow is checked here, and the script
-it runs is exercised rather than read (keepup-134).
+not have. The publishing action mints one token per invocation and scopes it to
+the one project whose publisher matched, so a job that uploads two projects gets
+the first through and is refused for the second (keepup-4). The workflow is
+checked here, and the script it runs is exercised rather than read.
 
     python3 -m pytest tests/release_tests.py -v
 """
@@ -14,10 +15,13 @@ import re
 import shutil
 from pathlib import Path
 
+import yaml
+
 PACKAGE = Path(__file__).resolve().parents[1]
 WORKFLOW = PACKAGE / ".github" / "workflows" / "release.yml"
 SCRIPT = PACKAGE / ".github" / "scripts" / "release_versions.py"
-CAPABILITIES = sorted((PACKAGE / "packages").glob("*/pyproject.toml"))
+CAPABILITIES = sorted(path.parent.name for path in (PACKAGE / "packages").glob("*/pyproject.toml"))
+ACTION = "pypa/gh-action-pypi-publish"
 
 
 def script():
@@ -25,6 +29,78 @@ def script():
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
     return module
+
+
+def workflow():
+    return yaml.safe_load(WORKFLOW.read_text(encoding="utf-8"))
+
+
+def publishes(job):
+    """The publishing steps of one job: one at most, or the token is misused."""
+    return [step for step in job["steps"] if str(step.get("uses", "")).startswith(ACTION)]
+
+
+def run_of(job, needle):
+    for step in job["steps"]:
+        if needle in str(step.get("run", "")):
+            return str(step["run"])
+    raise AssertionError(f"no step runs {needle}")
+
+
+def test_every_capability_is_published_by_a_job_of_its_own():
+    """A matrix leg per project: one token, one project, one name in the log."""
+    capabilities = workflow()["jobs"]["capabilities"]
+    assert capabilities["strategy"]["matrix"]["project"] == CAPABILITIES
+    assert capabilities["strategy"]["fail-fast"] is False, "one missing publisher must not cancel the rest"
+
+
+def test_one_publishing_invocation_per_job():
+    """The action says so itself: two invocations in one job are unsupported."""
+    jobs = workflow()["jobs"]
+    assert set(jobs) == {"capabilities", "base"}
+    for name, job in jobs.items():
+        assert len(publishes(job)) == 1, f"{name} publishes more than once"
+
+
+def test_the_capabilities_go_first_and_the_base_waits_for_them():
+    jobs = workflow()["jobs"]
+    needs = jobs["base"]["needs"]
+    needs = {needs} if isinstance(needs, str) else set(needs)
+    assert needs == {"capabilities"}
+    assert list(jobs) == ["capabilities", "base"], "the base is published last"
+
+
+def test_a_capability_may_be_re_run_and_the_base_may_not():
+    """A project interrupted between its wheel and its sdist is finished by a re-run."""
+    base = publishes(workflow()["jobs"]["base"])[0]["with"]
+    capability = publishes(workflow()["jobs"]["capabilities"])[0]["with"]
+    assert capability["skip-existing"] is True
+    assert "skip-existing" not in base, "a second upload of the base's version is a mistake"
+
+
+def test_every_distribution_is_built_and_checked_before_it_is_published():
+    jobs = workflow()["jobs"]
+    capability = run_of(jobs["capabilities"], "python -m build")
+    assert '--outdir dist "packages/${{ matrix.project }}"' in capability
+    assert "twine check --strict dist/*" in capability
+    base = run_of(jobs["base"], "python -m build")
+    assert "python -m build --outdir dist" in base
+    assert "twine check --strict dist/*" in base
+
+
+def test_an_api_token_is_the_way_out_when_a_publisher_cannot_be_registered():
+    """A password turns attestations off: they need Trusted Publishing."""
+    jobs = workflow()["jobs"]
+    for job in jobs.values():
+        step = publishes(job)[0]["with"]
+        assert step["password"] == "${{ secrets.PYPI_API_TOKEN }}"
+        assert step["attestations"] == "${{ secrets.PYPI_API_TOKEN == '' }}"
+
+
+def test_the_tag_is_held_to_every_distribution_by_the_script():
+    jobs = workflow()["jobs"]
+    for job in jobs.values():
+        assert "release_versions.py" in run_of(job, "release_versions.py")
 
 
 def test_every_distribution_declares_the_same_version():
@@ -56,20 +132,3 @@ def test_the_check_refuses_a_distribution_that_drifted(tmp_path):
     # ...and the base's own version is the one it names, so a release that only
     # moved a capability cannot pass as the base's.
     assert script().main([], root=tmp_path) == 1
-
-
-def test_the_release_builds_every_distribution():
-    text = WORKFLOW.read_text(encoding="utf-8")
-    assert "--outdir dist/base" in text, "the base is built into its own directory"
-    assert re.search(r"for package in packages/\*", text), "every capability is built"
-    assert "--outdir dist/capabilities" in text, "and into its own directory"
-    assert "release_versions.py" in text, "the versions are checked by the script"
-
-
-def test_the_capabilities_are_published_before_the_base():
-    """The extras of the base name the capabilities: they must be there first."""
-    text = WORKFLOW.read_text(encoding="utf-8")
-    assert text.count("pypa/gh-action-pypi-publish") == 2
-    capabilities = text.index("packages-dir: dist/capabilities")
-    base = text.index("packages-dir: dist/base")
-    assert capabilities < base, "the base is published last"
