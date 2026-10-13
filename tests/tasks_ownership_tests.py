@@ -121,3 +121,38 @@ def test_the_scheduler_is_gone_when_the_capability_is_not_enabled():
             await runtime.stop()
 
     asyncio.run(scenario())
+
+def test_the_scheduler_can_be_restarted_with_the_same_jobs():
+    """What the panel's button asks for: new clock, same jobs (keepup-109)."""
+    async def scenario():
+        runtime = runtime_with_tasks()
+        await runtime.start()
+        try:
+            before = scheduling.get_scheduler()
+            assert [job.id for job in before.get_jobs()] == ["sweeper_sweep"]
+            answer = scheduling.restart_scheduler()
+            after = scheduling.get_scheduler()
+            assert answer == {"restarted": True, "jobs": ["sweeper_sweep"]}
+            assert after is not before and after.running, "a second scheduler did not start"
+            assert [job.id for job in after.get_jobs()] == ["sweeper_sweep"], (
+                "the jobs did not survive the restart")
+        finally:
+            await runtime.stop()
+
+    asyncio.run(scenario())
+
+
+def test_the_application_serves_the_scheduler_doors():
+    """The section's four doors, through the bridge the application still carries."""
+    from fastapi.testclient import TestClient
+
+    from keepup import factory
+    from keepup.settings import KeepupSettings
+
+    app = factory.create_app(KeepupSettings(title="Tasks", static_mounts=(),
+                                            plugin_manager=None))
+    with TestClient(app):
+        paths = {route.path for route in app.routes}
+    assert {"/api/admin/scheduler/jobs", "/api/admin/scheduler/stats",
+            "/api/admin/scheduler/jobs/{job_id}/trigger",
+            "/api/admin/scheduler/restart"} <= paths

@@ -34,6 +34,7 @@ from keepup_tasks.scheduler import (
     close_scheduler,
     init_scheduler,
     jobs_payload,
+    restart_scheduler,
     stats_payload,
     trigger_job,
 )
@@ -161,6 +162,8 @@ class TasksPlugin(BasePlugin):
              "handler": self.trigger},
             {"path": "/api/admin/scheduler/stats", "methods": ["GET"],
              "handler": self.stats},
+            {"path": "/api/admin/scheduler/restart", "methods": ["POST"],
+             "handler": self.restart},
         ]
 
     async def jobs(self, current_user=None):
@@ -171,6 +174,9 @@ class TasksPlugin(BasePlugin):
 
     async def stats(self, current_user=None):
         return stats_payload()
+
+    async def restart(self, current_user=None):
+        return restart_scheduler()
 
     def get_panel_sections(self):
         """The jobs and the locks, as the panel's section."""

@@ -595,8 +595,24 @@ class BackgroundTasksPlugin {
             return;
         }
 
-        this.showNotification('Scheduler restart is not implemented yet', 'info');
-        // An API call to restart the scheduler could be added here
+        try {
+            const token = localStorage.getItem('authToken');
+            const response = await fetch('/api/admin/scheduler/restart', {
+                method: 'POST',
+                headers: {
+                    'Authorization': `Bearer ${token}`
+                }
+            });
+
+            if (response.ok) {
+                this.showNotification('Scheduler restarted', 'success');
+                await this.loadData();
+            } else {
+                this.showNotification('Error restarting the scheduler', 'error');
+            }
+        } catch (error) {
+            this.showNotification(`Error restarting the scheduler: ${error.message}`, 'error');
+        }
     }
 
     showNotification(message, type = 'info') {

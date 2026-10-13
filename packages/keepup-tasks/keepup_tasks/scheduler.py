@@ -44,6 +44,9 @@ logger = logging.getLogger(__name__)
 #: The process-wide scheduler, created by init_scheduler().
 scheduler = None
 
+#: The job defaults the application named, kept so a restart starts the same way.
+_job_defaults: Optional[Dict[str, Any]] = None
+
 
 def get_scheduler():
     """Return the process-wide scheduler, or None before it is created."""
@@ -66,12 +69,38 @@ def new_scheduler(job_defaults: Optional[Dict[str, Any]] = None) -> AsyncIOSched
 
 def init_scheduler(job_defaults: Optional[Dict[str, Any]] = None):
     """Create and configure the task scheduler."""
-    global scheduler
+    global scheduler, _job_defaults
 
+    _job_defaults = job_defaults
     scheduler = new_scheduler(job_defaults)
 
     logger.info("Global scheduler initialized - tasks will be registered by plugins")
     return scheduler
+
+
+def restart_scheduler() -> Dict[str, Any]:
+    """Stop the scheduler and start a fresh one holding the same jobs.
+
+    What the panel's button asks for: the jobs are the contract, and the clock
+    that runs them is replaceable. A job is re-added by its function, id and
+    trigger, so nothing has to be declared twice (keepup-109).
+    """
+    global scheduler
+
+    previous = scheduler
+    declared = []
+    if previous is not None:
+        declared = [{"func": job.func, "id": job.id, "name": job.name,
+                     "trigger": job.trigger}
+                    for job in previous.get_jobs()]
+        previous.shutdown(wait=False)
+
+    fresh = init_scheduler(_job_defaults)
+    for spec in declared:
+        fresh.add_job(spec["func"], id=spec["id"], name=spec["name"], trigger=spec["trigger"])
+    fresh.start()
+    logger.info("Scheduler restarted with %s job(s)", len(fresh.get_jobs()))
+    return {"restarted": True, "jobs": [job.id for job in fresh.get_jobs()]}
 
 
 def close_scheduler() -> None:
@@ -145,3 +174,8 @@ def register_scheduler_routes(app):
     async def get_scheduler_stats(admin: dict = Depends(get_current_admin)):
         """Return scheduler statistics (administrators only)."""
         return stats_payload()
+
+    @app.post("/api/admin/scheduler/restart")
+    async def restart_the_scheduler(admin: dict = Depends(get_current_admin)):
+        """Stop the scheduler and start a fresh one with the same jobs."""
+        return restart_scheduler()
