@@ -401,7 +401,17 @@ events/events_api cycle; the registration inside the lifespan. **Task 111.**
 
 ## 8. System metrics
 
-**Where it is.** `metrics.py` 587 (`SystemMetricsCollector:95`,
+**Where it is (moved in 0.4.0).** The code lives in
+`packages/keepup-metrics/keepup_metrics/`: `collector.py`, `api.py`,
+`retention.py` and the plugin `plugin.py`, with the entry point
+`keepup_metrics:MetricsPlugin`; the kernel starts neither loop and imports none
+of them. What remains a bridge is the route registration: the application still
+registers this capability's routes itself while the transport that mounts what a
+plugin declares (`keepup-http`) is 0.5.0 work (task 121). The old names
+(`keepup.metrics`, `keepup.metrics_api`, `keepup.metrics_retention`) answer
+through `keepup/compat.py` for one release.
+
+**What it was.** `metrics.py` 587 (`SystemMetricsCollector:95`,
 `DEFAULT_INTERVAL_SECONDS=15:46`, `ERROR_BACKOFF_SECONDS:30:48`,
 `_registry_names:80`, `update_metrics_background:540`, `__getattr__` shim
 `:573-587`), `metrics_api.py` 277 (`PANEL_METRICS:47`,

@@ -381,14 +381,16 @@ async def test_the_application_starts_the_sweep_at_startup(monkeypatch, tmp_path
         started.append(policy)
         await asyncio.Event().wait()
 
-    monkeypatch.setattr(factory, "metrics_retention_background", marker)
+    from keepup_metrics import plugin as metrics_plugin
+
+    monkeypatch.setattr(metrics_plugin, "metrics_retention_background", marker)
     monkeypatch.setenv("SECRET_KEY", "x" * 48)
     monkeypatch.setenv("DB_TYPE", "sqlite")
     monkeypatch.setenv("DB_PATH", str(tmp_path / "startup.db"))
     DatabaseManagerV2.dispose()
 
     app = factory.create_app(KeepupSettings(
-        title="Framework Only", static_mounts=(), plugin_manager=None))
+        title="Framework Only", static_mounts=(), plugin_manager=None, profile="panel"))
     with TestClient(app):
         pass
     DatabaseManagerV2.dispose()

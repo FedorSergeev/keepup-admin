@@ -15,6 +15,7 @@ from keepup.kernel.call import Call, route_kind
 from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.descriptor import KIND_REQUIRED, PluginDescriptor
 from keepup.plugins.base import BasePlugin
+from keepup_metrics.plugin import MetricsPlugin
 from tests.integration_log_plugin_tests import RecordingSource, entry_point
 
 
@@ -50,13 +51,15 @@ def add_metric_rows(rows):
     SourcePlugin.source.execute = execute
 
 
-async def running_deployment(*extra):
-    """The framework's own metrics plugin on a stub data source, started."""
+async def running_deployment(*extra, settings=None):
+    """The metrics plugin of its own distribution, on a stub data source, started."""
     SourcePlugin.source = None
     runtime = create_runtime(
+        settings,
         application_catalogue={"plugins": [{"id": "db", "enabled": True},
                                            {"id": "metrics", "enabled": True}]},
-        entry_points=[entry_point(SourcePlugin)] + [entry_point(cls) for cls in extra],
+        entry_points=[entry_point(SourcePlugin), entry_point(MetricsPlugin)]
+        + [entry_point(cls) for cls in extra],
     )
     await runtime.start()
     return runtime
@@ -74,7 +77,9 @@ def test_the_scrape_is_text_and_is_not_audited():
     """A row per scrape per replica is not an audit; JSON is not a scrape."""
     runtime = asyncio.run(running_deployment())
     spec = route_of(runtime, "/metrics")
-    assert spec.require_auth is False
+    # Closed unless the deployment opens it (KeepupSettings.metrics_public); the
+    # route carries the decision, and keepup-136 moved it into the plugin.
+    assert spec.require_auth is True
     assert spec.audit is False
     assert spec.response_media_type == "text/plain"
     assert route_kind(spec.methods)[0] == "read"

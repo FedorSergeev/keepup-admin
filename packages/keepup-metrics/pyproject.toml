@@ -9,7 +9,11 @@ description = "The scrape, the panel's view of the fleet and the snapshot retent
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "keepup-admin>=0.4.0",
     "keepup-db>=0.4.0",
+    "keepup-auth>=0.4.0",
+    "fastapi>=0.128,<1",
+    "pydantic>=2.11,<3",
     "prometheus-client>=0.24",
     "psutil>=7.0",
 ]

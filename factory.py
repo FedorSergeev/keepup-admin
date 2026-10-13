@@ -42,9 +42,7 @@ from keepup.events import events_retention_background, init_event_manager
 from keepup.events_api import register_event_api_routes
 from keepup.instance import get_instance_id
 from keepup.locks import register_lock_routes
-from keepup.metrics import update_metrics_background
 from keepup.metrics_api import register_metrics_routes
-from keepup.metrics_retention import metrics_retention_background
 from keepup.modules import register_module_routes
 from keepup.plugins.registry import (
     get_plugins_status,
@@ -137,7 +135,7 @@ class SecurityHeadersMiddleware:
 
 
 def apply_performance(performance) -> None:
-    """The pool and the metrics interval from ``KeepupSettings.performance`` (keepup-38).
+    """The pool from ``KeepupSettings.performance`` (keepup-38).
 
     The pool may already exist: applications touch the database before
     create_app (their init_db). It is closed then, and the next query opens one
@@ -148,9 +146,6 @@ def apply_performance(performance) -> None:
                             performance.db_pool_timeout, performance.db_pool_recycle,
                             performance.db_pool_ping_after_idle):
         DatabaseManagerV2.dispose()
-    if performance.metrics_interval is not None:
-        from keepup.metrics import metrics_collector
-        metrics_collector.collection_interval = int(performance.metrics_interval)
     from keepup import cache
     cache.set_ttl(performance.catalogue_cache_seconds)
 
@@ -290,12 +285,6 @@ def _build_lifespan(settings: KeepupSettings):
         if settings.remote_log_url:
             from keepup.log_shipping import init_remote_logging
             remote_handler = init_remote_logging()
-        metrics_task = asyncio.create_task(update_metrics_background())
-        # Snapshots are written every fifteen seconds and without this sweep
-        # grow without bound. The sweep runs under a distributed lock: the work
-        # is shared across every replica.
-        retention_task = asyncio.create_task(metrics_retention_background())
-
         # Table creation is a round of statements against the database; off the
         # loop, where the tasks started above already run (keepup-54).
         await asyncio.to_thread(init_incoming_requests_table)
@@ -387,12 +376,10 @@ def _build_lifespan(settings: KeepupSettings):
         await _stop_notification_bus(bus)
 
         flusher_task.cancel()
-        metrics_task.cancel()
-        retention_task.cancel()
         audit_retention_task.cancel()
         events_retention_task.cancel()
         socket_sessions_task.cancel()
-        for task in (flusher_task, metrics_task, retention_task, audit_retention_task,
+        for task in (flusher_task, audit_retention_task,
                      events_retention_task, socket_sessions_task):
             try:
                 await task
@@ -653,6 +640,9 @@ def create_app(settings: KeepupSettings = None) -> FastAPI:
     # Registered only when the application configured a provider; without one
     # the paths do not exist at all.
     register_oidc_routes(app, settings)
+    # The transport that mounts what a capability declares is keepup-http, and
+    # until it exists the application registers this capability's routes itself
+    # -- the same bridge the other capabilities still travel (keepup-121).
     register_metrics_routes(app, public=settings.metrics_public)
     register_lock_routes(app)
     register_scheduler_routes(app)

@@ -32,7 +32,6 @@ STILL_IMPORTING = {
     "factory.py": "the composition root puts the identity behind the seam (keepup-119)",
     "integrations.py": "a call is attributed to the user who made it",
     "locks.py": "its routes are the administrator's",
-    "metrics_api.py": "its panel routes are the administrator's",
     "modules.py": "its routes are the administrator's",
     "notification_bus.py": "it signs what replicas send to each other",
     "plugins/admin.py": "the decision about a plugin is the administrator's",

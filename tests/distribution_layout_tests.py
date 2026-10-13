@@ -31,6 +31,16 @@ EXPECTED = {
 #: What may not be a dependency of anything but what is named.
 DRIVERS = {"keepup-postgres", "keepup-sqlite"}
 
+#: What every capability may depend on: the constructor, the abstraction and the
+#: accounts.
+SHARED = {"keepup-admin", "keepup-db", "keepup-users"}
+
+#: One temporary edge, allowed to one distribution. `keepup-metrics` registers
+#: its routes in the application with the panel's guard until the transport that
+#: mounts what a plugin declares exists (`keepup-http`, task 121); the guard is
+#: `keepup-auth`'s, and the day the transport lands this pair goes away.
+TEMPORARY = {("keepup-metrics", "keepup-auth")}
+
 
 def project(name):
     """The metadata of one distribution."""
@@ -164,7 +174,7 @@ def test_the_graph_points_one_way():
         dependencies = project(name)["project"]["dependencies"]
         for dependency in dependencies:
             base = re.split(r"[<>=!]", dependency)[0]
-            assert base in {"keepup-admin", "keepup-db", "keepup-users"} or not base.startswith(
+            assert base in SHARED or (name, base) in TEMPORARY or not base.startswith(
                 "keepup-"), f"{name} depends on {base}"
             assert base not in DRIVERS, f"{name} depends on the driver {base}"
 
@@ -183,10 +193,21 @@ def test_a_driver_depends_on_the_abstraction():
         assert "keepup-db>=0.4.0" in dependencies
 
 
+#: What has already moved: its plugin lives in the distribution, not in the
+#: framework's `builtin/`. The first one is the metrics capability (keepup-136).
+MOVED_ALREADY = {"keepup-metrics"}
+
+
 def test_the_code_that_moves_still_lives_in_the_framework():
     """Until keepup-124: the plugin each distribution will bring exists here."""
     for name, (plugin_id, provided) in EXPECTED.items():
-        plugin_file = PACKAGE / "builtin" / f"{plugin_id}.py"
+        if name in MOVED_ALREADY:
+            metadata = tomllib.loads(
+                (PACKAGES / name / "pyproject.toml").read_text(encoding="utf-8"))
+            package = metadata["tool"]["setuptools"]["packages"][0]
+            plugin_file = PACKAGES / name / package / "plugin.py"
+        else:
+            plugin_file = PACKAGE / "builtin" / f"{plugin_id}.py"
         assert plugin_file.exists(), f"{name} promises {plugin_file.name}, which is not there"
         assert f'id="{plugin_id}"' in plugin_file.read_text(encoding="utf-8")
 

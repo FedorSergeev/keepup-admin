@@ -18,6 +18,10 @@ import pytest
 from keepup import metrics, metrics_api
 
 PACKAGE = Path(__file__).resolve().parents[1]
+#: The collector lives in the capability's distribution since keepup-124.
+COLLECTOR = PACKAGE / "packages" / "keepup-metrics" / "keepup_metrics" / "collector.py"
+
+
 def _paths():
     """The environment a spawned interpreter needs to find the distributions."""
     import os
@@ -48,15 +52,15 @@ def imports_of(path: Path):
 
 
 def test_the_collector_knows_nothing_of_the_web_or_the_api():
-    loaded = imports_of(PACKAGE / "metrics.py")
+    loaded = imports_of(COLLECTOR)
     assert not {name for name in loaded
-                if name.startswith(("fastapi", "pydantic", "keepup.metrics_api",
-                                    "keepup.auth"))}
+                if name.startswith(("fastapi", "pydantic", "keepup_metrics.api",
+                                    "keepup_auth"))}
 
 
 def test_importing_the_collector_does_not_import_the_api():
     probe = ("import sys, keepup.metrics; "
-             "print('keepup.metrics_api' in sys.modules)")
+             "print('keepup_metrics.api' in sys.modules)")
     out = subprocess.run([sys.executable, "-c", probe], cwd=REPO,
         env=_paths(), capture_output=True,
                          text=True, check=True).stdout.strip()
@@ -69,7 +73,7 @@ def test_a_moved_name_still_answers_and_says_where_it_went(name):
         warnings.simplefilter("always")
         value = getattr(metrics, name)
     assert value is getattr(metrics_api, name)
-    assert any(f"keepup.metrics_api.{name}" in str(w.message) for w in caught)
+    assert any(f"keepup_metrics.api.{name}" in str(w.message) for w in caught)
 
 
 def test_an_unknown_name_is_still_an_attribute_error():
@@ -78,6 +82,7 @@ def test_an_unknown_name_is_still_an_attribute_error():
 
 
 def test_the_application_serves_the_same_routes():
+    """The routes come from the capability, not from the kernel (keepup-124)."""
     from keepup.factory import create_app
     from keepup.settings import KeepupSettings
 

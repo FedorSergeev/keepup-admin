@@ -8,6 +8,8 @@ place; and a replica writes its metrics under its own name.
     python3 -m pytest keepup/tests/performance_settings_tests.py -v
 """
 
+import inspect
+
 import pytest
 from keepup import audit, db, factory, metrics
 from keepup.settings import KeepupSettings, PerformanceSettings
@@ -76,19 +78,35 @@ def test_settings_that_change_nothing_leave_the_engine_alone(pool, monkeypatch):
 
 # --- audit and metrics ---------------------------------------------------------------
 
-def test_the_audit_buffer_and_the_metrics_interval_come_from_the_same_place(pool, monkeypatch):
+def test_the_audit_buffer_comes_from_the_performance_settings(pool, monkeypatch):
     interval, size = audit.BUFFER_FLUSH_INTERVAL, audit.BUFFER_MAX_SIZE
-    collection = metrics.metrics_collector.collection_interval
     monkeypatch.setattr(factory.config_service, "register_built_in_themes", lambda themes: None)
     monkeypatch.setattr(factory.config_service, "initialize", lambda: None)
     try:
         factory.apply_settings(KeepupSettings(performance=PerformanceSettings(
             audit_flush_interval=11, audit_buffer_size=7, metrics_interval=42)))
         assert (audit.BUFFER_FLUSH_INTERVAL, audit.BUFFER_MAX_SIZE) == (11, 7)
-        assert metrics.metrics_collector.collection_interval == 42
     finally:
         audit.BUFFER_FLUSH_INTERVAL, audit.BUFFER_MAX_SIZE = interval, size
-        metrics.metrics_collector.collection_interval = collection
+
+
+def test_the_metrics_interval_moved_to_the_capability():
+    """The interval is the capability's setting now; the old field is a bridge.
+
+    Read by the plugin, with a warning naming where it went (keepup-136), and
+    the kernel no longer touches the collector at all.
+    """
+    from types import SimpleNamespace
+
+    from keepup_metrics.plugin import MetricsPlugin
+
+    plugin = MetricsPlugin()
+    plugin.plugin_manager = SimpleNamespace(settings=KeepupSettings(
+        performance=PerformanceSettings(metrics_interval=42)))
+    with pytest.warns(DeprecationWarning, match="collection_interval"):
+        assert plugin._interval_from_the_old_setting() == 42
+
+    assert "metrics_interval" not in inspect.getsource(factory.apply_performance)
 
 
 def test_a_replica_writes_its_metrics_under_its_own_name(monkeypatch):

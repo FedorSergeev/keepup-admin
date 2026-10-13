@@ -387,7 +387,7 @@ class SystemMetricsCollector:
         Args:
             metrics: the values just collected, by metric name.
         """
-        from keepup.db import DatabaseManagerV2
+        from keepup_db import DatabaseManagerV2
         try:
             timestamp = datetime.utcnow()
             params_list = [{
@@ -575,13 +575,3 @@ _MOVED_TO_API = {
     "PANEL_HISTORY_HOURS", "FRESH_WINDOW_MINUTES", "fresh_since",
     "SystemMetricsResponse", "get_latest_metric_value", "get_historical_metrics",
 }
-
-
-def __getattr__(name):
-    if name in _MOVED_TO_API:
-        import warnings
-        from keepup import metrics_api
-        warnings.warn(f"keepup.metrics.{name} moved to keepup.metrics_api.{name}",
-                      DeprecationWarning, stacklevel=2)
-        return getattr(metrics_api, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

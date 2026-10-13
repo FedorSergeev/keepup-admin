@@ -16,18 +16,28 @@ constructor -- the one that needed the two route keys keepup-102 added:
   The cluster is a soft requirement (``wants``): with it, the panel names the
   replicas it knows; without it, the ones it has heard from.
 
-The collector and the table's declaration still live in the kernel
-(`keepup/metrics.py`, `keepup/schema.py`) and travel into this capability's own
-distribution in keepup-124.
+The collector, the exposition and the snapshot sweep live in this distribution
+(`keepup_metrics.collector`, `.api`, `.retention`), and the plugin starts and
+stops them: they used to be tasks of the kernel's lifespan, which collected for
+a deployment that never installed the capability.
+
+The application still registers the routes the plugin declares, because the
+transport that mounts what a capability declares is `keepup-http` and does not
+exist yet (keepup-121); the declarations themselves are already here.
 """
 
+import asyncio
 import logging
+import warnings
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional
 
 from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.descriptor import KIND_OPTIONAL, PluginDescriptor
 from keepup.plugins.base import BasePlugin
+from keepup_metrics.api import PANEL_METRICS, get_latest_metric_value
+from keepup_metrics.collector import metrics_collector, update_metrics_background
+from keepup_metrics.retention import metrics_retention_background
 from keepup_metrics.tables import SYSTEM_METRICS
 
 logger = logging.getLogger(__name__)
@@ -162,7 +172,53 @@ class MetricsPlugin(BasePlugin):
         """
         if getattr(self, "service", None) is None:
             self.service = MetricsService(self.services.require(SERVICE_DATASOURCE))
+        interval = self.config.get("collection_interval")
+        if interval is None:
+            interval = self._interval_from_the_old_setting()
+        if interval is not None:
+            metrics_collector.collection_interval = int(interval)
         return True
+
+    def _interval_from_the_old_setting(self) -> Optional[int]:
+        """``KeepupSettings.performance.metrics_interval``, until it goes away.
+
+        The interval belongs to this capability now -- ``collection_interval`` in
+        the plugin's own config -- and the kernel's field is read here, with a
+        warning, so a deployment that set it keeps its numbers until 0.6.0.
+        """
+        settings = getattr(self.plugin_manager, "settings", None)
+        value = getattr(getattr(settings, "performance", None), "metrics_interval", None)
+        if value is not None:
+            warnings.warn(
+                "KeepupSettings.performance.metrics_interval moved to the metrics plugin's "
+                "own setting (collection_interval) and goes away in 0.6.0",
+                DeprecationWarning,
+                stacklevel=2,
+            )
+        return value
+
+    async def post_construct(self):
+        """Start the two loops this capability is: collection and snapshot lifetime.
+
+        They used to be ``asyncio.create_task`` calls in the kernel's lifespan,
+        which is why a deployment that never installed this distribution still
+        collected numbers and swept the table (keepup-112, keepup-124).
+        """
+        self._tasks = [
+            asyncio.create_task(update_metrics_background()),
+            asyncio.create_task(metrics_retention_background()),
+        ]
+
+    async def cleanup(self):
+        """Stop them; the runtime calls this on shutdown."""
+        tasks, self._tasks = getattr(self, "_tasks", []), []
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
 
     def get_declared_tables(self):
         """The table this capability owns, declared once, until keepup-124."""
@@ -186,16 +242,21 @@ class MetricsPlugin(BasePlugin):
         }]
 
     def get_api_routes(self):
-        """A scrape for Prometheus, and two views for the panel."""
+        """A scrape for Prometheus, two views for the panel, and one replica's own."""
+        public = bool(getattr(getattr(self.plugin_manager, "settings", None), "metrics_public", False))
         return [
             {"path": "/metrics", "methods": ["GET"], "handler": self.scrape,
-             "require_auth": False, "audit": False, "response_media_type": "text/plain"},
+             "require_auth": not public, "audit": False, "response_media_type": "text/plain"},
             {"path": "/api/admin/metrics/system", "methods": ["GET"],
              "handler": self.system,
              "params": {"fresh_minutes": {"type": "int", "in": "query", "min": 1, "max": 1440}}},
             {"path": "/api/admin/metrics/history", "methods": ["GET"],
              "handler": self.history_over_time,
              "params": {"hours": {"type": "int", "in": "query", "min": 1, "max": 720}}},
+            {"path": "/api/admin/instances/{instance_id}", "methods": ["GET"],
+             "handler": self.instance},
+            {"path": "/api/admin/instances/{instance_id}/restart", "methods": ["POST"],
+             "handler": self.restart},
         ]
 
     def get_handlers(self):
@@ -213,6 +274,35 @@ class MetricsPlugin(BasePlugin):
     async def history_over_time(self, current_user=None, hours: int = PANEL_HISTORY_HOURS):
         """A few metrics over the last hours."""
         return await self.service.history(hours)
+
+    async def instance(self, instance_id: str, current_user=None):
+        """One replica's latest numbers, as the panel's detail view asks for them."""
+        rows = await self.service.datasource.execute(
+            "SELECT timestamp FROM system_metrics WHERE app_instance = :instance"
+            " ORDER BY timestamp DESC LIMIT 1",
+            {"instance": instance_id},
+        )
+        details = {"instance_id": instance_id, "is_online": False,
+                   "current_metrics": {}, "recent_events": [], "uptime": "Unknown"}
+        if not rows:
+            return details
+        details["is_online"] = True
+        details["last_update"] = _as_text(dict(rows[0]).get("timestamp"))
+        # The same names the summary uses: one list for both doors, or they
+        # drift apart and the only one to notice is the person who sees one of
+        # them empty and the other full.
+        details["current_metrics"] = {
+            field: get_latest_metric_value(instance_id, name) * scale
+            for field, (name, scale) in PANEL_METRICS.items()
+        }
+        return details
+
+    async def restart(self, instance_id: str, current_user=None):
+        """The cluster's restart command for one replica, recorded with its author."""
+        from keepup import cluster
+
+        return await cluster.give_command(instance_id, {"action": cluster.ACTION_RESTART},
+                                          current_user)
 
 
 def _ago(minutes: int = 0, hours: int = 0) -> str:
