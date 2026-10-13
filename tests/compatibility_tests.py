@@ -27,7 +27,10 @@ def test_every_name_that_moves_has_a_destination():
 
 def test_a_name_below_a_moved_one_maps_under_it():
     """A module that moves takes what is under it with it."""
-    assert compat.destination_of("keepup.auth.user_roles") == "keepup_users.roles"
+    # The roles module lives in the sign-in's distribution; the map said
+    # `keepup_users.roles`, which never existed, so the stand-in pointed at a
+    # missing home (keepup-113).
+    assert compat.destination_of("keepup.auth.user_roles") == "keepup_auth.user_roles"
     assert compat.destination_of("keepup.not_moved") is None
 
 
@@ -186,7 +189,7 @@ def test_only_the_names_whose_module_is_gone_are_stood_in():
     installed = compat.install()
     moved = {"keepup.auth", "keepup.db", "keepup.tables", "keepup.positional_sql",
              "keepup.events", "keepup.metrics", "keepup.metrics_api",
-             "keepup.metrics_retention", "keepup.scheduler"}
+             "keepup.metrics_retention", "keepup.scheduler", "keepup.modules"}
     assert moved <= set(installed)
     for name in installed:
         assert name in moved, (

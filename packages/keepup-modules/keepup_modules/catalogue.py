@@ -14,11 +14,12 @@ import logging
 import time
 from typing import Any, Dict, List, Optional
 
+import keepup
 from fastapi import Depends, HTTPException
 from pydantic import BaseModel
 
-from keepup.auth.dependencies import get_current_admin, get_current_user
-from keepup.auth import user_roles
+from keepup_auth.dependencies import get_current_admin, get_current_user
+from keepup_auth import user_roles
 from keepup import admin_trail, cache
 from keepup.logging_setup import for_log
 
@@ -92,7 +93,7 @@ class RoleModulesUpdate(BaseModel):
 
 def get_all_modules_from_db():
     """Return every module from the database."""
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     return DatabaseManagerV2.execute('''
     SELECT * FROM frontend_modules 
     WHERE is_active = TRUE 
@@ -102,7 +103,7 @@ def get_all_modules_from_db():
 
 def get_module_by_id(module_id: str):
     """Return a module by id."""
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     return DatabaseManagerV2.execute_one('''
     SELECT * FROM frontend_modules 
     WHERE module_id = :module_id AND is_active = TRUE
@@ -158,7 +159,7 @@ def _sections_changed() -> None:
 
 
 def _read_modules_for_role(role_name: str):
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     return DatabaseManagerV2.execute('''
     SELECT fm.* 
     FROM frontend_modules fm
@@ -172,7 +173,7 @@ def _read_modules_for_role(role_name: str):
 
 def create_or_update_module(module_data: Dict[str, Any]):
     """Create or update a module."""
-    from keepup.db import DatabaseManagerV2, db_config
+    from keepup_db import DatabaseManagerV2, db_config
     try:
         module_id = module_data['id']
         logger.info(f"=== Processing module: {module_id} ===")
@@ -264,7 +265,7 @@ def _changed_entry(existing: Dict[str, Any], changes: Dict[str, Any]) -> Dict[st
 
 def update_role_modules(role_name: str, module_ids: List[str]):
     """Update the modules granted to a role."""
-    from keepup.db import DatabaseManagerV2, db_config
+    from keepup_db import DatabaseManagerV2, db_config
     DatabaseManagerV2.execute_commit('''
     UPDATE role_modules 
     SET is_active = FALSE 
@@ -289,7 +290,7 @@ def update_role_modules(role_name: str, module_ids: List[str]):
 
 def delete_module(module_id: str):
     """Delete a module (soft delete)."""
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     DatabaseManagerV2.execute_commit('''
     UPDATE frontend_modules 
     SET is_active = FALSE, updated_at = CURRENT_TIMESTAMP
@@ -322,13 +323,17 @@ def import_modules_from_json():
 #: The catalogue the framework ships. Resolved from this file's location, like
 #: the panel shell: it is data of the package, and the process may have been
 #: started anywhere.
-FRAMEWORK_SECTIONS = str(Path(__file__).resolve().parent / "sections.json")
+#: The framework's own declaration of its sections ships with the package the
+#: capability is built on, and there is one such file, not two (keepup-113).
+FRAMEWORK_SECTIONS = str(Path(keepup.__file__).resolve().parent / "sections.json")
 
 
 _INSERT_SECTION_IF_NEW = (
     "INSERT INTO frontend_modules (module_id, name, description, js_path, css_path, "
-    "init_function, version, config) "
-    "VALUES (:id, :name, :description, :js, :css, :init, :version, :config) "
+    "init_function, icon, handler_function, route_path, section_id, admin_only, "
+    "nav_order, declared_by, version, config) "
+    "VALUES (:id, :name, :description, :js, :css, :init, :icon, :handler, :route, "
+    ":section_id, :admin_only, :nav_order, :declared_by, :version, :config) "
     "ON CONFLICT (module_id) DO NOTHING")
 
 _INSERT_GRANT_IF_NEW = (
@@ -336,11 +341,58 @@ _INSERT_GRANT_IF_NEW = (
     "VALUES (:role, :module_id, TRUE) ON CONFLICT (role_name, module_id) DO NOTHING")
 
 
-def _section_row(section: Dict[str, Any]) -> Dict[str, Any]:
+#: The fields the declaring plugin owns: they are code, and the code knows
+#: where its files are. An administrator's name, description, is_active and
+#: grants are never in this list (doc/plugin_constructor.md, 9.1).
+_CODE_OWNED = ("js_path", "css_path", "init_function", "icon", "handler_function",
+               "route_path", "section_id", "admin_only", "nav_order")
+
+
+def _repoint_statement() -> str:
+    """The update that gives the declaring plugin its own fields back.
+
+    Nothing an administrator owns is touched: not `name`, not `description`,
+    not `is_active`, not a grant. A deployment that has been running since
+    before a move keeps `/static/modules/js/users.js` otherwise, the file is
+    not there any more, and the section breaks silently.
+    """
+    from keepup_db import db_config
+
+    changed = " OR ".join(f"{field} IS DISTINCT FROM :{field}" for field in _CODE_OWNED)
+    if db_config.is_postgres():
+        return (f"UPDATE frontend_modules SET {_assignment()} WHERE module_id = :id "
+                f"AND ({changed})")
+    not_is = " OR ".join(f"{field} IS NOT :{field}" for field in _CODE_OWNED)
+    return f"UPDATE frontend_modules SET {_assignment()} WHERE module_id = :id AND ({not_is})"
+
+
+def _assignment() -> str:
+    """`field = :field` for every field the declaring plugin owns."""
+    return ", ".join(f"{field} = :{field}" for field in _CODE_OWNED)
+
+
+def _repoint_params(section: Dict[str, Any]) -> Dict[str, Any]:
+    """The values of those fields, as the catalogue entry declares them."""
+    row = _section_row(section)
+    return {"id": section["id"], "js_path": row["js"], "css_path": row["css"],
+            "init_function": row["init"],
+            "icon": row["icon"], "handler_function": row["handler"],
+            "route_path": row["route"], "section_id": row["section_id"],
+            "admin_only": row["admin_only"], "nav_order": row["nav_order"]}
+
+
+def _section_row(section: Dict[str, Any], declared_by: str = "sections.json") -> Dict[str, Any]:
     """A catalogue entry as the parameters of _INSERT_SECTION_IF_NEW."""
     return {"id": section["id"], "name": section["name"],
             "description": section.get("description"), "js": section.get("js"),
             "css": section.get("css"), "init": section.get("initFunction"),
+            "icon": section.get("icon"),
+            "handler": section.get("handlerFunction"),
+            "route": section.get("routePath"),
+            "section_id": section.get("sectionId"),
+            "admin_only": bool(section.get("adminOnly", False)),
+            "nav_order": section.get("order"),
+            "declared_by": declared_by,
             "version": section.get("version", "1.0.0"),
             "config": json.dumps(section.get("config", {}))}
 
@@ -377,7 +429,7 @@ def sync_framework_sections(path: str = FRAMEWORK_SECTIONS) -> Dict[str, int]:
     Returns:
         How many rows were added and how many had their paths corrected.
     """
-    from keepup.db import DatabaseManagerV2, db_config
+    from keepup_db import DatabaseManagerV2, db_config
     counted = {"modules": 0, "repointed": 0, "grants": 0}
     try:
         with open(path, "r", encoding="utf-8") as catalogue:
@@ -393,15 +445,7 @@ def sync_framework_sections(path: str = FRAMEWORK_SECTIONS) -> Dict[str, int]:
                 _INSERT_SECTION_IF_NEW, _section_row(section)))
 
             counted["repointed"] += max(0, DatabaseManagerV2.execute_commit(
-                "UPDATE frontend_modules SET js_path = :js, css_path = :css, "
-                "init_function = :init WHERE module_id = :id "
-                "AND (js_path IS DISTINCT FROM :js OR css_path IS DISTINCT FROM :css)"
-                if db_config.is_postgres() else
-                "UPDATE frontend_modules SET js_path = :js, css_path = :css, "
-                "init_function = :init WHERE module_id = :id "
-                "AND (js_path IS NOT :js OR css_path IS NOT :css)",
-                {"js": section.get("js"), "css": section.get("css"),
-                 "init": section.get("initFunction"), "id": section["id"]}))
+                _repoint_statement(), _repoint_params(section)))
         except Exception as error:
             logger.warning("Framework section %s not synchronised: %s",
                            section.get("id"), error)
@@ -440,7 +484,7 @@ def sync_new_modules_from_json(path: str = None) -> Dict[str, int]:
         path: the catalogue to read; the deployment's own by default, which is
             the path the application named (configure()).
     """
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     path = path or MODULES_CONFIG_PATH
     added = {"modules": 0, "grants": 0}
     try:
@@ -581,7 +625,7 @@ def register_module_routes(app):
     @app.get("/api/admin/role-modules")
     def get_role_modules(admin: dict = Depends(get_current_admin)):
         """Return the modules granted to each role."""
-        from keepup.db import DatabaseManagerV2
+        from keepup_db import DatabaseManagerV2
         roles_modules = {}
         roles = DatabaseManagerV2.execute('''
         SELECT DISTINCT role_name FROM role_modules WHERE is_active = TRUE
@@ -624,7 +668,7 @@ def register_module_routes(app):
     @app.post("/api/admin/modules/export-to-json")
     def export_modules_to_json_endpoint(admin: dict = Depends(get_current_admin)):
         """Export the modules to the JSON file."""
-        from keepup.db import DatabaseManagerV2
+        from keepup_db import DatabaseManagerV2
         try:
             modules = get_all_modules_from_db()
             roles_modules = {}

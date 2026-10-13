@@ -63,7 +63,7 @@ def test_the_start_seeds_the_catalogue_the_application_named(tmp_path):
     """The plugins already came up from it; the sections did not."""
     path = catalogue(tmp_path, "catalogue-98-start")
 
-    app = create_app(bare_settings(plugins_config_path=str(path)))
+    app = create_app(bare_settings(plugins_config_path=str(path), profile="panel"))
     with TestClient(app):
         pass
 
@@ -106,7 +106,7 @@ def test_a_missing_catalogue_is_a_warning_and_not_a_refusal(tmp_path):
     """A panel with only the framework's sections is bad; a server that will
     not boot is worse."""
     app = create_app(bare_settings(
-        plugins_config_path=str(tmp_path / "nothing.json")))
+        plugins_config_path=str(tmp_path / "nothing.json"), profile="panel"))
 
     with TestClient(app):
         pass

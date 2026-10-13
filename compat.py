@@ -42,10 +42,11 @@ MOVED: Dict[str, str] = {
     "keepup.metrics": "keepup_metrics",
     "keepup.metrics_api": "keepup_metrics.api",
     "keepup.metrics_retention": "keepup_metrics.retention",
+    "keepup.modules": "keepup_modules.catalogue",
     "keepup.integrations": "keepup_integration_log",
     "keepup.themes": "keepup_ui.themes",
     "keepup.auth": "keepup_auth",
-    "keepup.auth.user_roles": "keepup_users.roles",
+    "keepup.auth.user_roles": "keepup_auth.user_roles",
 }
 
 #: The same names, for a caller that wants the short form.
@@ -135,8 +136,11 @@ class _Moved(types.ModuleType):
         if item.startswith("_"):
             self.__dict__[item] = value
             return
+        # Forwarded, and *not* copied here: a copy of its own shadows the
+        # stand-in's own `__getattr__`, so every later read answered with the
+        # value as it was at the write and the module's real one was invisible
+        # (keepup-113, found by the catalogue's path check).
         setattr(self._target(), item, value)
-        self.__dict__[item] = value
 
     def _alias_submodules(self, target) -> None:
         """Give a moved submodule its old name as well, and the same object.

@@ -52,6 +52,9 @@ OPTIONAL_CAPABILITY_IMPORTS = {
     "keepup_audit": "keepup-audit",
     "keepup_auth": "keepup-auth",
     "keepup_ui": "keepup-ui",
+    # `schema.py` re-exports the catalogue's tables for one release (keepup-113);
+    # the base references the distribution without depending on it.
+    "keepup_modules": "keepup-modules",
 }
 
 DEPENDENCY_IMPORTS = {

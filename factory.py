@@ -289,13 +289,10 @@ def _build_lifespan(settings: KeepupSettings):
         await asyncio.to_thread(init_incoming_requests_table)
 
         # The catalogue the application named reaches the panel here as well as
-        # in init_db(): an application calls init_db() itself, usually before
-        # create_app() and with no path, so its sections were seeded from
-        # config/modules.json -- which need not be there at all -- and the
-        # panel came up with the framework's own sections only (keepup-98).
-        # Idempotent: only rows the database has never seen are written.
-        await asyncio.to_thread(modules.sync_new_modules_from_json,
-                                settings.plugins_config_path)
+        # The catalogue is imported by the capability that owns it, on the
+        # freeze (keepup-113): it is the union of the framework's own sections,
+        # the application's file and what the running plugins declare, and the
+        # last of those is only known once every plugin has been loaded.
         # The four loops the framework used to start here -- the audit buffer,
         # the audit sweep, the event log's sweep and the socket sweep -- belong
         # to the capabilities that own them and start with their plugins

@@ -43,7 +43,8 @@ from keepup_users.tables import (  # noqa: E402
 
 # The panel declares the section catalogue and the grants (keepup-124); they are
 # re-exported here so the path that predates the catalogue still creates them.
-from keepup_ui.tables import FRONTEND_MODULES, ROLE_MODULES  # noqa: E402
+from keepup_modules.tables import (  # noqa: E402
+    FRONTEND_MODULES, PLUGIN_OVERRIDES, ROLE_MODULES)
 
 DISTRIBUTED_LOCKS = tables.table(
     "distributed_locks",
@@ -67,14 +68,6 @@ from keepup_metrics.tables import SYSTEM_METRICS  # noqa: E402
 # the seed: it is committed and shared between deployments, so a decision
 # about one stand belongs in that stand's own database. Read at start-up
 # by keepup.plugins.enablement; the environment still overrules it.
-PLUGIN_OVERRIDES = tables.table(
-    "plugin_overrides",
-    Column("plugin_id", Text, primary_key=True, nullable=True),
-    Column("enabled", Boolean, nullable=False),
-    Column("changed_by", Integer),
-    Column("changed_at", DateTime, server_default=tables.NOW),
-)
-
 # The replicas of this deployment and the commands addressed to them
 # (task 1, keepup/cluster.py). One row per replica, rewritten by its own
 # heartbeat; `state` is kept here rather than in memory so that a
