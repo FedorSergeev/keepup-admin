@@ -1,5 +1,13 @@
 """What the deployment decided about each plugin, and the surface that shows it.
 
+Task keepup-113. The decision belongs to the modules capability: the kernel
+reads it while it composes the runtime -- a plugin an administrator switched off
+is not loaded at all -- and the panel shows it and changes it. The reading is
+what the kernel keeps (through `keepup.plugins.registry`, which asks this
+distribution and falls back to the file when it is not installed); the overrides
+themselves, the endpoints and the trail an administrator's change leaves live
+here.
+
 Three sources decide whether a declared plugin runs: its own flag in the
 configuration file, an administrator's override kept in this deployment's
 database, and the environment of this stand. The rule itself is
@@ -22,9 +30,9 @@ from typing import Any, Dict
 
 from fastapi import Depends, HTTPException
 
-from keepup.auth.dependencies import get_current_admin, get_current_user
+from keepup_auth import user_roles
+from keepup_auth.dependencies import get_current_admin, get_current_user
 from keepup import admin_trail
-from keepup.auth import user_roles
 from keepup.plugins import enablement
 from keepup.plugins import route_mask
 

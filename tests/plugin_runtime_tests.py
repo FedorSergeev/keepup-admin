@@ -1013,8 +1013,14 @@ def imported_modules(module_name: str):
     import ast
     from pathlib import Path
 
-    source = (Path(__file__).resolve().parents[1] / "plugins"
-              / f"{module_name}.py").read_text(encoding="utf-8")
+    root = Path(__file__).resolve().parents[1]
+    if module_name == "admin":
+        # The administrative surface is the modules capability's now
+        # (keepup-113); the rest of the runtime still lives in `plugins/`.
+        source = (root / "packages" / "keepup-modules" / "keepup_modules"
+                  / "decisions.py").read_text(encoding="utf-8")
+    else:
+        source = (root / "plugins" / f"{module_name}.py").read_text(encoding="utf-8")
     taken = set()
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.ImportFrom) and node.module:

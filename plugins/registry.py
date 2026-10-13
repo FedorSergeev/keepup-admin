@@ -20,15 +20,6 @@ import logging
 import os
 
 from keepup.plugins import enablement
-from keepup.plugins.admin import (
-    MODULES_CONFIG_PATH,
-    clear_plugin_override,
-    get_plugins,
-    get_plugins_status,
-    read_plugin_overrides,
-    register_plugin_admin_routes,
-    write_plugin_override,
-)
 from keepup.plugins.base import (
     OUTCOME_DISABLED,
     OUTCOME_INITIALIZED,
@@ -44,29 +35,29 @@ from keepup.plugins.routes import (
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
 #:
-#: The names below live in keepup.plugins.routes and keepup.plugins.admin and
-#: are published here: one address outwards, whatever the layout inside.
+#: The names below live in keepup.plugins.routes and in the modules capability
+#: and are published here: one address outwards, whatever the layout inside.
 __all__ = [
     "accepted_params",
     "admit_params",
-    "clear_plugin_override",
-    "get_plugins",
-    "get_plugins_status",
+    "clear_plugin_override",  # noqa: F822 - answered from keepup-modules
+    "get_plugins",  # noqa: F822 - answered from keepup-modules
+    "get_plugins_status",  # noqa: F822 - answered from keepup-modules
     "initialize_plugins",
     "load_and_initialize",
     "raw_request_wrapper",
     "read_plugin_overrides",
-    "register_plugin_admin_routes",
+    "register_plugin_admin_routes",  # noqa: F822
     "register_plugin_routes",
     "run_post_construct_processors",
     "signed_in_websocket",
-    "write_plugin_override",
+    "write_plugin_override",  # noqa: F822 - answered from keepup-modules
 ]
 
 logger = logging.getLogger(__name__)
 
 
-async def load_and_initialize(manager, config_path=MODULES_CONFIG_PATH, environ=None):
+async def load_and_initialize(manager, config_path=None, environ=None):
     """Read the declaration, then load and initialise the plugins it enables.
 
     No application is needed and none is touched: loading a plugin and letting it
@@ -87,6 +78,9 @@ async def load_and_initialize(manager, config_path=MODULES_CONFIG_PATH, environ=
     Returns:
         The resolution, or None when the declaration could not be read at all.
     """
+
+    if config_path is None:
+        config_path = _declared_path()
     try:
         with open(config_path, 'r', encoding='utf-8') as f:
             config = json.load(f)
@@ -134,7 +128,51 @@ async def load_and_initialize(manager, config_path=MODULES_CONFIG_PATH, environ=
     return resolution
 
 
-async def initialize_plugins(app, manager, config_path=MODULES_CONFIG_PATH, environ=None):
+#: The decision about a plugin is the modules capability's (keepup-113). It is
+#: read here -- the kernel composes the runtime before any plugin is loaded --
+#: and everything else about it is answered from the distribution.
+_DECISION_NAMES = {
+    "MODULES_CONFIG_PATH", "clear_plugin_override", "get_plugins",
+    "get_plugins_status", "register_plugin_admin_routes", "write_plugin_override",
+}
+
+
+def __getattr__(name):
+    if name in _DECISION_NAMES:
+        from keepup_modules import decisions
+
+        return getattr(decisions, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
+
+
+def _declared_path() -> str:
+    """Where this deployment declares its plugins, asked at call time.
+
+    `configure()` sets it in the modules capability, which is where the decision
+    lives now (keepup-113); a deployment without it keeps the default file.
+    """
+    try:
+        from keepup_modules.decisions import MODULES_CONFIG_PATH
+    except ImportError:
+        return "config/modules.json"
+    return MODULES_CONFIG_PATH
+
+
+def read_plugin_overrides():
+    """What an administrator decided here, or nothing when the capability is absent.
+
+    A deployment that never installed `keepup-modules` has no overrides to read:
+    the declared file and the environment decide, which is what enablement does
+    with an empty mapping (keepup-113).
+    """
+    try:
+        from keepup_modules.decisions import read_plugin_overrides as read
+    except ImportError:
+        return {}
+    return read()
+
+
+async def initialize_plugins(app, manager, config_path=None, environ=None):
     """Load, initialise and bind the plugins to this application.
 
     Route registration is outside the try that the loading phase tolerates: a
@@ -149,6 +187,9 @@ async def initialize_plugins(app, manager, config_path=MODULES_CONFIG_PATH, envi
         config_path: the catalogue the application named.
         environ: the environment the enablement rules read.
 
+
+    if config_path is None:
+        config_path = _declared_path()
     Returns:
         The resolution, or None when the declaration could not be read at all.
     """

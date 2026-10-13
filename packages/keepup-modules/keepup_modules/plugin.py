@@ -64,9 +64,11 @@ class ModulesPlugin(BasePlugin):
     def register(self, services):
         """Publish the catalogue model where there is a database to read it from."""
         if services.has(SERVICE_DATASOURCE):
-            from keepup_modules import catalogue
+            from keepup_modules import catalogue, decisions
 
             services.provide(SERVICE_CATALOGUE, catalogue, version=1, plugin_id="modules")
+            services.provide(SERVICE_PLUGIN_DECISIONS, decisions, version=1,
+                             plugin_id="modules")
 
     async def initialize(self):
         """Nothing to build: the tables are the data source's, the import is the freeze's."""

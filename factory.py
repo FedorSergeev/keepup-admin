@@ -203,8 +203,14 @@ def apply_settings(settings: KeepupSettings) -> None:
     auth_routes.configure_public_config(settings.public_config)
     # The panel's plugin report reads the deployment's own catalogue, wherever
     # the application keeps it -- not the default path (keepup-93).
-    from keepup.plugins import admin as plugins_admin
-    plugins_admin.configure(settings.plugins_config_path)
+    try:
+        from keepup.plugins import admin as plugins_admin
+
+        plugins_admin.configure(settings.plugins_config_path)
+    except ImportError:
+        # The decision about a plugin is the modules capability's (keepup-113);
+        # without it the declared file and the environment decide.
+        logger.info("keepup-modules is not installed: no plugin overrides to read")
     # The catalogue of panel sections and their grants is seeded from the same
     # file, which until keepup-98 was only the default one.
     modules.configure(settings.plugins_config_path)
@@ -606,6 +612,10 @@ def create_app(settings: KeepupSettings = None) -> FastAPI:
     # telling them an account was blocked -- has none to tell then.
     auth_routes.register_auth_routes(app, settings.plugin_manager)
     if settings.plugin_manager is not None:
-        register_plugin_admin_routes(app, settings.plugin_manager)
+        try:
+            register_plugin_admin_routes(app, settings.plugin_manager)
+        except ImportError:
+            # The plugin report belongs to the modules capability (keepup-113).
+            logger.info("keepup-modules is not installed: no plugin report in the panel")
 
     return app

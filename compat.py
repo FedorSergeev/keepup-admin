@@ -43,6 +43,7 @@ MOVED: Dict[str, str] = {
     "keepup.metrics_api": "keepup_metrics.api",
     "keepup.metrics_retention": "keepup_metrics.retention",
     "keepup.modules": "keepup_modules.catalogue",
+    "keepup.plugins.admin": "keepup_modules.decisions",
     "keepup.integrations": "keepup_integration_log",
     "keepup.themes": "keepup_ui.themes",
     "keepup.auth": "keepup_auth",
@@ -124,6 +125,15 @@ class _Moved(types.ModuleType):
         # and reported every name the application takes as undeclared
         # (keepup-125).
 
+    #: What belongs to the stand-in itself and is never forwarded: where the name
+    #: went. Everything else -- including a private helper a check patches --
+    #: belongs to the module that moved. The rule used to be "any name starting
+    #: with an underscore", and that silently swallowed
+    #: `monkeypatch.setattr(admin, "_refuse_if_the_deployment_decides", ...)`:
+    #: the patch landed on the stand-in and the module used its own function
+    #: (keepup-113).
+    _OWN = frozenset({"_destination"})
+
     def __setattr__(self, item, value):
         """Forward a write, so patching a moved module still reaches it.
 
@@ -133,7 +143,7 @@ class _Moved(types.ModuleType):
         would use the wrong one. The framework's own checks do exactly that with
         the table language (keepup-124), which is how this was found.
         """
-        if item.startswith("_"):
+        if item in _Moved._OWN:
             self.__dict__[item] = value
             return
         # Forwarded, and *not* copied here: a copy of its own shadows the
