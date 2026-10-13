@@ -33,7 +33,7 @@ class UiService:
     """What the panel shows: contributed sections, granted ones, and themes.
 
     It is a reading of what the runtime collected plus the catalogue the panel
-    keeps in the database (`keepup.modules`), so a caller never learns which of
+    keeps in the database (`keepup_modules.catalogue`), so a caller never learns which of
     the two answered -- and never imports either.
     """
 
@@ -66,7 +66,7 @@ class UiService:
         if self.datasource is None:
             return self.contributed_sections()
         try:
-            from keepup import modules
+            from keepup_modules import catalogue as modules
 
             return modules.get_modules_for_roles(user or {})
         except Exception as error:  # noqa: BLE001 - a catalogue that cannot be read is not a broken panel

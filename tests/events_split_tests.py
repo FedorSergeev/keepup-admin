@@ -1,6 +1,6 @@
 """The event log apart from its HTTP routes (keepup-23).
 
-``keepup/events.py`` is the journal -- the table, writing, reading, retention;
+``keepup_audit/events.py`` is the journal -- the table, writing, reading, retention;
 ``keepup_http/events_api.py`` holds its routes. A module that only emits events does
 not load FastAPI, and the routes read the journal like any other reader.
 
@@ -10,12 +10,10 @@ not load FastAPI, and the routes read the journal like any other reader.
 import ast
 import subprocess
 import sys
-import warnings
 from pathlib import Path
 
-import pytest
 
-from keepup import events
+from keepup_audit import events
 from keepup_http import events_api
 
 PACKAGE = Path(__file__).resolve().parents[1]
@@ -47,16 +45,16 @@ def module_imports(path: Path):
 
 def test_the_journal_knows_nothing_of_the_web_or_its_routes():
     # By name, not by path: the journal may live in its distribution (keepup-124).
-    from keepup.tests.repository import source_of
 
-    loaded = module_imports(source_of("keepup.events"))
+    journal = (PACKAGE / "packages" / "keepup-audit" / "keepup_audit" / "events.py")
+    loaded = module_imports(journal)
     assert not {name for name in loaded
                 if name.startswith(("fastapi", "pydantic", "keepup_http.events_api",
                                     "keepup.auth"))}
 
 
 def test_emitting_an_event_does_not_load_the_routes():
-    probe = "import sys, keepup.events; print('keepup_http.events_api' in sys.modules)"
+    probe = "import sys, keepup_audit.events; print('keepup_http.events_api' in sys.modules)"
     out = subprocess.run([sys.executable, "-c", probe], cwd=REPO, capture_output=True,
         env=_paths(),
                          text=True, check=True).stdout.strip()
@@ -67,22 +65,7 @@ def test_the_routes_read_the_journal_the_application_writes():
     assert events_api.events is events
 
 
-@pytest.mark.parametrize("name", sorted(events._MOVED_TO_API))
-def test_a_moved_name_still_answers_and_says_where_it_went(name):
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        value = getattr(events, name)
-    assert value is getattr(events_api, name)
-    assert any(f"keepup.events_api.{name}" in str(w.message) for w in caught)
-
-
-def test_the_application_serves_the_same_routes():
-    from keepup.factory import create_app
-    from keepup.settings import KeepupSettings
-    from fastapi.testclient import TestClient
-
-    app = create_app(KeepupSettings(title="Events", static_mounts=(), plugin_manager=None))
-    with TestClient(app):
-        paths = {route.path for route in app.routes}
-    assert {"/api/events", "/api/events/types", "/api/events/instances",
-            "/api/events/cleanup", "/api/events/stats"} <= paths
+def test_the_kernel_keeps_no_copy_of_the_journal():
+    """The journal is the audit capability's; the base has no events module."""
+    assert not (PACKAGE / "events.py").exists(), "the journal is back in the base"
+    assert events.__name__ == "keepup_audit.events"

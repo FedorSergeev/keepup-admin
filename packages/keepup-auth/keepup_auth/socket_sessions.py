@@ -28,7 +28,7 @@ import os
 import weakref
 from typing import Any, Dict, Iterable, Optional, Set
 
-from keepup.db import DatabaseManagerV2
+from keepup_db import DatabaseManagerV2
 
 logger = logging.getLogger(__name__)
 

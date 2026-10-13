@@ -276,5 +276,5 @@ def register_metrics_routes(app, public=False):
         cluster registry is what actually carries a command to a replica, and it
         refuses one that cannot be carried out with the reason.
         """
-        from keepup import cluster
+        from keepup_cluster import cluster as cluster
         return await cluster.give_command(instance_id, {"action": cluster.ACTION_RESTART}, admin)

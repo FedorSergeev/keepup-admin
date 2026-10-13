@@ -7,7 +7,8 @@ from fastapi import Depends, HTTPException
 
 from keepup_auth.dependencies import get_current_admin
 
-from keepup import admin_trail, cache
+from keepup_audit import trail as admin_trail
+from keepup import cache
 from keepup_db import DatabaseManagerV2, tables
 
 #: What an application may import from this module. Everything else is
@@ -262,7 +263,7 @@ class ConfigService:
     def _read_active_theme(self) -> Optional[Dict[str, Any]]:
         result = DatabaseManagerV2.execute_one(self.GET_ACTIVE_THEME_SQL)
         if result and 'is_active' in result:
-            from keepup.db import db_config
+            from keepup_db import db_config
             if db_config.is_sqlite():
                 result['is_active'] = bool(result['is_active'])
         return result
@@ -302,7 +303,7 @@ class ConfigService:
         self._ensure_ready()
         try:
             themes = DatabaseManagerV2.execute(self.GET_ALL_THEMES_SQL)
-            from keepup.db import db_config
+            from keepup_db import db_config
             for theme in themes:
                 if db_config.is_sqlite() and 'is_active' in theme:
                     theme['is_active'] = bool(theme['is_active'])
@@ -351,8 +352,8 @@ class ConfigService:
             int: id of the created theme, or None on error.
         """
         self._ensure_ready()
-        from keepup.db import db_config
-        from keepup.web import static_page
+        from keepup_db import db_config
+        from keepup_http.web import static_page
 
         # Checked here as well as when the page is served. Authorisation alone
         # would leave an administrator reading the whole file system of the

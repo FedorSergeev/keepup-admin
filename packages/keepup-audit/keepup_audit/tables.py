@@ -1,6 +1,6 @@
 """The tables of the audit capability, declared where it lives.
 
-Task keepup-124. `keepup.audit` and `keepup.events` re-export them for one
+Task keepup-124. `keepup_audit.audit` and `keepup_audit.events` re-export them for one
 release, so the path that predates the catalogue still creates them and every
 reader keeps working; the declarations belong to the capability that keeps the
 rows -- the calls that came in and the events the application decided about.

@@ -1,6 +1,6 @@
 """The theme table, declared where the capability lives.
 
-Task keepup-124. `keepup.themes` and `keepup.schema` re-export it for one
+Task keepup-124. `keepup_ui.themes` and `keepup_db.schema` re-export it for one
 release, so the path that predates the catalogue still creates it and every
 reader keeps working. The catalogue's own two tables left for `keepup-modules`
 in keepup-113: the panel draws the navigation, the catalogue owns the model.

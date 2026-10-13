@@ -5,12 +5,12 @@ creates nothing itself: the pool, the dialect registry and the creation of
 declared tables are the abstraction's business
 (``doc/capabilities-out-of-the-kernel.md``, card 3).
 
-The knowledge is the framework's current configuration (``keepup.db.db_config``)
+The knowledge is the framework's current configuration (``keepup_db.db_config``)
 until the driver travels in a distribution of its own and keeps its own
 (keepup-124).
 """
 
-from keepup.db import db_config
+from keepup_db import db_config
 from keepup.kernel.datasource import SERVICE_DATASOURCE_DRIVER, DriverSpec
 from keepup.kernel.descriptor import KIND_REQUIRED, PluginDescriptor
 from keepup.plugins.base import BasePlugin

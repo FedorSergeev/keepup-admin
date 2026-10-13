@@ -25,7 +25,7 @@ from keepup_auth.dependencies import (
     get_user_by_id,
     update_user,
 )
-from keepup.db import DatabaseManagerV2
+from keepup_db import DatabaseManagerV2
 from keepup.instance import get_instance_id
 
 #: What an application may import from this module. Everything else is

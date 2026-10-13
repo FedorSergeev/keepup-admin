@@ -489,8 +489,8 @@ _MOVED_TO_API = {"register_event_api_routes", "AppEvent", "EventCreate", "EventL
 def __getattr__(name):
     if name in _MOVED_TO_API:
         import warnings
-        from keepup import events_api
-        warnings.warn(f"keepup.events.{name} moved to keepup.events_api.{name}",
+        from keepup_http import events_api as events_api
+        warnings.warn(f"keepup_audit.events.{name} moved to keepup_http.events_api.{name}",
                       DeprecationWarning, stacklevel=2)
         return getattr(events_api, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

@@ -26,7 +26,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from keepup import audit
+from keepup_audit import audit
 from keepup import notification_bus
 from keepup_cluster import cluster
 from keepup_http import web
@@ -39,7 +39,7 @@ from keepup_auth import routes as auth_routes
 from keepup_auth import panel_session, socket_sessions
 from keepup_auth.oidc_routes import register_oidc_routes
 from keepup_auth.identity import runtime as identity_runtime
-from keepup.events import init_event_manager
+from keepup_audit.events import init_event_manager
 from keepup_http.events_api import register_event_api_routes
 from keepup.instance import get_instance_id
 from keepup_http.lock_routes import register_lock_routes
@@ -141,7 +141,7 @@ def apply_performance(performance) -> None:
     create_app (their init_db). It is closed then, and the next query opens one
     with the application's values -- safe at start-up, before any request.
     """
-    from keepup.db import DatabaseManagerV2, db_config
+    from keepup_db import DatabaseManagerV2, db_config
     if db_config.apply_pool(performance.db_pool_size, performance.db_pool_max_overflow,
                             performance.db_pool_timeout, performance.db_pool_recycle,
                             performance.db_pool_ping_after_idle):
@@ -171,7 +171,7 @@ def apply_settings(settings: KeepupSettings) -> None:
     if not settings.database_dialect:
         # The framework's configuration is the default; naming the dialect lets
         # the kernel choose a driver without importing a database (keepup-123).
-        from keepup.db import db_config as _db_config
+        from keepup_db import db_config as _db_config
         settings.database_dialect = "postgresql" if _db_config.is_postgres() else "sqlite"
     # Who is calling and what they may do, behind the two names the kernel owns
     # (keepup-119). Until keepup-auth is a plugin of its own this is the
@@ -182,7 +182,7 @@ def apply_settings(settings: KeepupSettings) -> None:
     # (keepup-111). Until keepup-audit is a plugin this is the framework's own,
     # and it is built here rather than imported from the plugin file: the
     # framework's own plugins are data of the package, not a module of it.
-    from keepup.audit import IncomingRequestLogger, log_api_request
+    from keepup_audit.audit import IncomingRequestLogger, log_api_request
     observability.set_recording(observability.Recording(
         start=log_api_request, end=IncomingRequestLogger.end_request, name="keepup audit"))
     security.set_identity(security.Identity(
@@ -518,7 +518,7 @@ def create_app(settings: KeepupSettings = None) -> FastAPI:
     # (keepup/body_limit.py). Inside the version middleware, so it matches the
     # registered path; it finds the route itself, before routing, since a body
     # read by the route is a body already received.
-    from keepup.body_limit import BodyLimitMiddleware
+    from keepup_http.body_limit import BodyLimitMiddleware
     app.add_middleware(BodyLimitMiddleware, router_of=app,
                        default_limit=(settings.max_upload_bytes
                                       if settings.max_upload_bytes is not None

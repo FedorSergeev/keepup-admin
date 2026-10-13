@@ -25,7 +25,7 @@ from keepup_auth.signing_key import resolve_signing_key
 from keepup_auth import user_roles
 from keepup.roles import ROLE_CLIENT
 from keepup_auth.config import auth_config
-from keepup.db import DatabaseManagerV2
+from keepup_db import DatabaseManagerV2
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.

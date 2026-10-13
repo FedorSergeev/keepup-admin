@@ -40,7 +40,7 @@ class DatabaseLock:
 
     async def acquire(self) -> bool:
         """Take the lock, clearing stale holders first."""
-        from keepup.db import DatabaseManagerV2
+        from keepup_db import DatabaseManagerV2
         try:
             await self._cleanup_stale_locks()
             # The application's UTC, not the database's CURRENT_TIMESTAMP: the
@@ -68,7 +68,7 @@ class DatabaseLock:
 
     async def _cleanup_stale_locks(self):
         """Clear locks held longer than max_lock_time."""
-        from keepup.db import DatabaseManagerV2
+        from keepup_db import DatabaseManagerV2
         try:
             cutoff_time = datetime.utcnow() - timedelta(seconds=self.max_lock_time)
             cleanup_query = '''
@@ -93,7 +93,7 @@ class DatabaseLock:
 
     async def _try_acquire_existing(self) -> bool:
         """Take over an existing lock when it has expired."""
-        from keepup.db import DatabaseManagerV2
+        from keepup_db import DatabaseManagerV2
         try:
             lock = await DatabaseManagerV2.execute_one_async(
                 "SELECT * FROM distributed_locks WHERE lock_name = :lock_name",
@@ -138,7 +138,7 @@ class DatabaseLock:
         Returns:
             Whether the row was still ours to move.
         """
-        from keepup.db import DatabaseManagerV2
+        from keepup_db import DatabaseManagerV2
         if not self.acquired:
             return False
         try:
@@ -160,7 +160,7 @@ class DatabaseLock:
 
     async def release(self):
         """Release the lock."""
-        from keepup.db import DatabaseManagerV2
+        from keepup_db import DatabaseManagerV2
         if not self.acquired:
             return
 
@@ -299,7 +299,7 @@ def lock_stats(now: datetime = None) -> dict:
     date function only SQLite has, and on PostgreSQL -- every real deployment --
     the route failed (keepup-40).
     """
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     now = now or datetime.utcnow()
     total = DatabaseManagerV2.execute_one("SELECT COUNT(*) AS count FROM distributed_locks")
     by_instance = DatabaseManagerV2.execute(

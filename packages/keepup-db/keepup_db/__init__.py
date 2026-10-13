@@ -5,7 +5,7 @@ This distribution provides `datasource` and declares one plugin,
 for the constructor -- the descriptor, the catalogue, the service registry and
 the lifecycle -- and on nothing of another capability.
 
-`keepup.db` moved here in keepup-124, and the old name keeps working for one
+`keepup_db` moved here in keepup-124, and the old name keeps working for one
 release: `keepup.compat` answers for it and names this distribution when it is not
 installed. The three names below are the declaration the moved module carried.
 """

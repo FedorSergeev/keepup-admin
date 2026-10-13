@@ -176,7 +176,7 @@ def register_web_routes(app):
         try:
             # Taken here, not at the top of the module: importing the framework
             # must not load a database (keepup-127).
-            from keepup.db import DatabaseManagerV2
+            from keepup_db import DatabaseManagerV2
 
             db_status = DatabaseManagerV2.test_connection()
         except Exception as e:
@@ -204,7 +204,7 @@ def register_web_routes(app):
         try:
             # Taken here, not at the top of the module: importing the framework
             # must not load a database (keepup-127).
-            from keepup.db import DatabaseManagerV2
+            from keepup_db import DatabaseManagerV2
 
             db_status = DatabaseManagerV2.test_connection()
         except Exception as e:

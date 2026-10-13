@@ -6,11 +6,11 @@ SQLite cannot answer ``INSERT ... RETURNING`` in the shapes the framework uses,
 and it cannot carry a message between replicas -- both are said here, in the one
 place that knows, rather than discovered by a capability at run time.
 
-The knowledge is the framework's current configuration (``keepup.db.db_config``)
+The knowledge is the framework's current configuration (``keepup_db.db_config``)
 until the driver travels in a distribution of its own (keepup-124).
 """
 
-from keepup.db import db_config
+from keepup_db import db_config
 from keepup.kernel.datasource import SERVICE_DATASOURCE_DRIVER, DriverSpec
 from keepup.kernel.descriptor import KIND_REQUIRED, PluginDescriptor
 from keepup.plugins.base import BasePlugin

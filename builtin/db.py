@@ -4,7 +4,7 @@ Task keepup-124, first slice. `keepup/kernel/datasource.py` owns the shapes and
 the two names (keepup-106), the drivers answer with `spec()` (keepup-107,
 keepup-108) -- and nobody published `datasource`, so no capability could reach
 storage through it. This is the plugin that does: it requires a driver, publishes
-the service built on the framework's current manager (`keepup.db`), and creates
+the service built on the framework's current manager (`keepup_db`), and creates
 nothing itself except what capabilities declare.
 
 It answers the abstraction with the manager, so the dialect, the pool and the
@@ -17,7 +17,7 @@ deployment that talks to a database, and every capability asks it by name.
 import logging
 from typing import Any, Dict, List, Mapping, Optional
 
-from keepup.db import DatabaseManagerV2, db_config
+from keepup_db import DatabaseManagerV2, db_config
 from keepup.kernel.datasource import (
     SERVICE_DATASOURCE,
     SERVICE_DATASOURCE_DRIVER,

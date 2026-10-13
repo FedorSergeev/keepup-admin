@@ -2,7 +2,7 @@
 
 Task keepup-117. `cluster_members` and `cluster_commands` were declared by the
 kernel's `schema.py`, so every deployment created them whether or not it ran
-more than one replica. `keepup.schema` re-exports them for one release, which
+more than one replica. `keepup_db.schema` re-exports them for one release, which
 is what a path written before the split still imports.
 """
 

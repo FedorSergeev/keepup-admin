@@ -39,7 +39,7 @@ class PostgresTransport(Transport):
 
     async def start(self, channel: str, receive: Callable[[str], None]) -> bool:
         """Listen on the application's channel, reopening the connection after a break."""
-        from keepup.db import db_config
+        from keepup_db import db_config
 
         if not db_config.is_postgres():
             logger.info("Notifications need PostgreSQL; this deployment carries them "
@@ -72,7 +72,7 @@ class PostgresTransport(Transport):
         publish held up the listener's reading (keepup-50). `pg_notify` needs no
         LISTEN on the connection that sends it.
         """
-        from keepup.db import DatabaseManagerV2
+        from keepup_db import DatabaseManagerV2
 
         try:
             await DatabaseManagerV2.execute_commit_async(
@@ -99,7 +99,7 @@ class PostgresTransport(Transport):
         for as long as it listens, and a pooled connection handed back would stop
         delivering while still looking reusable.
         """
-        from keepup.db import db_config
+        from keepup_db import db_config
         import asyncpg
 
         return await asyncpg.connect(

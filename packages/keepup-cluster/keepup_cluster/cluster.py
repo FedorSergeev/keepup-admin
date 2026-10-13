@@ -197,7 +197,7 @@ _MEMBER_COLUMNS = ("instance_id", "instance_name", "host", "pid", "build", "star
 def publish_member(member: Dict[str, Any]) -> None:
     """Write this replica's row. Only the replica itself writes it, so an
     update-then-insert has no one to race with."""
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     values = {column: member.get(column) for column in _MEMBER_COLUMNS}
     for column in ("plugins_running", "plugins_pending"):
         values[column] = json.dumps(values[column] or [])
@@ -223,21 +223,21 @@ def _member_from_row(row: Dict[str, Any]) -> Dict[str, Any]:
 
 
 def read_members() -> List[Dict[str, Any]]:
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     rows = DatabaseManagerV2.execute(
         "SELECT * FROM cluster_members ORDER BY instance_name, instance_id", {})
     return [_member_from_row(row) for row in rows]
 
 
 def read_member(instance_id: str) -> Optional[Dict[str, Any]]:
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     row = DatabaseManagerV2.execute_one(
         "SELECT * FROM cluster_members WHERE instance_id = :id", {"id": instance_id})
     return _member_from_row(row) if row else None
 
 
 def write_state(instance_id: str, state: str) -> None:
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     DatabaseManagerV2.execute_commit(
         "UPDATE cluster_members SET state = :state WHERE instance_id = :id",
         {"state": state, "id": instance_id})
@@ -245,7 +245,7 @@ def write_state(instance_id: str, state: str) -> None:
 
 def record_command(instance_id: str, action: str, forced: bool, requested_by: Optional[int],
                    requested_by_name: Optional[str], now: datetime) -> Optional[int]:
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     row = DatabaseManagerV2.execute_commit_returning(
         "INSERT INTO cluster_commands (instance_id, action, forced, status, requested_by, "
         "requested_by_name, requested_at) VALUES (:instance_id, :action, :forced, :status, "
@@ -257,7 +257,7 @@ def record_command(instance_id: str, action: str, forced: bool, requested_by: Op
 
 
 def open_command_for(instance_id: str) -> Optional[Dict[str, Any]]:
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     return DatabaseManagerV2.execute_one(
         "SELECT * FROM cluster_commands WHERE instance_id = :id "
         "AND status IN (:pending, :executing) ORDER BY id LIMIT 1",
@@ -265,7 +265,7 @@ def open_command_for(instance_id: str) -> Optional[Dict[str, Any]]:
 
 
 def pending_commands_for(instance_id: str) -> List[Dict[str, Any]]:
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     return DatabaseManagerV2.execute(
         "SELECT * FROM cluster_commands WHERE instance_id = :id AND status = :pending ORDER BY id",
         {"id": instance_id, "pending": STATUS_PENDING})
@@ -277,7 +277,7 @@ def claim_command(command_id: int, now: datetime) -> bool:
     A conditional UPDATE rather than SELECT ... FOR UPDATE SKIP LOCKED, which
     is PostgreSQL-only -- and SQLite is the development mode.
     """
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     claimed = DatabaseManagerV2.execute_commit(
         "UPDATE cluster_commands SET status = :executing, claimed_at = :now "
         "WHERE id = :id AND status = :pending",
@@ -286,7 +286,7 @@ def claim_command(command_id: int, now: datetime) -> bool:
 
 
 def finish_command(command_id: int, status: str, result: str, now: datetime) -> None:
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     DatabaseManagerV2.execute_commit(
         "UPDATE cluster_commands SET status = :status, result = :result, finished_at = :now "
         "WHERE id = :id",
@@ -294,7 +294,7 @@ def finish_command(command_id: int, status: str, result: str, now: datetime) -> 
 
 
 def executing_restarts_for(instance_id: str) -> List[Dict[str, Any]]:
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     return DatabaseManagerV2.execute(
         "SELECT * FROM cluster_commands WHERE instance_id = :id AND action = :restart "
         "AND status = :executing ORDER BY id",
@@ -303,7 +303,7 @@ def executing_restarts_for(instance_id: str) -> List[Dict[str, Any]]:
 
 def expire_commands(now: datetime) -> int:
     """Close commands that will never finish, so they stop blocking new ones."""
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     cutoff = now - COMMAND_TTL
     expired = DatabaseManagerV2.execute_commit(
         "UPDATE cluster_commands SET status = :expired, finished_at = :now, "
@@ -319,14 +319,14 @@ def expire_commands(now: datetime) -> int:
 
 
 def prune_members(now: datetime) -> int:
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     return DatabaseManagerV2.execute_commit(
         "DELETE FROM cluster_members WHERE last_seen < :cutoff",
         {"cutoff": now - MEMBER_RETENTION})
 
 
 def recent_commands(limit: int = RECENT_COMMANDS) -> List[Dict[str, Any]]:
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
     return DatabaseManagerV2.execute(
         "SELECT * FROM cluster_commands ORDER BY id DESC LIMIT :limit", {"limit": int(limit)})
 
@@ -351,7 +351,7 @@ def _default_scheduler():
     provides must not stop the start (keepup-109).
     """
     try:
-        from keepup.scheduler import get_scheduler
+        from keepup_tasks.scheduler import get_scheduler
     except ImportError:
         return None
     return get_scheduler()

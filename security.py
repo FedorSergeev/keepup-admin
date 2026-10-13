@@ -3,7 +3,7 @@
 The panel is an ordinary page with a session cookie in it, and every library
 that has ever been loaded next to one is one escaping mistake away from running
 somebody else's script in that session. The other security headers in
-``keepup.factory`` close a door each; a Content-Security-Policy closes the class
+``keepup_http.factory`` close a door each; a Content-Security-Policy closes the class
 of them: a script the page did not load itself does not run at all, and an
 extension the framework's own sections never use -- an ``onclick`` attribute, an
 inline ``<script>`` -- is refused by the browser rather than trusted.

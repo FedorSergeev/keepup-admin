@@ -17,8 +17,8 @@ from typing import Optional
 
 from sqlalchemy import text
 
-from keepup import tables
-from keepup.db import DatabaseManagerV2
+from keepup_db import tables as tables
+from keepup_db import DatabaseManagerV2
 
 # Declared by the sign-in declares its own tables (keepup-124); re-exported here so the path that predates
 # the catalogue still creates it.

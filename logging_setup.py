@@ -50,7 +50,7 @@ def for_log(value, limit: int = FOR_LOG_LIMIT) -> str:
 LOG_DIR = "logs"
 
 
-#: See keepup.audit for why None cannot mean "leave it as it was": an
+#: See keepup_audit.audit for why None cannot mean "leave it as it was": an
 #: application with no collector must be able to say so.
 _UNSET = object()
 
@@ -106,24 +106,3 @@ def setup_logging():
     logger.addHandler(file_handler)
 
     return logger
-
-
-#: Names that moved to keepup/log_shipping.py (keepup-24). Still answered here
-#: for code written against 0.1, with a warning naming the new place; looked up
-#: on access, so local logging does not load the shipping.
-_MOVED_TO_SHIPPING = {
-    "RemoteLoggerWrapper", "AsyncRemoteLogHandler", "RemoteLogHandler",
-    "setup_remote_logging", "init_remote_logging", "create_logger_token",
-    "PROJECT_NAME", "REMOTE_LOG_URL", "REMOTE_LOG_TOKEN", "REMOTE_FLUSH_INTERVAL",
-    "REMOTE_BATCH_SIZE",
-}
-
-
-def __getattr__(name):
-    if name in _MOVED_TO_SHIPPING:
-        import warnings
-        from keepup import log_shipping
-        warnings.warn(f"keepup.logging_setup.{name} moved to keepup.log_shipping.{name}",
-                      DeprecationWarning, stacklevel=2)
-        return getattr(log_shipping, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

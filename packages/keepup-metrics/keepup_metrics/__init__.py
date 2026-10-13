@@ -55,7 +55,7 @@ def __getattr__(name):
 
         from keepup_metrics import api
 
-        warnings.warn(f"keepup.metrics.{name} moved to keepup_metrics.api.{name}",
+        warnings.warn(f"keepup_metrics.{name} moved to keepup_metrics.api.{name}",
                       DeprecationWarning, stacklevel=2)
         return getattr(api, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

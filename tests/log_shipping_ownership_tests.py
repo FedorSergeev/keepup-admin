@@ -50,8 +50,8 @@ def test_the_kernel_keeps_the_local_log_and_nothing_of_the_shipping():
     source = (PACKAGE / "logging_setup.py").read_text(encoding="utf-8")
     assert "import requests" not in source
     assert "remote_url=_UNSET" not in source, "the kernel still carries the collector's values"
-    # What is left of the shipping here is the warning shim for the old names.
-    assert "_MOVED_TO_SHIPPING" in source
+    # The shim that answered the old names went with 0.5.0 (keepup-122).
+    assert "_MOVED_TO_SHIPPING" not in source
     assert "for_log" in logging_setup.__all__ and "setup_logging" in logging_setup.__all__
 
 

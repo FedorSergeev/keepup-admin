@@ -37,7 +37,7 @@ from keepup.kernel.descriptor import KIND_OPTIONAL, PluginDescriptor
 from keepup.plugins.base import BasePlugin
 from keepup_metrics.api import PANEL_METRICS, get_latest_metric_value
 from keepup_metrics.collector import metrics_collector, update_metrics_background
-from keepup_metrics.retention import metrics_retention_background
+from keepup_metrics import retention as metrics_retention_background
 from keepup_metrics.tables import SYSTEM_METRICS
 
 logger = logging.getLogger(__name__)
@@ -308,7 +308,7 @@ class MetricsPlugin(BasePlugin):
 
     async def restart(self, instance_id: str, current_user=None):
         """The cluster's restart command for one replica, recorded with its author."""
-        from keepup import cluster
+        from keepup_cluster import cluster as cluster
 
         return await cluster.give_command(instance_id, {"action": cluster.ACTION_RESTART},
                                           current_user)

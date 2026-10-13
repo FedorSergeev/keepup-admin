@@ -135,7 +135,7 @@ class DatabaseConfig:
         self.db_name = os.getenv('DB_NAME', 'keepup')
         self.db_user = os.getenv('DB_USER', 'postgres')
         self.db_password = os.getenv('DB_PASSWORD', '')
-        self.db_path = os.getenv('DB_PATH', 'data/keepup.db')
+        self.db_path = os.getenv('DB_PATH', 'data/keepup_db')
 
         self.pool_size = int(os.getenv('DB_POOL_SIZE', '5'))
         self.pool_max_overflow = int(os.getenv('DB_POOL_MAX_OVERFLOW', '10'))
@@ -165,7 +165,7 @@ class DatabaseConfig:
         self.db_user = config.get('db.user', 'postgres')
         # The file names where the database is; the password never lives in it.
         self.db_password = os.getenv('DB_PASSWORD') or config.get('db.password', '')
-        self.db_path = config.get('db.path', 'data/keepup.db')
+        self.db_path = config.get('db.path', 'data/keepup_db')
 
         self.pool_size = int(config.get('db.pool.size', '5'))
         self.pool_max_overflow = int(config.get('db.pool.max_overflow', '10'))
@@ -427,9 +427,9 @@ class DatabaseManagerV2:
             return found is not None
 
         # PRAGMA takes no parameters, so the name is inlined -- and therefore
-        # checked: see keepup.tables.identifier for why this is a refusal and
+        # checked: see keepup_db.tables.identifier for why this is a refusal and
         # not a quoting.
-        from keepup.tables import identifier
+        from keepup_db.tables import identifier
 
         rows = cls.execute(f"PRAGMA table_info({identifier(table)})")
         return any(str(row.get("name")) == column for row in rows or [])
@@ -454,7 +454,7 @@ class DatabaseManagerV2:
         harnesses swap this module and rebind the manager by name, so a helper
         of its own would quietly talk to a different database than its caller.
         """
-        from keepup.tables import identifier
+        from keepup_db.tables import identifier
 
         if db_config.is_postgres():
             # PostgreSQL can say it in the statement, and then a repeat start

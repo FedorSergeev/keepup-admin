@@ -153,7 +153,7 @@ def build_label() -> Any:
     import json
     import os
 
-    from keepup import web
+    from keepup_http import web as web
 
     try:
         with open(os.path.join(web.STATIC_DIR, web.VERSION_FILE), encoding="utf-8") as handle:

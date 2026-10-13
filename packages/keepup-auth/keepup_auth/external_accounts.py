@@ -19,7 +19,7 @@ from typing import Any, Dict, Iterable, Optional
 
 from keepup_auth import user_roles
 from keepup_auth.usernames import safe_username
-from keepup.db import DatabaseManagerV2
+from keepup_db import DatabaseManagerV2
 
 logger = logging.getLogger(__name__)
 

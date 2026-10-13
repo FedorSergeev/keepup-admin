@@ -22,7 +22,7 @@ from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.descriptor import KIND_OPTIONAL, PluginDescriptor
 from keepup.kernel.observability import SERVICE_AUDIT, SERVICE_EVENTS, Recording
 from keepup_audit.tables import INCOMING_REQUESTS
-from keepup.events import APP_EVENTS
+from keepup_audit.events import APP_EVENTS
 from keepup.plugins.base import BasePlugin
 
 logger = logging.getLogger(__name__)
@@ -33,8 +33,8 @@ __all__ = ["AuditPlugin", "AuditRecording"]
 class AuditRecording(Recording):
     """The framework's own recording, behind the kernel's two names.
 
-    It delegates to the modules that already do the work (``keepup.audit``,
-    ``keepup.events``) so that nothing changes for a deployment today; those
+    It delegates to the modules that already do the work (``keepup_audit.audit``,
+    ``keepup_audit.events``) so that nothing changes for a deployment today; those
     modules travel into this capability's distribution in keepup-124.
     """
 
@@ -92,8 +92,8 @@ class AuditPlugin(BasePlugin):
         deployment that never installed the audit still flushed and swept
         (keepup-109).
         """
-        from keepup_audit.audit import audit_retention_background, background_buffer_flusher
-        from keepup.events import events_retention_background
+        from keepup_audit import audit as audit_retention_background, background_buffer_flusher
+        from keepup_audit import events as events_retention_background
 
         self._tasks = [
             asyncio.create_task(background_buffer_flusher()),
@@ -133,7 +133,7 @@ class AuditPlugin(BasePlugin):
 
     async def emit(self, event_type: str, payload: Dict[str, Any] = None) -> None:
         """Write one event through the module that still owns the table."""
-        from keepup.events import emit_event
+        from keepup_audit.events import emit_event
 
         await emit_event(event_type, payload or {})
 

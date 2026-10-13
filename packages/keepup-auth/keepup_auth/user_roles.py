@@ -9,7 +9,7 @@ another.
 
 So the set lives here, in ``user_roles``, and it is the single source of truth.
 The sections and the plugins of every role in the set are glued together
-(``keepup.modules``, ``keepup.plugins.admin``), and the administrative right is
+(``keepup_modules.catalogue``, ``keepup_modules.decisions``), and the administrative right is
 ``ADMIN`` being in the set rather than one role being equal to it.
 
 ``users.role`` stays for one release as a **deprecated mirror** of the set:
@@ -32,7 +32,7 @@ from typing import Any, Dict, Iterable, List, Mapping, Optional, Sequence
 
 from sqlalchemy import text as sql_text
 
-from keepup.db import DatabaseManagerV2
+from keepup_db import DatabaseManagerV2
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
 
 #: What an application may import from this module. Everything else is

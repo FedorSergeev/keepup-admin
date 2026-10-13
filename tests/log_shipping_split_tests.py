@@ -12,10 +12,8 @@ the application supplies its values.
 import ast
 import subprocess
 import sys
-import warnings
 from pathlib import Path
 
-import pytest
 
 from keepup import log_shipping, logging_setup
 
@@ -86,10 +84,8 @@ def test_the_capability_takes_the_values_it_is_given():
         log_shipping.configure(project_name=previous[0], remote_url=previous[1])
 
 
-@pytest.mark.parametrize("name", sorted(logging_setup._MOVED_TO_SHIPPING))
-def test_a_moved_name_still_answers_and_says_where_it_went(name):
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        value = getattr(logging_setup, name)
-    assert value is getattr(log_shipping, name)
-    assert any(f"keepup.log_shipping.{name}" in str(w.message) for w in caught)
+def test_the_names_that_moved_are_gone_from_the_local_logging():
+    """The shim answered for one release; 0.5.0 removes it (keepup-122)."""
+    for name in ("RemoteLoggerWrapper", "AsyncRemoteLogHandler", "init_remote_logging",
+                 "PROJECT_NAME", "REMOTE_LOG_URL"):
+        assert not hasattr(logging_setup, name), f"{name} is answered by the kernel again"

@@ -59,6 +59,7 @@ OPTIONAL_CAPABILITY_IMPORTS = {
     "keepup_postgres": "keepup-postgres",
     "keepup_log_shipping": "keepup-log-shipping",
     "keepup_http": "keepup-http",
+    "keepup_db": "keepup-db",
 }
 
 #: What the base package itself imports today, and therefore declares. The list

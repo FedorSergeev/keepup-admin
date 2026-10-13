@@ -25,7 +25,7 @@ from starlette import status
 from keepup_auth import user_roles
 from keepup.roles import ROLE_CLIENT
 from keepup_auth.config import auth_config
-from keepup.db import DatabaseManagerV2
+from keepup_db import DatabaseManagerV2
 from keepup_auth.signing_key import resolve_signing_key
 from .base import AuthProvider, ALGORITHM
 

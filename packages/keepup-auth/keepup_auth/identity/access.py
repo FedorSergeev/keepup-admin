@@ -28,7 +28,7 @@ from fastapi import Depends, HTTPException, Request, status
 from keepup_auth import user_roles
 from keepup_auth.identity import runtime as identity_runtime
 from keepup_auth.identity.contract import AccessRequest, IdentityRejected, ProviderUnavailable
-from keepup.db import DatabaseManagerV2
+from keepup_db import DatabaseManagerV2
 from keepup.roles import ROLE_ADMIN
 
 logger = logging.getLogger(__name__)

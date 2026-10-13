@@ -1,9 +1,9 @@
 """Assembling the plugins of an application, and the package's way in.
 
 What happens here is the start-up itself: read the declaration, ask
-``keepup.plugins.admin`` which of the declared plugins this deployment runs,
+``keepup_modules.decisions`` which of the declared plugins this deployment runs,
 load and initialise them in priority order, hand their routes to
-``keepup.plugins.routes``, and afterwards run the self-checks that need a live
+``keepup_http.routes``, and afterwards run the self-checks that need a live
 server.
 
 This module is also **the address the package publishes**. The two modules the
