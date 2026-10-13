@@ -19,6 +19,10 @@ dependencies = [
     "keepup-tasks>=0.4.0",
     "keepup-ui>=0.4.0",
     "fastapi>=0.128,<1",
+    # 1.3.1 is where the four advisories against the 0.52 line are closed
+    # (PYSEC-2026-248, -249, -2280, -2281). The old cap at <1 made a fixed
+    # version uninstallable, so an installation of this package could not be
+    # made safe at all -- FastAPI itself asks only for >=0.46 (keepup-30).
     "starlette>=1.3.1,<2",
     "pydantic>=2.11,<3",
 ]

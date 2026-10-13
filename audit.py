@@ -413,9 +413,14 @@ async def background_buffer_flusher():
 
 
 def _is_refusal(error: BaseException) -> bool:
-    """An HTTP refusal a route raised on purpose, whose text is its answer."""
-    from starlette.exceptions import HTTPException
-    return isinstance(error, HTTPException)
+    """An HTTP refusal a route raised on purpose, whose text is its answer.
+
+    Recognised by shape and not by import: the exception belongs to the HTTP
+    layer, and an audit that cannot be imported without a web framework is not
+    the kernel's (keepup-121). Starlette's HTTPException and FastAPI's are one
+    class, and it carries both of these.
+    """
+    return hasattr(error, "status_code") and hasattr(error, "detail")
 
 
 @asynccontextmanager

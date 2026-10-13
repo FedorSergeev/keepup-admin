@@ -28,9 +28,7 @@ SIGN_IN = "keepup.auth"
 STILL_IMPORTING = {
     "builtin/users.py": "the roles it owns are read from keepup.auth.user_roles until keepup-124",
     "integrations.py": "a call is attributed to the user who made it",
-    "locks.py": "its routes are the administrator's",
     "notification_bus.py": "it signs what replicas send to each other",
-    "plugins/routes.py": "it registers the WebSocket sign-in; the HTTP one goes through the seam",
     "schema.py": "the first accounts are seeded with the schema",
 }
 
@@ -131,9 +129,10 @@ def test_the_router_no_longer_imports_the_subject_or_the_right():
     (keepup-123): what this task cut is the HTTP subject and the right, which
     now come from ``keepup.kernel.security``.
     """
-    found = imports_of(PACKAGE / "plugins" / "routes.py")
+    found = imports_of(PACKAGE / "packages" / "keepup-http" / "keepup_http"
+                       / "routes.py")
     assert found <= {"keepup.auth.websocket"}, (
-        f"plugins/routes.py still imports the subject or the right: {sorted(found)}"
+        f"the route wrapper still imports the subject or the right: {sorted(found)}"
     )
 
 

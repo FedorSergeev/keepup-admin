@@ -17,6 +17,10 @@ dependencies = [
     # provider over HTTP: both are this distribution's own (keepup-121).
     "PyYAML>=6.0,<7",
     "pydantic>=2.11,<3",
+    # The sign-in answers over HTTP: its routes are FastAPI's and its middleware
+    # is Starlette's, so this distribution declares both (keepup-121).
+    "fastapi>=0.128,<1",
+    "starlette>=1.3.1,<2",
     "httpx>=0.28",
 ]
 

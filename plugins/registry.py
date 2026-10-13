@@ -24,33 +24,28 @@ from keepup.plugins.base import (
     OUTCOME_DISABLED,
     OUTCOME_INITIALIZED,
 )
-from keepup.plugins.routes import (
-    accepted_params,
-    admit_params,
-    raw_request_wrapper,
-    register_plugin_routes,
-    signed_in_websocket,
-)
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
 #:
-#: The names below live in keepup.plugins.routes and in the modules capability
-#: and are published here: one address outwards, whatever the layout inside.
+#: The names below live in the HTTP transport and in the modules capability and
+#: are published here: one address outwards, whatever the layout inside. A name
+#: that left with the transport is answered from it, and names the distribution
+#: to install when it is not there (keepup-121).
 __all__ = [
-    "accepted_params",
-    "admit_params",
+    "accepted_params",  # noqa: F822 - answered from keepup-http
+    "admit_params",  # noqa: F822 - answered from keepup-http
     "clear_plugin_override",  # noqa: F822 - answered from keepup-modules
     "get_plugins",  # noqa: F822 - answered from keepup-modules
     "get_plugins_status",  # noqa: F822 - answered from keepup-modules
     "initialize_plugins",
     "load_and_initialize",
-    "raw_request_wrapper",
+    "raw_request_wrapper",  # noqa: F822 - answered from keepup-http
     "read_plugin_overrides",
     "register_plugin_admin_routes",  # noqa: F822
-    "register_plugin_routes",
+    "register_plugin_routes",  # noqa: F822 - answered from keepup-http
     "run_post_construct_processors",
-    "signed_in_websocket",
+    "signed_in_websocket",  # noqa: F822 - answered from keepup-http
     "write_plugin_override",  # noqa: F822 - answered from keepup-modules
 ]
 
@@ -136,12 +131,25 @@ _DECISION_NAMES = {
     "get_plugins_status", "register_plugin_admin_routes", "write_plugin_override",
 }
 
+#: The route wrapper's names: they left with the HTTP transport (keepup-121).
+_ROUTE_NAMES = {"accepted_params", "admit_params", "raw_request_wrapper",
+                "register_plugin_routes", "signed_in_websocket"}
+
 
 def __getattr__(name):
     if name in _DECISION_NAMES:
         from keepup_modules import decisions
 
         return getattr(decisions, name)
+    if name in _ROUTE_NAMES:
+        try:
+            from keepup_http import routes
+        except ImportError as error:
+            raise AttributeError(
+                f"{name} is the HTTP transport's: install keepup-http "
+                "(pip install 'keepup-admin[http]')"
+            ) from error
+        return getattr(routes, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
@@ -196,7 +204,15 @@ async def initialize_plugins(app, manager, config_path=None, environ=None):
     resolution = await load_and_initialize(manager, config_path, environ)
     if resolution is None:
         return None
-    await register_plugin_routes(app, manager)
+    # The wrapper that turns declarations into endpoints belongs to the HTTP
+    # transport (keepup-121): a runtime that serves something else registers no
+    # routes, and one that serves HTTP has the transport do it.
+    try:
+        from keepup_http.routes import register_plugin_routes
+    except ImportError:
+        logger.info("No HTTP transport installed: the declared routes are not mounted")
+    else:
+        await register_plugin_routes(app, manager)
     return resolution
 
 

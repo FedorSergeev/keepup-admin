@@ -44,12 +44,9 @@ classifiers = [
 # these -- they belong to the applications, and an installation of the
 # framework must not drag them in.
 dependencies = [
-    "fastapi>=0.128,<1",
-    # 1.3.1 is where the four advisories against the 0.52 line are closed
-    # (PYSEC-2026-248, -249, -2280, -2281). The old cap at <1 made a fixed
-    # version uninstallable, so an installation of this package could not be
-    # made safe at all -- FastAPI itself asks only for >=0.46 (keepup-30).
-    "starlette>=1.3.1,<2",
+    # FastAPI, Starlette and the rest of the web layer left with keepup-http
+    # (keepup-121): the base is the constructor, and a deployment that serves
+    # something other than HTTP installs no web framework at all.
     "sqlalchemy>=2.0,<3",
     # PyJWT and bcrypt are not here any more: they belong to the sign-in, which
     # declares them in its own distribution and audits them there (keepup-124).
@@ -87,6 +84,9 @@ test = [
     # four files that start a server fail to collect on a runner, while a
     # developer's checkout has uvicorn from elsewhere and never notices.
     "uvicorn>=0.30",
+    # The suite builds applications and knocks on their routes; the transport
+    # that serves them is keepup-http's, and the tests ask for it directly.
+    "fastapi>=0.128,<1",
 ]
 # The capabilities of the release, by name (keepup-124). Installing an extra
 # installs the distribution that carries the capability, and that distribution

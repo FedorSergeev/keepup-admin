@@ -19,6 +19,7 @@ from keepup.kernel.call import Call
 from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.descriptor import KIND_REQUIRED, PluginDescriptor
 from keepup.plugins.base import BasePlugin
+from keepup_integration_log import Integration_logsPlugin as FrameworkPlugin
 
 PACKAGE = Path(__file__).resolve().parents[1]
 SECTION_JS = PACKAGE / "static" / "modules" / "js" / "integration_logs.js"
@@ -98,7 +99,7 @@ async def running_deployment():
     runtime = create_runtime(
         application_catalogue={"plugins": [{"id": "db", "enabled": True},
                                            {"id": "integration_logs", "enabled": True}]},
-        entry_points=[entry_point(SourcePlugin)],
+        entry_points=[entry_point(SourcePlugin), entry_point(FrameworkPlugin)],
     )
     await runtime.start()
     return runtime

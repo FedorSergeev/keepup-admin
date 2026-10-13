@@ -20,8 +20,8 @@ import logging
 from fastapi import Depends, HTTPException, Request, Response
 from starlette.requests import ClientDisconnect
 
-from keepup.auth.websocket import authenticate_websocket
-from keepup.body_limit import declare_limit
+from keepup_auth.websocket import authenticate_websocket
+from keepup_http.body_limit import declare_limit
 from keepup.kernel import observability, security
 from keepup.kernel.call import (
     KIND_WRITE,

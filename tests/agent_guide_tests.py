@@ -51,7 +51,7 @@ def test_every_route_key_the_guide_names_is_one_the_runtime_reads():
     keys = set(re.findall(r"`([a-z_]+)`", line))
     # The route runtime, and the body limit it hands each route's declaration to.
     runtime = "\n".join((PACKAGE / name).read_text(encoding="utf-8")
-                        for name in ("plugins/routes.py",
+                        for name in ("packages/keepup-http/keepup_http/routes.py",
                                      "packages/keepup-http/keepup_http/body_limit.py"))
     read = set(re.findall(r"route\.get\('([a-z_]+)'", runtime)) | {"path", "methods", "handler"}
     read |= {route_mask.MASK_FIELD} | set(route_mask.DECLARATION_FIELDS)

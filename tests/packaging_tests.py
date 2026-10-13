@@ -65,11 +65,11 @@ OPTIONAL_CAPABILITY_IMPORTS = {
 #: shrinks with every capability that moves out: bcrypt, jwt and psycopg2 left
 #: with the sign-in and the drivers (keepup-124), APScheduler with the scheduler
 #: (keepup-109), psutil and prometheus_client with the metrics (keepup-136),
-#: requests and httpx with the log shipping (keepup-146). FastAPI, Starlette,
-#: pydantic and SQLAlchemy are still here because the HTTP layer and the table
-#: declarations have not moved yet (keepup-121).
+#: requests and httpx with the log shipping (keepup-146), FastAPI, Starlette and
+#: pydantic with the HTTP layer (keepup-148, keepup-149). SQLAlchemy is the last
+#: one: the table declarations leave with keepup-122.
 DEPENDENCY_IMPORTS = {
-    "fastapi", "sqlalchemy", "starlette",
+    "sqlalchemy",
     # Read for a version string in the cluster registry; whoever serves the
     # application brings it, and the suite declares it for its own servers.
     "uvicorn",

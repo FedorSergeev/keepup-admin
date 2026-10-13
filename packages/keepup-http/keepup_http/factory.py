@@ -42,7 +42,7 @@ from keepup_auth.identity import runtime as identity_runtime
 from keepup.events import init_event_manager
 from keepup_http.events_api import register_event_api_routes
 from keepup.instance import get_instance_id
-from keepup.locks import register_lock_routes
+from keepup_http.lock_routes import register_lock_routes
 from keepup_metrics.api import register_metrics_routes
 from keepup_modules.catalogue import register_module_routes
 from keepup.plugins.registry import (

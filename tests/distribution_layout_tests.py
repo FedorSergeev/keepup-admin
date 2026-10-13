@@ -206,7 +206,7 @@ def test_a_driver_depends_on_the_abstraction():
 #: What has already moved: its plugin lives in the distribution, not in the
 #: framework's `builtin/`. The first one is the metrics capability (keepup-136).
 MOVED_ALREADY = {"keepup-metrics", "keepup-tasks", "keepup-modules", "keepup-cluster",
-                 "keepup-log-shipping", "keepup-http"}
+                 "keepup-log-shipping", "keepup-http", "keepup-integration-log"}
 
 
 def test_the_code_that_moves_still_lives_in_the_framework():

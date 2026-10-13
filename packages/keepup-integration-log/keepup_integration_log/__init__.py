@@ -5,8 +5,19 @@ This distribution provides `integration_log` and declares one plugin,
 for the constructor -- the descriptor, the catalogue, the service registry and
 the lifecycle -- and on nothing of another capability.
 
-The code moves here in keepup-124: until then the plugin lives in the framework's
-own `builtin/integration_logs.py` and this package is the home it is moving to.
+The plugin moved here from the framework's `builtin/integration_logs.py` in
+keepup-121: the base no longer carries a capability's routes.
 """
 
 __version__ = "0.4.0"
+
+
+_PLUGIN_NAMES = {"Integration_logsPlugin", "SERVICE_INTEGRATION_LOG"}
+
+
+def __getattr__(name):
+    if name in _PLUGIN_NAMES:
+        from keepup_integration_log import plugin
+
+        return getattr(plugin, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

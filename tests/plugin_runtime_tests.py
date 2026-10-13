@@ -250,7 +250,7 @@ def test_a_json_body_that_does_not_parse_becomes_an_empty_one():
 def runtime_warnings(caplog):
     """What the runtime warned about, in order."""
     return [record.getMessage() for record in caplog.records
-            if record.name == "keepup.plugins.routes"
+            if record.name == "keepup_http.routes"
             and record.levelno == logging.WARNING]
 
 
@@ -1014,13 +1014,15 @@ def imported_modules(module_name: str):
     from pathlib import Path
 
     root = Path(__file__).resolve().parents[1]
-    if module_name == "admin":
-        # The administrative surface is the modules capability's now
-        # (keepup-113); the rest of the runtime still lives in `plugins/`.
-        source = (root / "packages" / "keepup-modules" / "keepup_modules"
-                  / "decisions.py").read_text(encoding="utf-8")
-    else:
-        source = (root / "plugins" / f"{module_name}.py").read_text(encoding="utf-8")
+    # Both halves left the kernel: the administrative surface for the modules
+    # capability (keepup-113) and the route wrapper for the HTTP transport
+    # (keepup-121). What stays in `plugins/` is the registry that publishes them.
+    homes = {
+        "admin": root / "packages" / "keepup-modules" / "keepup_modules" / "decisions.py",
+        "routes": root / "packages" / "keepup-http" / "keepup_http" / "routes.py",
+    }
+    source = homes.get(module_name,
+                       root / "plugins" / f"{module_name}.py").read_text(encoding="utf-8")
     taken = set()
     for node in ast.walk(ast.parse(source)):
         if isinstance(node, ast.ImportFrom) and node.module:

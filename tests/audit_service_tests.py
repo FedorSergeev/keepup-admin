@@ -126,7 +126,8 @@ def test_a_deployment_that_records_nothing_still_answers():
 
 def test_the_route_runtime_does_not_import_the_audit_module():
     """The one edge this step cut, kept cut."""
-    tree = ast.parse((PACKAGE / "plugins" / "routes.py").read_text(encoding="utf-8"))
+    tree = ast.parse((PACKAGE / "packages" / "keepup-http" / "keepup_http"
+                      / "routes.py").read_text(encoding="utf-8"))
     found = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module:
