@@ -25,7 +25,7 @@ application until the transport that mounts what a plugin declares exists
 """
 
 import logging
-from typing import Any, Dict, List
+from typing import Any, List
 
 from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.descriptor import KIND_OPTIONAL, PluginDescriptor
