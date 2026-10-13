@@ -59,6 +59,7 @@ jobs:
         project:
           - keepup-audit
           - keepup-auth
+          - keepup-cluster
           - keepup-db
           - keepup-integration-log
           - keepup-metrics

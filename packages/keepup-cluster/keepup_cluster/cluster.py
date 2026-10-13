@@ -37,7 +37,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 from fastapi import Depends, HTTPException
 from fastapi.responses import JSONResponse
 
-from keepup.auth.dependencies import get_current_admin
+from keepup_auth.dependencies import get_current_admin
 from keepup.instance import get_instance_id, get_instance_name
 
 logger = logging.getLogger(__name__)

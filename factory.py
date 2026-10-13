@@ -18,7 +18,6 @@ file exists rather than a list of calls in each application:
 """
 
 import asyncio
-import json
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -44,7 +43,6 @@ from keepup.locks import register_lock_routes
 from keepup.metrics_api import register_metrics_routes
 from keepup.modules import register_module_routes
 from keepup.plugins.registry import (
-    get_plugins_status,
     initialize_plugins,
     register_plugin_admin_routes,
     run_post_construct_processors,
@@ -329,11 +327,9 @@ def _build_lifespan(settings: KeepupSettings):
         # (priority 80), before the cluster (85), which is the order a replica
         # an administrator stopped needs -- it comes back stopped, and stopping
         # pauses the scheduler.
-        controller = cluster.ReplicaController(plugins=_plugin_picture(manager),
-                                               build=_build_label())
-        cluster.set_controller(controller)
-        controller.launch()
-
+        # This replica's controller is the cluster capability's now (keepup-117):
+        # it is built and launched with that plugin, which starts after this
+        # line because it only wants the scheduler (80 against 85).
         if manager is not None:
             asyncio.create_task(run_post_construct_processors(manager))
 
@@ -350,9 +346,6 @@ def _build_lifespan(settings: KeepupSettings):
             # The services a capability published are closed with the process
             # that published them (keepup-106).
             await kernel.stop()
-
-        await controller.shutdown()
-        cluster.set_controller(None)
 
         if manager is not None:
             await manager.cleanup_all()
@@ -393,38 +386,8 @@ async def _stop_notification_bus(bus):
         notification_bus.set_notification_bus(None)
 
 
-def _plugin_picture(manager):
-    """What runs in this replica and what awaits its restart, for the cluster registry.
-
-    The same report /api/admin/plugins answers with, so the two cannot disagree.
-    """
-    async def picture():
-        if manager is None:
-            return cluster.PluginPicture([], [])
-        try:
-            rows = (await get_plugins_status(manager)).get("plugins", [])
-        except Exception as error:
-            # The replica still has to publish itself; an unreadable plugin
-            # report must not make it look gone.
-            logger.warning(f"Cluster: plugin report unavailable: {error}")
-            rows = []
-        return cluster.PluginPicture(
-            running=[row["id"] for row in rows if row.get("initialized")],
-            pending=[row["id"] for row in rows if row.get("pending_restart")])
-    return picture
 
 
-def _build_label():
-    """The build this replica runs, from the version file build_image.sh writes."""
-    try:
-        with open(os.path.join(web.STATIC_DIR, web.VERSION_FILE), encoding="utf-8") as f:
-            version = json.load(f)
-    except (OSError, ValueError):
-        return None
-    label = str(version.get("version") or "")
-    if version.get("build_number"):
-        label += f" #{version['build_number']}"
-    return label or None
 
 
 def _create_stripped_app(settings: KeepupSettings) -> FastAPI:

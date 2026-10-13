@@ -55,6 +55,7 @@ OPTIONAL_CAPABILITY_IMPORTS = {
     # `schema.py` re-exports the catalogue's tables for one release (keepup-113);
     # the base references the distribution without depending on it.
     "keepup_modules": "keepup-modules",
+    "keepup_cluster": "keepup-cluster",
 }
 
 DEPENDENCY_IMPORTS = {

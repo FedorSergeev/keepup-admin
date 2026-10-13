@@ -12,7 +12,7 @@ through edits here -- the framework has no payments and no feeds.
 import logging
 import os
 
-from sqlalchemy import Boolean, Column, DateTime, Index, Integer, Text
+from sqlalchemy import Column, DateTime, Text
 
 from keepup import tables
 from keepup.audit import init_incoming_requests_table
@@ -43,6 +43,7 @@ from keepup_users.tables import (  # noqa: E402
 
 # The panel declares the section catalogue and the grants (keepup-124); they are
 # re-exported here so the path that predates the catalogue still creates them.
+from keepup_cluster.tables import CLUSTER_COMMANDS, CLUSTER_MEMBERS  # noqa: E402
 from keepup_modules.tables import (  # noqa: E402
     FRONTEND_MODULES, PLUGIN_OVERRIDES, ROLE_MODULES)
 
@@ -72,38 +73,6 @@ from keepup_metrics.tables import SYSTEM_METRICS  # noqa: E402
 # (task 1, keepup/cluster.py). One row per replica, rewritten by its own
 # heartbeat; `state` is kept here rather than in memory so that a
 # replica stopped by an administrator stays stopped across a restart.
-CLUSTER_MEMBERS = tables.table(
-    "cluster_members",
-    Column("instance_id", Text, primary_key=True, nullable=True),
-    Column("instance_name", Text),
-    Column("host", Text),
-    Column("pid", Integer),
-    Column("build", Text),
-    Column("started_at", DateTime),
-    Column("last_seen", DateTime),
-    Column("state", Text, nullable=False, server_default="serving"),
-    Column("can_restart", Boolean),
-    Column("restart_blocker", Text),
-    Column("plugins_running", Text),
-    Column("plugins_pending", Text),
-)
-
-CLUSTER_COMMANDS = tables.table(
-    "cluster_commands",
-    tables.auto_id(),
-    Column("instance_id", Text, nullable=False),
-    Column("action", Text, nullable=False),
-    Column("forced", Boolean),
-    Column("status", Text, nullable=False, server_default="pending"),
-    Column("requested_by", Integer),
-    Column("requested_by_name", Text),
-    Column("requested_at", DateTime),
-    Column("claimed_at", DateTime),
-    Column("finished_at", DateTime),
-    Column("result", Text),
-    Index("idx_cluster_commands_target", "instance_id", "status"),
-)
-
 # The roles one account holds. The set is the truth about who this is;
 # ``users.role`` is a mirror of it for one release (keepup/auth/user_roles.py).
 

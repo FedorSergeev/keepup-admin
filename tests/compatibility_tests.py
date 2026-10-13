@@ -190,7 +190,7 @@ def test_only_the_names_whose_module_is_gone_are_stood_in():
     moved = {"keepup.auth", "keepup.db", "keepup.tables", "keepup.positional_sql",
              "keepup.events", "keepup.metrics", "keepup.metrics_api",
              "keepup.metrics_retention", "keepup.scheduler", "keepup.modules",
-             "keepup.plugins.admin"}
+             "keepup.plugins.admin", "keepup.cluster"}
     assert moved <= set(installed)
     for name in installed:
         assert name in moved, (

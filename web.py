@@ -15,11 +15,23 @@ from pathlib import Path
 from fastapi import Depends, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
-from keepup import cluster
 from keepup.api_versions import describe
 from keepup.audit import incoming_requests_buffer
 from keepup.auth.dependencies import get_current_admin
 from keepup.instance import get_instance_id
+
+
+def _replica_state() -> str:
+    """Whether this replica serves, from the cluster capability if it is there.
+
+    A deployment that never installed `keepup-cluster` has one replica and no
+    state to report (keepup-117).
+    """
+    try:
+        from keepup_cluster.cluster import current_state
+    except ImportError:
+        return "serving"
+    return current_state()
 from keepup.themes import config_service
 
 logger = logging.getLogger(__name__)
@@ -150,9 +162,10 @@ def register_web_routes(app):
         A replica an administrator stopped answers 503 "stopped": that is what
         makes a load balancer take it out (keepup/cluster.py).
         """
-        if cluster.current_state() == cluster.STATE_STOPPED:
+        state = _replica_state()
+        if state == "stopped":
             return JSONResponse(status_code=503, content={
-                "status": cluster.STATE_STOPPED,
+                "status": state,
                 "instance_id": get_instance_id(),
                 "timestamp": datetime.utcnow().isoformat(),
             })

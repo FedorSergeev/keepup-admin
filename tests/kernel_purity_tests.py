@@ -27,7 +27,6 @@ SIGN_IN = "keepup.auth"
 STILL_IMPORTING = {
     "api_docs.py": "the API schema is served behind the administrator's sign-in",
     "builtin/users.py": "the roles it owns are read from keepup.auth.user_roles until keepup-124",
-    "cluster.py": "its routes are the administrator's",
     "events_api.py": "its routes are the administrator's",
     "factory.py": "the composition root puts the identity behind the seam (keepup-119)",
     "integrations.py": "a call is attributed to the user who made it",
