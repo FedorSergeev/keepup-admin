@@ -33,7 +33,7 @@ from keepup_http import web
 from keepup_modules import catalogue as modules
 from keepup_http.api_docs import register_api_documentation
 from keepup.api_versions import ApiVersionMiddleware
-from keepup.audit import init_incoming_requests_table
+from keepup_audit.audit import init_incoming_requests_table
 from keepup_auth import dependencies as auth_dependencies
 from keepup_auth import routes as auth_routes
 from keepup_auth import panel_session, socket_sessions

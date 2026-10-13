@@ -187,15 +187,13 @@ def test_only_the_names_whose_module_is_gone_are_stood_in():
     the base package, and standing in for it would be a lie.
     """
     installed = compat.install()
-    moved = {"keepup.auth", "keepup.db", "keepup.tables", "keepup.positional_sql",
-             "keepup.events", "keepup.metrics", "keepup.metrics_api",
-             "keepup.metrics_retention", "keepup.scheduler", "keepup.modules",
-             "keepup.plugins.admin", "keepup.cluster", "keepup.log_shipping",
-             "keepup.api_docs", "keepup.events_api", "keepup.themes",
-             "keepup.factory", "keepup.web", "keepup.body_limit",
-             "keepup.plugins.routes"}
-    assert moved <= set(installed)
+    # The map is the list (keepup-114): a name whose module is gone from the
+    # base is stood in; a name that still has its module is not, because
+    # answering from somewhere else while the file sits right there is a lie.
     for name in installed:
-        assert name in moved, (
-            f"{name} was stood in while its module is still in the base package")
+        assert name in compat.MOVED, f"{name} was stood in without a home in the map"
+    for name in compat.MOVED:
+        if compat._module_exists(name):
+            assert name not in installed, (
+                f"{name} was stood in while its module is still in the base package")
 

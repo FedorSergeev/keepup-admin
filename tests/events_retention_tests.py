@@ -121,7 +121,8 @@ def test_the_capability_starts_and_stops_the_sweep():
 
 def test_the_audit_and_the_event_log_share_one_sweep():
     """One chunked delete, not two copies drifting apart."""
-    audit = (PACKAGE / "audit.py").read_text(encoding="utf-8")
+    audit = (PACKAGE / "packages" / "keepup-audit" / "keepup_audit"
+             / "audit.py").read_text(encoding="utf-8")
     assert "retention.purge_older_than(" in audit
     assert "DELETE FROM incoming_requests" not in audit
-    assert retention.purge_older_than.__module__ == "keepup.retention"
+    assert retention.purge_older_than.__module__ == "keepup_db.retention"

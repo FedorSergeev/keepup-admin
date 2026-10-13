@@ -14,7 +14,8 @@ from fastapi import Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
 from keepup_auth.dependencies import get_current_admin
-from keepup import admin_trail, events
+from keepup import events
+from keepup_audit import trail as admin_trail
 from keepup.logging_setup import for_log
 
 #: What an application may import from this module. Everything else is

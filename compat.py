@@ -35,7 +35,9 @@ MOVED: Dict[str, str] = {
     "keepup.tables": "keepup_db.tables",
     "keepup.schema": "keepup_db.schema",
     "keepup.positional_sql": "keepup_db.positional_sql",
-    "keepup.audit": "keepup_audit",
+    "keepup.audit": "keepup_audit.audit",
+    "keepup.retention": "keepup_db.retention",
+    "keepup.integrations": "keepup_integration_log.integrations",
     "keepup.events": "keepup_audit.events",
     "keepup.admin_trail": "keepup_audit.trail",
     "keepup.scheduler": "keepup_tasks.scheduler",
@@ -47,7 +49,6 @@ MOVED: Dict[str, str] = {
     "keepup.modules": "keepup_modules.catalogue",
     "keepup.plugins.admin": "keepup_modules.decisions",
     "keepup.plugins.routes": "keepup_http.routes",
-    "keepup.integrations": "keepup_integration_log",
     "keepup.themes": "keepup_ui.themes",
     "keepup.factory": "keepup_http.factory",
     "keepup.web": "keepup_http.web",
@@ -287,7 +288,15 @@ def _module_exists(name: str) -> bool:
     Asked of the finder rather than by importing it: importing `keepup` must not
     load the metrics API, the event log or the pool, which is exactly what the
     lazy-import checks of those capabilities are about (keepup-112).
+
+    A name below a parent that has already moved is gone by definition, and
+    asking the finder about it would import the distribution through the
+    parent's own stand-in -- while `keepup` is still being imported, which is
+    what a deployment without that distribution cannot do (keepup-122).
     """
+    parent = sys.modules.get(name.rpartition(".")[0])
+    if isinstance(parent, _Moved):
+        return False
     try:
         return importlib.util.find_spec(name) is not None
     except (ImportError, ValueError):

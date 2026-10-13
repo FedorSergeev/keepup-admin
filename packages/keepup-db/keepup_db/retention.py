@@ -66,7 +66,7 @@ def purge_older_than(table: str, column: str, days: int, chunk_rows: int,
     """
     # The manager is taken here and not at the top of the module: importing the
     # framework must not load a database (keepup-127).
-    from keepup.db import DatabaseManagerV2
+    from keepup_db import DatabaseManagerV2
 
     cutoff = (now or datetime.utcnow()) - timedelta(days=days)
     removed = 0

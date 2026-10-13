@@ -21,7 +21,7 @@ from typing import Any, Dict, List
 from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.descriptor import KIND_OPTIONAL, PluginDescriptor
 from keepup.kernel.observability import SERVICE_AUDIT, SERVICE_EVENTS, Recording
-from keepup.audit import INCOMING_REQUESTS
+from keepup_audit.tables import INCOMING_REQUESTS
 from keepup.events import APP_EVENTS
 from keepup.plugins.base import BasePlugin
 
@@ -39,7 +39,7 @@ class AuditRecording(Recording):
     """
 
     def __init__(self, datasource: Any = None):
-        from keepup.audit import IncomingRequestLogger, log_api_request
+        from keepup_audit.audit import IncomingRequestLogger, log_api_request
 
         super().__init__(start=log_api_request, end=IncomingRequestLogger.end_request,
                          name="keepup audit")
@@ -92,7 +92,7 @@ class AuditPlugin(BasePlugin):
         deployment that never installed the audit still flushed and swept
         (keepup-109).
         """
-        from keepup.audit import audit_retention_background, background_buffer_flusher
+        from keepup_audit.audit import audit_retention_background, background_buffer_flusher
         from keepup.events import events_retention_background
 
         self._tasks = [

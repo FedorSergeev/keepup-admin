@@ -32,7 +32,7 @@ from fastapi import Depends, HTTPException
 
 from keepup_auth import user_roles
 from keepup_auth.dependencies import get_current_admin, get_current_user
-from keepup import admin_trail
+from keepup_audit import trail as admin_trail
 from keepup.plugins import enablement
 from keepup.plugins import route_mask
 

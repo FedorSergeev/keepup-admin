@@ -23,8 +23,8 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 
-from keepup import retention, tables
-from keepup.db import DatabaseManagerV2, db_config
+from keepup_db import retention, tables
+from keepup_db import DatabaseManagerV2, db_config
 from keepup.instance import get_instance_id
 
 #: What an application may import from this module. Everything else is

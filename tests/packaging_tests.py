@@ -79,7 +79,7 @@ DEPENDENCY_IMPORTS = {
 #: the security workflow against the floors themselves (keepup-69); the form
 #: parser is what an application's upload route needs from FastAPI, which the
 #: HTTP layer declares when it moves out (keepup-121).
-DECLARED_WITHOUT_AN_IMPORT = {"cryptography", "urllib3", "python-multipart"}
+DECLARED_WITHOUT_AN_IMPORT = {"python-multipart", "cryptography", "urllib3", "sqlalchemy"}
 
 STANDARD_LIBRARY = set(sys.stdlib_module_names)
 

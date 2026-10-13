@@ -23,11 +23,9 @@ PACKAGE = Path(__file__).resolve().parents[1]
 #: (keepup-124). Named here so the reason is on the record rather than in
 #: somebody's head.
 MOVES_WITH_ITS_CAPABILITY = {
-    "audit.py": "keepup-audit",
     "builtin/db.py": "keepup-db",
     "builtin/postgres.py": "keepup-postgres",
     "builtin/sqlite.py": "keepup-sqlite",
-    "schema.py": "the declarations themselves, until each owner takes its own",
 }
 
 #: Modules whose import can be made lazy here and now: they reach the database

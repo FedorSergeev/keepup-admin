@@ -27,9 +27,7 @@ SIGN_IN = "keepup.auth"
 #: Who may still import it, and why. Removing an entry is the point of 0.4.0.
 STILL_IMPORTING = {
     "builtin/users.py": "the roles it owns are read from keepup.auth.user_roles until keepup-124",
-    "integrations.py": "a call is attributed to the user who made it",
     "notification_bus.py": "it signs what replicas send to each other",
-    "schema.py": "the first accounts are seeded with the schema",
 }
 
 

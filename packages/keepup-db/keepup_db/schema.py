@@ -14,13 +14,14 @@ import os
 
 from sqlalchemy import Column, DateTime, Text
 
-from keepup import tables
-from keepup.audit import init_incoming_requests_table
-from keepup.auth import panel_session
-from keepup.auth.factory import AuthProviderFactory
-from keepup.auth.login_throttle import init_login_attempts_table
-from keepup.db import DatabaseManagerV2, db_config
-from keepup.modules import sync_framework_sections, sync_new_modules_from_json
+from keepup_db import tables
+from keepup_audit.audit import init_incoming_requests_table
+from keepup_auth import panel_session
+from keepup_auth.factory import AuthProviderFactory
+from keepup_auth.login_throttle import init_login_attempts_table
+from keepup_db import DatabaseManagerV2, db_config
+from keepup_modules.catalogue import (sync_framework_sections,
+                                       sync_new_modules_from_json)
 from keepup.roles import ROLE_ADMIN
 
 #: What an application may import from this module. Everything else is
@@ -32,20 +33,19 @@ __all__ = [
 logger = logging.getLogger(__name__)
 
 
-# The accounts capability declares its own tables (keepup-124); they are
-# re-exported here so the path that predates the catalogue still creates them.
-from keepup_users.tables import (  # noqa: E402
-    EXTERNAL_ROLE_MAPPINGS,
-    USERS,
-    USER_PERMISSIONS,
-    USER_ROLES,
-)
+#: The tables the capabilities declare, answered on access and never on import:
+#: this module is the abstraction, and a capability is built on it -- importing
+#: one here would close the circle (keepup-122). The list is what the 0.3.0 path
+#: created; the kernel's table step creates what a plugin declares.
+_FROM_CAPABILITIES = {
+    "USERS": "keepup_users.tables", "USER_ROLES": "keepup_users.tables",
+    "EXTERNAL_ROLE_MAPPINGS": "keepup_users.tables",
+    "USER_PERMISSIONS": "keepup_users.tables",
+    "FRONTEND_MODULES": "keepup_modules.tables", "ROLE_MODULES": "keepup_modules.tables",
+    "PLUGIN_OVERRIDES": "keepup_modules.tables",
+    "CLUSTER_MEMBERS": "keepup_cluster.tables", "CLUSTER_COMMANDS": "keepup_cluster.tables",
+}
 
-# The panel declares the section catalogue and the grants (keepup-124); they are
-# re-exported here so the path that predates the catalogue still creates them.
-from keepup_cluster.tables import CLUSTER_COMMANDS, CLUSTER_MEMBERS  # noqa: E402
-from keepup_modules.tables import (  # noqa: E402
-    FRONTEND_MODULES, PLUGIN_OVERRIDES, ROLE_MODULES)
 
 DISTRIBUTED_LOCKS = tables.table(
     "distributed_locks",
@@ -83,11 +83,34 @@ from keepup_metrics.tables import SYSTEM_METRICS  # noqa: E402
 
 
 #: In the order their foreign keys need: ``users`` before what references it.
-CORE_TABLES = (
-    DISTRIBUTED_LOCKS, USERS, SYSTEM_METRICS, FRONTEND_MODULES,
-    PLUGIN_OVERRIDES, CLUSTER_MEMBERS, CLUSTER_COMMANDS, ROLE_MODULES, USER_ROLES,
-    USER_PERMISSIONS, EXTERNAL_ROLE_MAPPINGS,
-)
+def core_tables():
+    """The tables the 0.3.0 path created, asked from their capabilities now.
+
+    Imported here and not at the top of the module: this is the abstraction the
+    capabilities are built on, and importing them at import time would close the
+    circle (keepup-122). A deployment that runs the kernel's table step creates
+    what each plugin declares and needs none of this.
+    """
+    from keepup_cluster.tables import CLUSTER_COMMANDS, CLUSTER_MEMBERS
+    from keepup_modules.tables import FRONTEND_MODULES, PLUGIN_OVERRIDES, ROLE_MODULES
+    from keepup_users.tables import (EXTERNAL_ROLE_MAPPINGS, USERS, USER_PERMISSIONS,
+                                     USER_ROLES)
+    return (DISTRIBUTED_LOCKS, USERS, SYSTEM_METRICS, FRONTEND_MODULES,
+            PLUGIN_OVERRIDES, CLUSTER_MEMBERS, CLUSTER_COMMANDS, ROLE_MODULES, USER_ROLES,
+            USER_PERMISSIONS, EXTERNAL_ROLE_MAPPINGS)
+
+
+#: The old name of the list above, resolved on access so that the import stays
+#: lazy. `CORE_TABLES` was a tuple of declarations at import time.
+def __getattr__(name):
+    if name == "CORE_TABLES":
+        return core_tables()
+    module = _FROM_CAPABILITIES.get(name)
+    if module is not None:
+        import importlib
+
+        return getattr(importlib.import_module(module), name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 
 def _hook_types():
@@ -123,7 +146,7 @@ def init_db(app_tables=None, extra_setup=None, plugins_dir=None, plugins_config_
 
     # Created and committed before the connection below is opened: a SQLite
     # connection holding a write would lock out the one the declarations use.
-    tables.ensure_tables(*CORE_TABLES)
+    tables.ensure_tables(*core_tables())
 
     conn = DatabaseManagerV2.raw_connection()
     cursor = conn.cursor()

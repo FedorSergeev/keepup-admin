@@ -44,10 +44,13 @@ classifiers = [
 # these -- they belong to the applications, and an installation of the
 # framework must not drag them in.
 dependencies = [
-    # FastAPI, Starlette and the rest of the web layer left with keepup-http
-    # (keepup-121): the base is the constructor, and a deployment that serves
-    # something other than HTTP installs no web framework at all.
-    "sqlalchemy>=2.0,<3",
+    # Nothing. The base is the constructor: the kernel, the catalogue, the
+    # service registry, the lifecycle and the transport seam need the standard
+    # library and nothing else. Every library the framework uses travels with
+    # the distribution that needs it -- keepup-db carries SQLAlchemy, keepup-http
+    # FastAPI and Starlette, keepup-auth bcrypt and PyJWT, keepup-metrics psutil
+    # and prometheus-client, keepup-tasks APScheduler, keepup-log-shipping
+    # requests (keepup-121).
     # PyJWT and bcrypt are not here any more: they belong to the sign-in, which
     # declares them in its own distribution and audits them there (keepup-124).
     # The note that chose PyJWT over python-jose -- `ecdsa` carries an advisory
@@ -60,11 +63,6 @@ dependencies = [
     # hands the request over and the framework never parses a form itself.
     # The HTTP layer declares it when it moves out (keepup-121).
     "python-multipart>=0.0.31",
-    # Not imported by the framework, but pulled in by what it does import
-    # (PyJWT's asymmetric algorithms) with no floor of their own that excludes
-    # the advisories.
-    "cryptography>=50.0",
-    "urllib3>=2.8",
 ]
 
 [project.optional-dependencies]

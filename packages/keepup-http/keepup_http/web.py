@@ -16,7 +16,7 @@ from fastapi import Depends, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
 from keepup.api_versions import describe
-from keepup.audit import incoming_requests_buffer
+from keepup_audit.audit import incoming_requests_buffer
 from keepup.auth.dependencies import get_current_admin
 from keepup.instance import get_instance_id
 

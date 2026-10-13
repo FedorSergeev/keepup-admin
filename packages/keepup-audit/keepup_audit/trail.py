@@ -19,7 +19,7 @@ that could not be written is logged as an error.
 import logging
 from typing import Any, Dict, Optional
 
-from keepup import events
+from keepup_audit import events
 
 logger = logging.getLogger(__name__)
 

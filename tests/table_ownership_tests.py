@@ -10,7 +10,11 @@ import re
 from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parents[1]
-SCHEMA = PACKAGE / "schema.py"
+#: The tables the framework declares for a deployment that predates the
+#: catalogue; the declarations live with the abstraction and the capabilities
+#: (keepup-122). The kernel's own schema is gone.
+SCHEMA = PACKAGE / "packages" / "keepup-db" / "keepup_db" / "schema.py"
+SCHEMA_MODULE = "keepup_db.schema"
 OWNERSHIP = PACKAGE / "doc" / "table-ownership.md"
 
 #: The tables owned by a capability that does not exist as a distribution yet:
@@ -30,8 +34,14 @@ def declared_tables():
     """
     import importlib
 
-    sources = [SCHEMA, PACKAGE / "audit.py", PACKAGE / "events.py", PACKAGE / "themes.py",
-               PACKAGE / "auth" / "panel_session.py", PACKAGE / "auth" / "login_throttle.py"]
+    sources = [
+        SCHEMA,
+        PACKAGE / "packages" / "keepup-audit" / "keepup_audit" / "audit.py",
+        PACKAGE / "packages" / "keepup-audit" / "keepup_audit" / "events.py",
+        PACKAGE / "packages" / "keepup-ui" / "keepup_ui" / "themes.py",
+        PACKAGE / "packages" / "keepup-auth" / "keepup_auth" / "panel_session.py",
+        PACKAGE / "packages" / "keepup-auth" / "keepup_auth" / "login_throttle.py",
+    ]
     sources += sorted((PACKAGE / "packages").glob("*/keepup_*/tables.py"))
     found = set()
     for path in sources:
@@ -53,9 +63,19 @@ def declared_tables():
 
 
 def kernel_declarations():
-    """The table names the kernel's own schema still declares."""
-    text = SCHEMA.read_text(encoding="utf-8")
-    return set(re.findall(r"^[A-Z_]+ = tables\.table\(\s*\n\s*\"([a-z_]+)\"", text, re.M))
+    """The table names the kernel still declares itself: none of them.
+
+    The declaration of the distributed locks is the abstraction's now, with the
+    rest of `schema.py` (keepup-122); the kernel declares no table at all.
+    """
+    kernel = sorted(path for path in PACKAGE.glob("*.py")
+                    if "tables.table(" in path.read_text(encoding="utf-8"))
+    declared = set()
+    for path in kernel:
+        declared |= set(re.findall(
+            r"^[A-Z_]+ = tables\.table\(\s*\n\s*\"([a-z_]+)\"",
+            path.read_text(encoding="utf-8"), re.M))
+    return declared
 
 
 def ownership_map():
@@ -95,6 +115,7 @@ def test_the_tables_that_already_moved_are_not_in_the_kernel_schema():
     for table in ("auth_session", "login_attempts", "incoming_requests", "app_events",
                   "integration_logs", "system_metrics", "users", "user_roles"):
         assert table not in declared, f"{table} is declared twice: it moved already"
+    assert declared == set(), f"the kernel declares tables again: {sorted(declared)}"
 
 
 def test_the_document_says_why_the_later_ones_wait():

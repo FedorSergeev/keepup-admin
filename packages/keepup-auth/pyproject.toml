@@ -13,6 +13,10 @@ dependencies = [
     "keepup-users>=0.4.0",
     "bcrypt>=4.0,<5",
     "pyjwt[crypto]>=2.15,<3",
+    # Not imported here, but pulled in by PyJWT's asymmetric algorithms with no
+    # floor of its own that excludes the advisories (keepup-69): the floor
+    # travels with the distribution that asks for PyJWT (keepup-121).
+    "cryptography>=50.0",
     # The authentication file is YAML, and the sign-in talks to the identity
     # provider over HTTP: both are this distribution's own (keepup-121).
     "PyYAML>=6.0,<7",

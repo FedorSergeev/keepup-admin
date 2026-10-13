@@ -20,7 +20,8 @@ from pydantic import BaseModel
 
 from keepup_auth.dependencies import get_current_admin, get_current_user
 from keepup_auth import user_roles
-from keepup import admin_trail, cache
+from keepup import cache
+from keepup_audit import trail as admin_trail
 from keepup.logging_setup import for_log
 
 #: What an application may import from this module. Everything else is

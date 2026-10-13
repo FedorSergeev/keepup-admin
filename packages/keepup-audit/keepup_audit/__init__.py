@@ -10,3 +10,19 @@ own `builtin/audit.py` and this package is the home it is moving to.
 """
 
 __version__ = "0.4.0"
+
+
+#: Names the old path answered and the package answers now, on access.
+_AUDIT_NAMES = {
+    "IncomingRequestLogger", "incoming_requests_buffer", "init_incoming_requests_table",
+    "log_api_request", "configure", "keep_as_is", "names_only",
+    "audit_retention_background", "background_buffer_flusher",
+}
+
+
+def __getattr__(name):
+    if name in _AUDIT_NAMES:
+        from keepup_audit import audit
+
+        return getattr(audit, name)
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

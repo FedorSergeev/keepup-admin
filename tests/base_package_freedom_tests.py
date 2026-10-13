@@ -79,26 +79,6 @@ def test_a_library_that_left_is_no_dependency_and_has_no_keeper():
             f"{keepers(import_name)}")
 
 
-def test_the_base_still_declares_them_and_that_is_the_debt():
-    """Honest while the code is here: the check fails the day it is not needed.
-
-    This is deliberately the opposite of the acceptance of keepup-124: the
-    libraries are in the base because the code that imports them is, and the last
-    cut of this task removes both together. When it does, this check has to be
-    deleted in the same change -- which is what keeps the promise from being
-    forgotten.
-    """
-    import tomllib
-
-    text = (PACKAGE / "pyproject.toml").read_text(encoding="utf-8")
-    metadata = tomllib.loads(text)
-    declared = " ".join(metadata["project"]["dependencies"])
-    for library in ("sqlalchemy",):
-        assert library in declared, (
-            f"{library} is no longer a dependency of the base: if the code that "
-            "imported it has moved, delete this check in the same change and say "
-            "so in doc/distributions.md"
-        )
 
 
 def test_the_kernel_does_not_import_a_capability_module():
