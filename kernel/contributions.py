@@ -41,6 +41,7 @@ CONTRIBUTION_KINDS = (
     "events",
     "metrics",
     "middleware",
+    "logging",
     "transport",
     "settings",
     "permissions",
@@ -57,6 +58,7 @@ GETTERS = {
     "events": "get_event_sinks",
     "metrics": "get_metric_collectors",
     "middleware": "get_middleware",
+    "logging": "get_log_handlers",
     "settings": "get_settings_defaults",
     "permissions": "get_route_permissions",
 }

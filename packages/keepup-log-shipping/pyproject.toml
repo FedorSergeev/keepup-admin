@@ -1,0 +1,20 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "keepup-log-shipping"
+version = "0.4.0"
+description = "The application's own log, queued and shipped to a collector."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "keepup-admin>=0.4.0",
+    "requests>=2.33",
+]
+
+[project.entry-points."keepup.plugins"]
+log_shipping = "keepup_log_shipping:Log_shippingPlugin"
+
+[tool.setuptools]
+packages = ["keepup_log_shipping"]

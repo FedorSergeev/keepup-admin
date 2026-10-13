@@ -29,6 +29,7 @@ EXPECTED = {
     "keepup-tasks": ("tasks", "scheduler"),
     "keepup-modules": ("modules", "catalogue"),
     "keepup-cluster": ("cluster", "cluster"),
+    "keepup-log-shipping": ("log_shipping", "log_shipping"),
 }
 
 #: What may not be a dependency of anything but what is named.
@@ -199,7 +200,8 @@ def test_a_driver_depends_on_the_abstraction():
 
 #: What has already moved: its plugin lives in the distribution, not in the
 #: framework's `builtin/`. The first one is the metrics capability (keepup-136).
-MOVED_ALREADY = {"keepup-metrics", "keepup-tasks", "keepup-modules", "keepup-cluster"}
+MOVED_ALREADY = {"keepup-metrics", "keepup-tasks", "keepup-modules", "keepup-cluster",
+                 "keepup-log-shipping"}
 
 
 def test_the_code_that_moves_still_lives_in_the_framework():

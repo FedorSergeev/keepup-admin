@@ -50,37 +50,22 @@ def for_log(value, limit: int = FOR_LOG_LIMIT) -> str:
 LOG_DIR = "logs"
 
 
-#: The collector's values as the application gave them to configure(), for
-#: keepup/log_shipping.py to take when it is loaded.
-SHIPPING_VALUES = {}
-
 #: See keepup.audit for why None cannot mean "leave it as it was": an
 #: application with no collector must be able to say so.
 _UNSET = object()
 
 
-def configure(project_name=_UNSET, remote_url=_UNSET, flush_interval=_UNSET,
-              batch_size=_UNSET, log_dir=_UNSET, remote_token=_UNSET):
-    """Supply the application's logging values before the handlers are built.
+def configure(log_dir=_UNSET):
+    """Supply the application's local logging values before the handlers are built.
 
-    The directory is this module's; the collector's values -- its address,
-    token, batching and the project name logs are filed under -- belong to the
-    shipping module (keepup/log_shipping.py), which is loaded only when there
-    is something to tell it: an application with no collector never loads it.
+    The collector's values -- its address, token, batching and the project name
+    logs are filed under -- belong to the shipping capability
+    (`keepup-log-shipping`), which is loaded only when there is something to
+    ship to (keepup-118). This module keeps the framework's own logging.
     """
     global LOG_DIR
     if log_dir is not _UNSET and log_dir is not None:
         LOG_DIR = log_dir
-    remote = {"project_name": project_name, "remote_url": remote_url,
-              "flush_interval": flush_interval, "batch_size": batch_size,
-              "remote_token": remote_token}
-    given = {key: value for key, value in remote.items() if value is not _UNSET}
-    # Kept here and taken by the shipping module when it is first imported;
-    # handed on at once when it already is.
-    SHIPPING_VALUES.update(given)
-    shipping = sys.modules.get("keepup.log_shipping")
-    if shipping is not None:
-        shipping.configure(**given)
 
 
 def setup_logging():

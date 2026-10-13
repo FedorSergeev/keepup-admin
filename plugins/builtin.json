@@ -251,6 +251,12 @@
       "name": "Log shipping",
       "kind": "optional",
       "priority": 90,
+      "provides": [
+        "log_shipping>=1"
+      ],
+      "contributions": [
+        "logging"
+      ],
       "distribution": "keepup-log-shipping"
     }
   ],

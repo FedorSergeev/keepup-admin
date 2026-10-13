@@ -81,12 +81,6 @@ def configure(project_name=_UNSET, remote_url=_UNSET, flush_interval=_UNSET,
         REMOTE_BATCH_SIZE = batch_size
 
 
-# What the application already gave keepup.logging_setup.configure() before this
-# module was loaded: that configure() is the one entry, and this module is
-# loaded only when there is a collector.
-from keepup import logging_setup as _local  # noqa: E402
-
-configure(**_local.SHIPPING_VALUES)
 
 
 class RemoteLoggerWrapper:

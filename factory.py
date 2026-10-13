@@ -153,13 +153,6 @@ def apply_settings(settings: KeepupSettings) -> None:
     Done in one place so that what the application supplies is visible as a
     list, rather than as a configure() call hidden in each module's import.
     """
-    logging_setup.configure(
-        project_name=settings.project_name,
-        remote_url=settings.remote_log_url,
-        remote_token=settings.remote_log_token,
-        flush_interval=settings.remote_log_flush_interval,
-        batch_size=settings.remote_log_batch_size,
-    )
     performance = settings.performance
     audit.configure(redaction=settings.audit_redaction,
                     flush_interval=performance.audit_flush_interval,
@@ -284,10 +277,6 @@ def _build_lifespan(settings: KeepupSettings):
 
         # Shipping is loaded only for an application that names a collector
         # (keepup/log_shipping.py, keepup-24).
-        remote_handler = None
-        if settings.remote_log_url:
-            from keepup.log_shipping import init_remote_logging
-            remote_handler = init_remote_logging()
         # Table creation is a round of statements against the database; off the
         # loop, where the tasks started above already run (keepup-54).
         await asyncio.to_thread(init_incoming_requests_table)
@@ -322,6 +311,11 @@ def _build_lifespan(settings: KeepupSettings):
         if manager is not None:
             await initialize_plugins(app, manager, config_path=settings.plugins_config_path)
 
+        # The log handlers the running capabilities contribute -- the shipping
+        # one, when a collector is named (keepup-118). A deployment that
+        # installs none attaches nothing.
+        attached_handlers = _attach_log_handlers(kernel)
+
         # The delivery between replicas is the database driver's (keepup-117):
         # the bus existed before the plugins, and takes its transport once they
         # have all registered the services they publish.
@@ -347,6 +341,8 @@ def _build_lifespan(settings: KeepupSettings):
 
         yield
 
+        _detach_log_handlers(attached_handlers)
+
         if kernel is not None:
             # The services a capability published are closed with the process
             # that published them (keepup-106).
@@ -362,10 +358,33 @@ def _build_lifespan(settings: KeepupSettings):
 
         await _stop_notification_bus(bus)
 
-        if remote_handler:
-            remote_handler.wrapper.force_flush()
-
     return lifespan
+
+
+def _attach_log_handlers(kernel):
+    """Attach what the running capabilities contribute to the application's log.
+
+    The contribution is the contract (keepup-118): the capability builds the
+    handler and says so, and the application -- which owns the root logger --
+    attaches it. Until `keepup-http` mounts contributions itself this is the
+    bridge, and it has the same shape as the routes one (keepup-121).
+    """
+    contributions = getattr(kernel, "contributions", None)
+    handlers = list(contributions.of("logging")) if contributions is not None else []
+    root = logging.getLogger()
+    for handler in handlers:
+        root.addHandler(handler)
+    if handlers:
+        logging.getLogger(__name__).info("Attached %s contributed log handler(s)",
+                                         len(handlers))
+    return handlers
+
+
+def _detach_log_handlers(handlers):
+    """Take them off again: a second application in one process must not double-log."""
+    root = logging.getLogger()
+    for handler in handlers or []:
+        root.removeHandler(handler)
 
 
 async def _create_notification_bus(channel):

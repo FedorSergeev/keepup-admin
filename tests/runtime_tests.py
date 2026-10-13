@@ -171,12 +171,12 @@ def test_without_a_collector_nothing_is_shipped(monkeypatch):
 def test_the_application_names_the_collector_and_itself():
     previous = (log_shipping.PROJECT_NAME, log_shipping.REMOTE_LOG_URL)
     try:
-        logging_setup.configure(project_name="second-product",
-                                remote_url="http://collector.invalid/logs")
+        log_shipping.configure(project_name="second-product",
+                               remote_url="http://collector.invalid/logs")
         assert log_shipping.PROJECT_NAME == "second-product"
         assert log_shipping.REMOTE_LOG_URL == "http://collector.invalid/logs"
     finally:
-        logging_setup.configure(project_name=previous[0], remote_url=previous[1])
+        log_shipping.configure(project_name=previous[0], remote_url=previous[1])
 
 
 def test_a_wrapper_without_an_address_ships_nothing(monkeypatch):
@@ -208,7 +208,7 @@ def test_the_collector_credential_comes_from_the_application(monkeypatch):
     monkeypatch.setattr(log_shipping, "REMOTE_LOG_TOKEN", None)
     assert log_shipping.RemoteLoggerWrapper().token is None
 
-    logging_setup.configure(remote_token="the-application-s-token")
+    log_shipping.configure(remote_token="the-application-s-token")
     assert log_shipping.RemoteLoggerWrapper().token == "the-application-s-token"
 
 

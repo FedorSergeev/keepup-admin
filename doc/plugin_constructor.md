@@ -241,7 +241,8 @@ class PluginDescriptor:
     requires: tuple[str, ...] = ()          # hard: without it the plugin does not run
     wants: tuple[str, ...] = ()             # soft: it runs, and it is worse; the report says so
     provides: tuple[str, ...] = ()          # service names this plugin publishes
-    contributions: tuple[str, ...] = ()     # kinds it contributes: routes, sections, tables, jobs, transport, ...
+    contributions: tuple[str, ...] = ()     # kinds it contributes: routes, sections,
+                                            # tables, jobs, logging, transport, ...
     default_enabled: bool = False           # what an absent `enabled` flag means
     config_schema: dict = field(default_factory=dict)   # JSON-schema-shaped, for validation
 ```

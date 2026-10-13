@@ -57,6 +57,7 @@ OPTIONAL_CAPABILITY_IMPORTS = {
     "keepup_modules": "keepup-modules",
     "keepup_cluster": "keepup-cluster",
     "keepup_postgres": "keepup-postgres",
+    "keepup_log_shipping": "keepup-log-shipping",
 }
 
 DEPENDENCY_IMPORTS = {

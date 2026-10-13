@@ -54,8 +54,8 @@ def test_local_logging_loads_none_of_the_shipping_machinery():
 
 def test_a_file_log_does_not_load_the_shipping(tmp_path):
     code = ("import sys; from keepup import logging_setup as ls; "
-            f"ls.configure(project_name='p', log_dir={str(tmp_path)!r}); ls.setup_logging(); "
-            "print('keepup.log_shipping' in sys.modules)")
+            f"ls.configure(log_dir={str(tmp_path)!r}); ls.setup_logging(); "
+            "print('keepup_log_shipping.log_shipping' in sys.modules)")
     assert run(code) == "False"
 
 
@@ -64,22 +64,22 @@ def test_an_application_without_a_collector_does_not_load_it():
             "from keepup.factory import create_app; from keepup.settings import KeepupSettings; "
             "app = create_app(KeepupSettings(title='t', static_mounts=(), plugin_manager=None)); "
             "c = TestClient(app); c.__enter__(); "
-            "print('keepup.log_shipping' in sys.modules)")
+            "print('keepup_log_shipping.log_shipping' in sys.modules)")
     assert run(code) == "False"
 
 
-def test_values_given_before_the_shipping_loads_reach_it():
-    code = ("from keepup import logging_setup as ls; "
-            "ls.configure(project_name='early', remote_url='http://collector.invalid/logs', "
-            "remote_token='t'); from keepup import log_shipping as sh; "
-            "print(sh.PROJECT_NAME, sh.REMOTE_LOG_URL, sh.REMOTE_LOG_TOKEN)")
-    assert run(code) == "early http://collector.invalid/logs t"
+def test_the_kernel_keeps_only_the_local_log():
+    """The collector's values are the capability's now (keepup-118)."""
+    code = ("import inspect; from keepup import logging_setup as ls; "
+            "print('SHIPPING_VALUES' in dir(ls), 'remote_url' in "
+            "inspect.signature(ls.configure).parameters)")
+    assert run(code) == "False False"
 
 
-def test_values_given_after_it_loaded_are_handed_on():
+def test_the_capability_takes_the_values_it_is_given():
     previous = (log_shipping.PROJECT_NAME, log_shipping.REMOTE_LOG_URL)
     try:
-        logging_setup.configure(project_name="later", remote_url="http://other.invalid/logs")
+        log_shipping.configure(project_name="later", remote_url="http://other.invalid/logs")
         assert (log_shipping.PROJECT_NAME, log_shipping.REMOTE_LOG_URL) == \
             ("later", "http://other.invalid/logs")
     finally:

@@ -383,7 +383,7 @@ def test_the_contribution_list_is_the_one_the_specification_names():
 
     assert set(CONTRIBUTION_KINDS) == {
         "routes", "sockets", "sections", "tables", "jobs", "events", "metrics",
-        "middleware", "transport", "settings", "permissions",
+        "middleware", "logging", "transport", "settings", "permissions",
     }
     assert set(GETTERS) | {"transport"} == set(CONTRIBUTION_KINDS)
 

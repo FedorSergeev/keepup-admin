@@ -62,6 +62,7 @@ jobs:
           - keepup-cluster
           - keepup-db
           - keepup-integration-log
+          - keepup-log-shipping
           - keepup-metrics
           - keepup-modules
           - keepup-postgres
