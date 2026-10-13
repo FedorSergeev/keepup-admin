@@ -10,6 +10,7 @@ the session's throwaway SQLite database, with a stand-in for the replicas' bus.
 import asyncio
 
 import pytest
+from pathlib import Path
 
 from keepup import cache, modules, notification_bus
 from keepup.db import DatabaseManagerV2
@@ -188,6 +189,7 @@ async def test_an_announcement_from_another_replica_drops_the_entry(bus, queries
 
 def test_the_server_starts_serving_with_empty_caches():
     """Start-up changesets of an application may have changed what start-up read."""
-    source = (cache.__file__.replace("cache.py", "factory.py"))
+    source = (Path(__file__).resolve().parents[1] / "packages" / "keepup-http"
+              / "keepup_http" / "factory.py")
     text = open(source, encoding="utf-8").read()
     assert text.index("cache.invalidate_all()") < text.index("        yield\n")

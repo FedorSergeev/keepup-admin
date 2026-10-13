@@ -35,13 +35,29 @@ _compat.install()
 __all__ = ["KeepupSettings", "StaticMount", "create_app", "__version__"]
 
 
+def _create_app():
+    """The application, built by the HTTP transport that owns it (keepup-121).
+
+    `create_app` stays the public name and the base keeps it: the assembly --
+    FastAPI, the routes, the middleware, the panel shell -- is
+    `keepup-http`'s, because a deployment that serves something other than HTTP
+    must not install a web framework to build its runtime.
+    """
+    try:
+        from keepup_http.factory import create_app
+    except ImportError as error:  # pragma: no cover - the message is the point
+        raise ImportError(
+            "create_app needs the HTTP transport: install keepup-http "
+            "(pip install 'keepup-admin[http]')"
+        ) from error
+    return create_app
+
+
 def __getattr__(name):
     if name in ("KeepupSettings", "StaticMount"):
         from keepup import settings
 
         return getattr(settings, name)
     if name == "create_app":
-        from keepup.factory import create_app
-
-        return create_app
+        return _create_app()
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

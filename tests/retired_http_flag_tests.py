@@ -38,7 +38,8 @@ def test_the_flag_is_gone():
         pass
     else:
         raise AssertionError("the removed flag is still accepted")
-    source = (PACKAGE / "factory.py").read_text(encoding="utf-8")
+    assert not (PACKAGE / "factory.py").exists(), "the base still assembles an application"
+    source = (PACKAGE / "packages" / "keepup-http" / "keepup_http" / "factory.py").read_text(encoding="utf-8")
     assert "disable_http_server" not in source
     assert "_create_stripped_app" not in source
     assert "prometheus_client" not in source, (

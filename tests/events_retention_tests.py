@@ -111,7 +111,7 @@ async def test_the_sweep_runs_under_its_lock_and_stops_when_cancelled(monkeypatc
 
 def test_the_capability_starts_and_stops_the_sweep():
     """The audit capability owns the sweep; the kernel starts no loop (keepup-109)."""
-    kernel = (PACKAGE / "factory.py").read_text(encoding="utf-8")
+    kernel = (PACKAGE / "packages" / "keepup-http" / "keepup_http" / "factory.py").read_text(encoding="utf-8")
     assert "events_retention_background" not in kernel
 
     plugin = (PACKAGE / "builtin" / "audit.py").read_text(encoding="utf-8")

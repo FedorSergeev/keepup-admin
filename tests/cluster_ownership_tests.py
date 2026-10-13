@@ -36,7 +36,10 @@ class Services:
 
 def test_the_kernel_neither_builds_nor_launches_the_controller():
     """Where it used to live: the application's lifespan."""
-    source = (PACKAGE / "factory.py").read_text(encoding="utf-8")
+    # The assembly is the HTTP transport's now (keepup-121); the base has no
+    # application factory at all.
+    assert not (PACKAGE / "factory.py").exists()
+    source = (PACKAGE / "packages" / "keepup-http" / "keepup_http" / "factory.py").read_text(encoding="utf-8")
     assert "ReplicaController(" not in source
     assert "controller.launch()" not in source
     assert "cluster.set_controller(" not in source

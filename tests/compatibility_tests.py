@@ -191,7 +191,8 @@ def test_only_the_names_whose_module_is_gone_are_stood_in():
              "keepup.events", "keepup.metrics", "keepup.metrics_api",
              "keepup.metrics_retention", "keepup.scheduler", "keepup.modules",
              "keepup.plugins.admin", "keepup.cluster", "keepup.log_shipping",
-             "keepup.api_docs", "keepup.events_api", "keepup.themes"}
+             "keepup.api_docs", "keepup.events_api", "keepup.themes",
+             "keepup.factory", "keepup.web", "keepup.body_limit"}
     assert moved <= set(installed)
     for name in installed:
         assert name in moved, (

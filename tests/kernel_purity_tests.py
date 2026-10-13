@@ -13,6 +13,7 @@ the specification first.
 """
 
 import ast
+import os
 from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parents[1]
@@ -26,13 +27,11 @@ SIGN_IN = "keepup.auth"
 #: Who may still import it, and why. Removing an entry is the point of 0.4.0.
 STILL_IMPORTING = {
     "builtin/users.py": "the roles it owns are read from keepup.auth.user_roles until keepup-124",
-    "factory.py": "the composition root puts the identity behind the seam (keepup-119)",
     "integrations.py": "a call is attributed to the user who made it",
     "locks.py": "its routes are the administrator's",
     "notification_bus.py": "it signs what replicas send to each other",
     "plugins/routes.py": "it registers the WebSocket sign-in; the HTTP one goes through the seam",
     "schema.py": "the first accounts are seeded with the schema",
-    "web.py": "its routes are the administrator's",
 }
 
 
@@ -81,10 +80,18 @@ def importers():
 
 
 def test_only_the_named_modules_import_the_sign_in():
-    """A new edge is a decision, and a decision is a change to the specification."""
+    """A new edge is a decision, and a decision is a change to the specification.
+
+    Only the kernel is meant: a capability declares the sign-in it uses in its
+    own metadata (keepup-http declares `keepup-auth`), which is a different
+    question from what the base carries (keepup-121).
+    """
+    kernel_only = {name: path for path, name in package_files()
+                   if not name.startswith("packages" + os.sep)}
     unknown = sorted(
         name for name in importers()
-        if name not in STILL_IMPORTING and not is_the_sign_in_itself(name)
+        if name in kernel_only and name not in STILL_IMPORTING
+        and not is_the_sign_in_itself(name)
     )
     assert unknown == [], (
         "these modules import the sign-in and are not in the list: "

@@ -70,7 +70,7 @@ def test_the_capability_owns_the_scheduler_and_the_kernel_does_not():
     It used to be the kernel's, created before the plugins and started after
     them; the declared jobs are what has to find it now, and they do (keepup-109).
     """
-    source = (PACKAGE / "factory.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "packages" / "keepup-http" / "keepup_http" / "factory.py").read_text(encoding="utf-8")
     assert "init_scheduler" not in source, "the kernel creates the scheduler again"
     assert "scheduler.start()" not in source, "the kernel starts the scheduler again"
 

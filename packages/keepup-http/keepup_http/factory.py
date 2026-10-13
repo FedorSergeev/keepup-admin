@@ -26,30 +26,34 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from keepup import audit, cluster, modules, notification_bus, web
-from keepup.api_docs import register_api_documentation
+from keepup import audit
+from keepup import notification_bus
+from keepup_cluster import cluster
+from keepup_http import web
+from keepup_modules import catalogue as modules
+from keepup_http.api_docs import register_api_documentation
 from keepup.api_versions import ApiVersionMiddleware
 from keepup.audit import init_incoming_requests_table
-from keepup.auth import dependencies as auth_dependencies
-from keepup.auth import routes as auth_routes
-from keepup.auth import panel_session, socket_sessions
-from keepup.auth.oidc_routes import register_oidc_routes
-from keepup.auth.identity import runtime as identity_runtime
+from keepup_auth import dependencies as auth_dependencies
+from keepup_auth import routes as auth_routes
+from keepup_auth import panel_session, socket_sessions
+from keepup_auth.oidc_routes import register_oidc_routes
+from keepup_auth.identity import runtime as identity_runtime
 from keepup.events import init_event_manager
-from keepup.events_api import register_event_api_routes
+from keepup_http.events_api import register_event_api_routes
 from keepup.instance import get_instance_id
 from keepup.locks import register_lock_routes
-from keepup.metrics_api import register_metrics_routes
-from keepup.modules import register_module_routes
+from keepup_metrics.api import register_metrics_routes
+from keepup_modules.catalogue import register_module_routes
 from keepup.plugins.registry import (
     initialize_plugins,
     register_plugin_admin_routes,
     run_post_construct_processors,
 )
-from keepup.scheduler import register_scheduler_routes
+from keepup_tasks.scheduler import register_scheduler_routes
 from keepup.settings import KeepupSettings
-from keepup.themes import config_service, register_theme_routes
-from keepup.web import register_web_routes
+from keepup_ui.themes import config_service, register_theme_routes
+from keepup_http.web import register_web_routes
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.

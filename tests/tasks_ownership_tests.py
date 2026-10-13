@@ -82,7 +82,7 @@ def runtime_with_tasks():
 
 def test_the_kernel_neither_creates_nor_starts_the_scheduler():
     """Where it used to live: the application's lifespan."""
-    source = (PACKAGE / "factory.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "packages" / "keepup-http" / "keepup_http" / "factory.py").read_text(encoding="utf-8")
     assert "init_scheduler" not in source
     assert "scheduler.start()" not in source
 

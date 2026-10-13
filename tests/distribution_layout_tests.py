@@ -46,7 +46,10 @@ SHARED = {"keepup-admin", "keepup-db", "keepup-users"}
 #: `keepup-auth`'s, and the day the transport lands this pair goes away.
 TEMPORARY = {("keepup-metrics", "keepup-auth"), ("keepup-tasks", "keepup-auth"),
              ("keepup-modules", "keepup-auth"), ("keepup-cluster", "keepup-auth"),
-             ("keepup-http", "keepup-auth")}
+             ("keepup-http", "keepup-auth"), ("keepup-http", "keepup-audit"),
+             ("keepup-http", "keepup-cluster"), ("keepup-http", "keepup-modules"),
+             ("keepup-http", "keepup-metrics"), ("keepup-http", "keepup-tasks"),
+             ("keepup-http", "keepup-ui")}
 
 
 def project(name):

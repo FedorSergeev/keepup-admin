@@ -94,3 +94,41 @@ def test_the_themes_are_still_served():
 def test_the_base_keeps_no_copy(name):
     """A file left behind would answer without the warning and without the move."""
     assert not (PACKAGE / f"{name}.py").exists()
+
+
+def test_the_base_ships_no_application_factory():
+    """The assembly is the transport's; the base has no application at all."""
+    for gone in ("factory.py", "web.py", "body_limit.py"):
+        assert not (PACKAGE / gone).exists(), f"{gone} is still in the base"
+
+
+def test_create_app_is_a_lazy_wrapper_over_the_transport():
+    """The public name stays, and names the distribution to install (keepup-121)."""
+    import inspect
+
+    import keepup
+
+    assert inspect.getmodule(keepup.create_app).__name__ == "keepup_http.factory"
+    source = (PACKAGE / "__init__.py").read_text(encoding="utf-8")
+    assert "keepup_http.factory" in source
+    assert "keepup-admin[http]" in source, "the error does not name what to install"
+
+
+def test_the_assembly_is_the_capability_and_the_bridges_are_its_debt():
+    """It wires the capabilities itself until the transport mounts contributions."""
+    source = (PACKAGE / "packages" / "keepup-http" / "keepup_http"
+              / "factory.py").read_text(encoding="utf-8")
+    for call in ("register_metrics_routes", "register_scheduler_routes",
+                 "register_module_routes", "register_cluster_routes"):
+        assert call in source, f"{call} is not wired where the assembly lives now"
+
+
+def test_the_panel_shell_still_travels_with_the_base():
+    """The last piece of the HTTP layer to move: the capability serves it.
+
+    Until the shell moves, the transport reads it from the base package; a
+    deployment that serves no HTTP must not carry a front end (keepup-121).
+    """
+    web = (PACKAGE / "packages" / "keepup-http" / "keepup_http"
+           / "web.py").read_text(encoding="utf-8")
+    assert "keepup.__file__" in web and 'SHELL_DIR' in web

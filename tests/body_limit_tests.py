@@ -123,7 +123,8 @@ def test_a_nonsense_limit_stops_the_start():
 
 
 def test_the_application_gets_the_middleware_with_its_setting():
-    source = (PACKAGE / "factory.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "packages" / "keepup-http" / "keepup_http" / "factory.py").read_text(
+        encoding="utf-8")
     assert "app.add_middleware(BodyLimitMiddleware, router_of=app," in source
     assert "else settings.max_json_bytes))" in source
 
@@ -197,6 +198,7 @@ def test_the_retired_raw_request_log_is_gone():
     size into memory (keepup-61); the log went with the flag and nothing may
     take its place.
     """
-    source = (Path(__file__).resolve().parents[1] / "factory.py").read_text(encoding="utf-8")
+    source = (Path(__file__).resolve().parents[1] / "packages" / "keepup-http" / "keepup_http" / "factory.py").read_text(
+        encoding="utf-8")
     assert "RAW REQUEST" not in source
     assert "_create_stripped_app" not in source

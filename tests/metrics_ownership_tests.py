@@ -23,7 +23,7 @@ PACKAGE = Path(__file__).resolve().parents[1]
 
 def test_the_kernel_starts_neither_loop():
     """Where they used to live: the lifespan of the framework itself."""
-    text = (PACKAGE / "factory.py").read_text(encoding="utf-8")
+    text = (PACKAGE / "packages" / "keepup-http" / "keepup_http" / "factory.py").read_text(encoding="utf-8")
     assert "update_metrics_background" not in text, "the kernel collects metrics again"
     assert "metrics_retention_background" not in text, "the kernel sweeps snapshots again"
 

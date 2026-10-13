@@ -154,7 +154,7 @@ def test_no_middleware_writes_header_values():
     shipped the lot to a collector. That stand went with the flag (keepup-122)
     and nothing in the framework may log a header value in its place.
     """
-    source = (PACKAGE / "factory.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "packages" / "keepup-http" / "keepup_http" / "factory.py").read_text(encoding="utf-8")
 
     assert "Raw request hex" not in source
     assert "Body hex" not in source

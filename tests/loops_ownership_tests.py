@@ -25,7 +25,7 @@ KERNEL_LOOPS = (
 
 def test_the_kernel_starts_none_of_the_loops():
     """Where they used to live: the application's lifespan."""
-    source = (PACKAGE / "factory.py").read_text(encoding="utf-8")
+    source = (PACKAGE / "packages" / "keepup-http" / "keepup_http" / "factory.py").read_text(encoding="utf-8")
     for name in KERNEL_LOOPS:
         assert name not in source, f"the kernel starts {name} again"
     assert "flush_remaining_logs" not in source, "the kernel flushes the audit buffer again"
