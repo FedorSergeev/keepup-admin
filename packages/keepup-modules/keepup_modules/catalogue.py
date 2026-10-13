@@ -115,6 +115,34 @@ def get_module_by_id(module_id: str):
 #: administrator changes it.
 SECTIONS_CACHE = "panel_sections"
 
+#: Which plugins have declared a section, and which of them are running. A
+#: section whose plugin is not running is not in the panel -- and its row and
+#: the grants an administrator made are kept, so it comes back with its plugin
+#: (keepup-113, doc/plugin_constructor.md 9.1).
+_declaring_plugins: set = set()
+_running_plugins: set = set()
+
+
+def set_declared_plugins(plugin_ids) -> None:
+    """Remember which plugins declared a section, whoever asked when."""
+    global _declaring_plugins
+
+    _declaring_plugins = set(plugin_ids)
+    _sections_changed()
+
+
+def set_running_plugins(plugin_ids) -> None:
+    """Remember which plugins came up; the panel reads the sections of those."""
+    global _running_plugins
+
+    _running_plugins = set(plugin_ids)
+    _sections_changed()
+
+
+def hidden_plugins() -> tuple:
+    """The plugins that declared a section and are not running now."""
+    return tuple(sorted(_declaring_plugins - _running_plugins))
+
 
 def get_modules_for_role(role_name: str):
     """Return the modules granted to a role.
@@ -150,8 +178,11 @@ def get_modules_for_roles(role_names):
     for role_name in role_names or []:
         for module in get_modules_for_role(role_name):
             glued.setdefault(module["module_id"], module)
-    return sorted(glued.values(), key=lambda module: (module.get("name") or "",
-                                                      module["module_id"]))
+    def place(module):
+        order = module.get("nav_order")
+        return (order is None, order or 0, module.get("name") or "", module["module_id"])
+
+    return sorted(glued.values(), key=place)
 
 
 def _sections_changed() -> None:
@@ -159,16 +190,26 @@ def _sections_changed() -> None:
 
 
 def _read_modules_for_role(role_name: str):
+    """The sections this role may see, from plugins that are running.
+
+    The filter is what makes a capability switched off by an administrator
+    disappear from the panel with its routes; the row stays, so switching it
+    back on brings the section and its grants back (keepup-113).
+    """
     from keepup_db import DatabaseManagerV2
-    return DatabaseManagerV2.execute('''
-    SELECT fm.* 
-    FROM frontend_modules fm
-    JOIN role_modules rm ON fm.module_id = rm.module_id
-    WHERE rm.role_name = :role_name 
-    AND rm.is_active = TRUE 
-    AND fm.is_active = TRUE
-    ORDER BY fm.name
-    ''', {"role_name": role_name})
+
+    hidden = hidden_plugins()
+    statement = ("SELECT fm.* FROM frontend_modules fm"
+                 " JOIN role_modules rm ON fm.module_id = rm.module_id"
+                 " WHERE rm.role_name = :role_name"
+                 " AND rm.is_active = TRUE AND fm.is_active = TRUE")
+    params: Dict[str, Any] = {"role_name": role_name}
+    if hidden:
+        placeholders = ", ".join(f":hidden_{index}" for index in range(len(hidden)))
+        statement += f" AND (fm.declared_by IS NULL OR fm.declared_by NOT IN ({placeholders}))"
+        params.update({f"hidden_{index}": name for index, name in enumerate(hidden)})
+    statement += " ORDER BY fm.name"
+    return DatabaseManagerV2.execute(statement, params)
 
 
 def create_or_update_module(module_data: Dict[str, Any]):
@@ -467,6 +508,33 @@ def sync_framework_sections(path: str = FRAMEWORK_SECTIONS) -> Dict[str, int]:
     return counted
 
 
+def import_declared_sections(declared: Dict[str, List[Dict[str, Any]]],
+                             declared_by: str) -> Dict[str, int]:
+    """Import what one declarer says, with the same ownership rule as the file.
+
+    A plugin declares its sections through the `sections` contribution
+    (`get_panel_sections()`); they are imported here exactly as the framework's
+    own file is, and `declared_by` is what lets the read leave out the sections
+    of a plugin that is not running (keepup-113).
+    """
+    from keepup_db import DatabaseManagerV2
+
+    counted = {"modules": 0, "repointed": 0}
+    for section in declared.get("modules", []):
+        try:
+            row = _section_row(section, declared_by)
+            counted["modules"] += max(0, DatabaseManagerV2.execute_commit(
+                _INSERT_SECTION_IF_NEW, row))
+            counted["repointed"] += max(0, DatabaseManagerV2.execute_commit(
+                _repoint_statement(), _repoint_params(section)))
+        except Exception as error:
+            logger.warning("Section %s of %s not imported: %s",
+                           section.get("id"), declared_by, error)
+    if counted["modules"] or counted["repointed"]:
+        set_declared_plugins(_declaring_plugins | {declared_by})
+    return counted
+
+
 def sync_new_modules_from_json(path: str = None) -> Dict[str, int]:
     """Add what the file declares and the database has never seen; change nothing else.
 
@@ -497,7 +565,8 @@ def sync_new_modules_from_json(path: str = None) -> Dict[str, int]:
     for module in config.get('modules', []):
         try:
             added["modules"] += max(0, DatabaseManagerV2.execute_commit(
-                _INSERT_SECTION_IF_NEW, _section_row(module)))
+                _INSERT_SECTION_IF_NEW,
+                _section_row(module, path or MODULES_CONFIG_PATH)))
         except Exception as e:
             logger.warning(f"Panel section {module.get('id')} not added: {e}")
 

@@ -117,7 +117,9 @@ def test_history_asks_for_the_metrics_the_panel_draws():
                             params={"hours": 24}, source="test")))
     kind, statement, params = SourcePlugin.source.statements[-1]
     assert "system_metrics" in statement
-    assert params["names"] == ("cpu.percent.total", "memory.percent")
+    names = [params[f"name_{index}"] for index in range(2)]
+    assert names == ["cpu.percent.total", "memory.percent"]
+    assert ":name_0" in statement and ":name_1" in statement
 
 
 def test_the_cluster_is_a_soft_requirement():

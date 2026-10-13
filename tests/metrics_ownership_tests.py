@@ -58,3 +58,22 @@ def test_a_deployment_without_the_capability_runs_none_of_it():
     with TestClient(app):
         state = app.state.kernel.states["metrics"]
         assert getattr(state, "outcome", None) != "initialized", state
+
+
+def test_the_history_query_runs_against_a_real_database():
+    """`IN :names` reached the driver as one bind; a stand-in source hid it.
+
+    The panel's history route was written against a stub data source, so the
+    statement that lists the metrics was never run by a database until
+    keepup-113. It runs now, with one named parameter per name.
+    """
+    from builtin.db import DatabaseSource
+    from keepup.db import DatabaseManagerV2
+    from keepup.schema import init_db
+    from keepup_metrics.plugin import HISTORY_METRICS, MetricsService
+
+    init_db()
+    service = MetricsService(DatabaseSource(DatabaseManagerV2))
+    answer = asyncio.run(service.history(hours=24))
+    assert answer["metrics"] == list(HISTORY_METRICS)
+    assert isinstance(answer["points"], list), "the statement did not run"

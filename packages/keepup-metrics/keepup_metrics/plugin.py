@@ -98,14 +98,23 @@ class MetricsService:
         return {"fresh_since": since, "instances": list(instances.values())}
 
     async def history(self, hours: int = PANEL_HISTORY_HOURS) -> Dict[str, Any]:
-        """The values of a few metrics over the last hours, oldest first."""
+        """The values of a few metrics over the last hours, oldest first.
+
+        The names are written as one named parameter each: the layer that runs
+        the statement does not expand a list into `IN` -- `metric_name IN :names`
+        reached the driver as one bind and failed on a real database, which a
+        stub data source had hidden (keepup-113).
+        """
         since = _ago(hours=hours)
+        placeholders = ", ".join(f":name_{index}" for index in range(len(HISTORY_METRICS)))
+        params: Dict[str, Any] = {"since": since}
+        params.update({f"name_{index}": name for index, name in enumerate(HISTORY_METRICS)})
         rows = await self.datasource.execute(
             "SELECT metric_name, metric_value, app_instance, timestamp"
             " FROM system_metrics"
-            " WHERE timestamp >= :since AND metric_name IN :names"
+            f" WHERE timestamp >= :since AND metric_name IN ({placeholders})"
             " ORDER BY timestamp ASC",
-            {"since": since, "names": tuple(HISTORY_METRICS)},
+            params,
         )
         return {
             "hours": int(hours),

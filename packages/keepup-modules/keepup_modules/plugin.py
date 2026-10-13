@@ -82,13 +82,25 @@ class ModulesPlugin(BasePlugin):
         """
         settings = getattr(self.plugin_manager, "settings", None)
         path = getattr(settings, "plugins_config_path", None)
-        from keepup_modules.catalogue import (sync_framework_sections,
+        from keepup_modules.catalogue import (import_declared_sections,
+                                              set_running_plugins,
+                                              sync_framework_sections,
                                               sync_new_modules_from_json)
 
         added = await asyncio.to_thread(sync_framework_sections)
         declared = await asyncio.to_thread(sync_new_modules_from_json, path)
-        logger.info("Catalogue imported: %s framework section(s), %s declared",
-                    added, declared)
+        # What the running plugins declare themselves, each attributed to the
+        # plugin that declared it: a section of a plugin that does not run is
+        # not in the panel, and the row waits for it to come back (keepup-113).
+        plugins = getattr(self.plugin_manager, "loaded_plugins", {}) or {}
+        for plugin_id, plugin in sorted(plugins.items()):
+            sections = plugin.get_panel_sections() if hasattr(plugin, "get_panel_sections") else []
+            if sections:
+                await asyncio.to_thread(import_declared_sections,
+                                        {"modules": list(sections)}, plugin_id)
+        set_running_plugins(plugins)
+        logger.info("Catalogue imported: %s framework section(s), %s declared; %s plugin(s) running",
+                    added, declared, len(plugins))
 
     def get_declared_tables(self) -> List[Any]:
         """The catalogue's tables, declared by the capability that owns them."""
