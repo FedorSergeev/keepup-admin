@@ -29,7 +29,7 @@ from typing import Any, Dict, Optional
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import Depends, HTTPException
 
-from keepup.auth.dependencies import get_current_admin
+from keepup_auth.dependencies import get_current_admin
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -74,51 +74,74 @@ def init_scheduler(job_defaults: Optional[Dict[str, Any]] = None):
     return scheduler
 
 
+def close_scheduler() -> None:
+    """Stop the process-wide scheduler and forget it.
+
+    Called by the tasks capability when its application goes down: the name is
+    the process's, and a scheduler that stopped is not one to answer a route
+    with (keepup-109).
+    """
+    global scheduler
+
+    if scheduler is not None:
+        scheduler.shutdown()
+        scheduler = None
+
+
+def jobs_payload() -> Dict[str, Any]:
+    """Every job the scheduler holds, as the panel's section reads them."""
+    if not scheduler:
+        return {"error": "Scheduler not initialized"}
+    return {"jobs": [{"id": job.id, "name": job.name,
+                      "next_run_time": job.next_run_time,
+                      "trigger": str(job.trigger)}
+                     for job in scheduler.get_jobs()]}
+
+
+def stats_payload() -> Dict[str, Any]:
+    """How the scheduler is doing, as the panel's section reads it."""
+    if not scheduler:
+        return {"error": "Scheduler not initialized"}
+    jobs = scheduler.get_jobs()
+    next_run_times = [job.next_run_time for job in jobs if job.next_run_time]
+    return {
+        "scheduler_running": scheduler.running,
+        "total_jobs": len(jobs),
+        "next_wakeup": min(next_run_times) if next_run_times else None,
+        "pending_tasks": len(asyncio.all_tasks()) if asyncio.get_event_loop() else 0,
+    }
+
+
+def trigger_job(job_id: str) -> Dict[str, Any]:
+    """Run one job by hand, now; refuses a job nobody declared."""
+    if not scheduler:
+        raise HTTPException(status_code=500, detail="Scheduler not initialized")
+    job = scheduler.get_job(job_id)
+    if not job:
+        raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
+    job.modify(next_run_time=datetime.utcnow())
+    return {"success": True, "message": f"Job {job_id} triggered manually"}
+
+
 def register_scheduler_routes(app):
-    """Register the scheduler endpoints on the application."""
+    """Register the scheduler endpoints on the application.
+
+    The application's bridge until the transport mounts what a plugin declares
+    (keepup-121); the plugin contributes the same three routes as data, and both
+    answer with the payload functions above.
+    """
 
     @app.get("/api/admin/scheduler/jobs")
     async def get_scheduler_jobs(admin: dict = Depends(get_current_admin)):
         """Return the scheduler's jobs (administrators only)."""
-        if not scheduler:
-            return {"error": "Scheduler not initialized"}
+        return jobs_payload()
 
-        jobs = []
-        for job in scheduler.get_jobs():
-            jobs.append({
-                "id": job.id,
-                "name": job.name,
-                "next_run_time": job.next_run_time,
-                "trigger": str(job.trigger)
-            })
-
-        return {"jobs": jobs}
     @app.post("/api/admin/scheduler/jobs/{job_id}/trigger")
     async def trigger_scheduler_job(job_id: str, admin: dict = Depends(get_current_admin)):
         """Run a scheduler job by hand (administrators only)."""
-        if not scheduler:
-            raise HTTPException(status_code=500, detail="Scheduler not initialized")
+        return trigger_job(job_id)
 
-        job = scheduler.get_job(job_id)
-        if not job:
-            raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-
-        job.modify(next_run_time=datetime.utcnow())
-
-        return {"success": True, "message": f"Job {job_id} triggered manually"}
     @app.get("/api/admin/scheduler/stats")
     async def get_scheduler_stats(admin: dict = Depends(get_current_admin)):
         """Return scheduler statistics (administrators only)."""
-        if not scheduler:
-            return {"error": "Scheduler not initialized"}
-
-        jobs = scheduler.get_jobs()
-        next_run_times = [job.next_run_time for job in jobs if job.next_run_time]
-        next_wakeup = min(next_run_times) if next_run_times else None
-
-        return {
-            "scheduler_running": scheduler.running,
-            "total_jobs": len(jobs),
-            "next_wakeup": next_wakeup,
-            "pending_tasks": len(asyncio.all_tasks()) if asyncio.get_event_loop() else 0
-        }
+        return stats_payload()

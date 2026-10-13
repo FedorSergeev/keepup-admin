@@ -344,7 +344,16 @@ async def _no_plugins() -> PluginPicture:
 
 
 def _default_scheduler():
-    from keepup.scheduler import get_scheduler
+    """The scheduler the tasks capability runs, or None when it is not installed.
+
+    The cluster only wants it (``wants scheduler>=1``): a deployment that runs no
+    background work still has replicas, and asking for a scheduler nobody
+    provides must not stop the start (keepup-109).
+    """
+    try:
+        from keepup.scheduler import get_scheduler
+    except ImportError:
+        return None
     return get_scheduler()
 
 

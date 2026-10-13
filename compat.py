@@ -38,6 +38,7 @@ MOVED: Dict[str, str] = {
     "keepup.audit": "keepup_audit",
     "keepup.events": "keepup_audit.events",
     "keepup.admin_trail": "keepup_audit.trail",
+    "keepup.scheduler": "keepup_tasks.scheduler",
     "keepup.metrics": "keepup_metrics",
     "keepup.metrics_api": "keepup_metrics.api",
     "keepup.metrics_retention": "keepup_metrics.retention",

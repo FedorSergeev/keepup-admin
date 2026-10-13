@@ -26,6 +26,7 @@ EXPECTED = {
     "keepup-audit": ("audit", "audit"),
     "keepup-metrics": ("metrics", "metrics"),
     "keepup-integration-log": ("integration_logs", "integration_log"),
+    "keepup-tasks": ("tasks", "scheduler"),
 }
 
 #: What may not be a dependency of anything but what is named.
@@ -39,7 +40,7 @@ SHARED = {"keepup-admin", "keepup-db", "keepup-users"}
 #: its routes in the application with the panel's guard until the transport that
 #: mounts what a plugin declares exists (`keepup-http`, task 121); the guard is
 #: `keepup-auth`'s, and the day the transport lands this pair goes away.
-TEMPORARY = {("keepup-metrics", "keepup-auth")}
+TEMPORARY = {("keepup-metrics", "keepup-auth"), ("keepup-tasks", "keepup-auth")}
 
 
 def project(name):
@@ -195,7 +196,7 @@ def test_a_driver_depends_on_the_abstraction():
 
 #: What has already moved: its plugin lives in the distribution, not in the
 #: framework's `builtin/`. The first one is the metrics capability (keepup-136).
-MOVED_ALREADY = {"keepup-metrics"}
+MOVED_ALREADY = {"keepup-metrics", "keepup-tasks"}
 
 
 def test_the_code_that_moves_still_lives_in_the_framework():

@@ -64,6 +64,7 @@ jobs:
           - keepup-metrics
           - keepup-postgres
           - keepup-sqlite
+          - keepup-tasks
           - keepup-ui
           - keepup-users
 

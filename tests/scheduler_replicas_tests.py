@@ -64,12 +64,21 @@ async def test_an_application_overrides_one_default_and_keeps_the_rest(global_sc
                                   "misfire_grace_time": 300}
 
 
-def test_the_scheduler_exists_before_the_plugins_initialise():
-    """A plugin registering jobs while initialising has to find it."""
+def test_the_capability_owns_the_scheduler_and_the_kernel_does_not():
+    """The scheduler is the tasks capability's, created and started by its plugin.
+
+    It used to be the kernel's, created before the plugins and started after
+    them; the declared jobs are what has to find it now, and they do (keepup-109).
+    """
     source = (PACKAGE / "factory.py").read_text(encoding="utf-8")
-    created = source.index("scheduler = init_scheduler(settings.scheduler_job_defaults)")
-    assert created < source.index("await initialize_plugins(app, manager")
-    assert source.index("await initialize_plugins(app, manager") < source.index("scheduler.start()")
+    assert "init_scheduler" not in source, "the kernel creates the scheduler again"
+    assert "scheduler.start()" not in source, "the kernel starts the scheduler again"
+
+    plugin = (PACKAGE / "packages" / "keepup-tasks" / "keepup_tasks"
+              / "plugin.py").read_text(encoding="utf-8")
+    assert "init_scheduler" in plugin and "self.scheduler.start()" in plugin
+    assert plugin.index("self.scheduler.start()") < plugin.index("self._declared_jobs()"), (
+        "the scheduler starts before the declared jobs are read")
 
 
 # --- post_construct -----------------------------------------------------------------

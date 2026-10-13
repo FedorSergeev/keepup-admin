@@ -50,7 +50,7 @@ from keepup.plugins.registry import (
     register_plugin_admin_routes,
     run_post_construct_processors,
 )
-from keepup.scheduler import init_scheduler, register_scheduler_routes
+from keepup.scheduler import register_scheduler_routes
 from keepup.settings import KeepupSettings
 from keepup.themes import config_service, register_theme_routes
 from keepup.web import register_web_routes
@@ -325,21 +325,14 @@ def _build_lifespan(settings: KeepupSettings):
         if settings.on_startup is not None:
             await settings.on_startup(app)
 
-        # Created before the plugins, so that one registering its jobs while
-        # initialising finds it; started after them (keepup-46).
-        scheduler = init_scheduler(settings.scheduler_job_defaults)
-
         if manager is not None:
             await initialize_plugins(app, manager, config_path=settings.plugins_config_path)
 
-        scheduler.start()
-
-        logger.info("Scheduler started with tasks:")
-        for job in scheduler.get_jobs():
-            logger.info(f" - {job.id} (next run: {job.next_run_time})")
-
-        # After the scheduler: a replica an administrator stopped comes back
-        # stopped, and stopping pauses the scheduler.
+        # The scheduler belongs to the tasks capability (keepup-109) and is
+        # running by the time this line is reached: it starts with its plugin
+        # (priority 80), before the cluster (85), which is the order a replica
+        # an administrator stopped needs -- it comes back stopped, and stopping
+        # pauses the scheduler.
         controller = cluster.ReplicaController(plugins=_plugin_picture(manager),
                                                build=_build_label())
         cluster.set_controller(controller)
@@ -389,10 +382,6 @@ def _build_lifespan(settings: KeepupSettings):
                 pass
 
         await flush_remaining_logs()
-
-        if scheduler:
-            scheduler.shutdown()
-            logger.info("Scheduler stopped")
 
         if remote_handler:
             remote_handler.wrapper.force_flush()

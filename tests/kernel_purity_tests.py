@@ -36,7 +36,6 @@ STILL_IMPORTING = {
     "notification_bus.py": "it signs what replicas send to each other",
     "plugins/admin.py": "the decision about a plugin is the administrator's",
     "plugins/routes.py": "it registers the WebSocket sign-in; the HTTP one goes through the seam",
-    "scheduler.py": "its routes are the administrator's",
     "schema.py": "the first accounts are seeded with the schema",
     "themes.py": "its routes are the administrator's",
     "web.py": "its routes are the administrator's",

@@ -58,7 +58,9 @@ DEPENDENCY_IMPORTS = {
     # bcrypt, jwt and psycopg2 are not here: no module of the base imports them
     # any more, and the distributions that do declare them for themselves
     # (keepup-auth, keepup-postgres -- keepup-124).
-    "apscheduler", "fastapi", "httpx", "prometheus_client",
+    # APScheduler left with the scheduler, which the tasks capability owns
+    # (keepup-109); psutil and prometheus_client go with the metrics one.
+    "fastapi", "httpx", "prometheus_client",
     "psutil", "pydantic", "requests", "sqlalchemy", "starlette",
     "yaml", "multipart",
     # Declared as an optional extra: the bus between replicas needs it on
