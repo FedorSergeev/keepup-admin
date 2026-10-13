@@ -14,6 +14,7 @@ The routes of the event log and the section that shows it travel with the panel
 names.
 """
 
+import asyncio
 import logging
 from typing import Any, Dict, List
 
@@ -83,6 +84,44 @@ class AuditPlugin(BasePlugin):
         if getattr(self, "recording", None) is None:
             self.recording = AuditRecording(self.services.require(SERVICE_DATASOURCE))
         return True
+
+    async def post_construct(self):
+        """Start this capability's loops: the buffer, the audit sweep, the events'.
+
+        They were `asyncio.create_task` calls in the kernel's lifespan, so a
+        deployment that never installed the audit still flushed and swept
+        (keepup-109).
+        """
+        from keepup.audit import audit_retention_background, background_buffer_flusher
+        from keepup.events import events_retention_background
+
+        self._tasks = [
+            asyncio.create_task(background_buffer_flusher()),
+            asyncio.create_task(audit_retention_background()),
+            asyncio.create_task(events_retention_background()),
+        ]
+
+    async def cleanup(self):
+        """Stop them, and ship what the buffer still holds.
+
+        The flush used to be the kernel's, after its own cancellations; the
+        owner of the buffer is the one that empties it (keepup-109).
+        """
+        tasks, self._tasks = getattr(self, "_tasks", []), []
+        for task in tasks:
+            task.cancel()
+        for task in tasks:
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+        from keepup import audit as recording
+
+        try:
+            flushed = await recording.IncomingRequestLogger.flush_buffer(include_in_flight=True)
+            logger.info("Flushed %s remaining incoming-request rows", flushed)
+        except Exception as error:  # noqa: BLE001 - shutdown must not raise
+            logger.error("Could not flush the remaining incoming-request rows: %s", error)
 
     def get_declared_tables(self):
         """The two tables this capability owns, declared once, until keepup-124."""

@@ -109,10 +109,14 @@ async def test_the_sweep_runs_under_its_lock_and_stops_when_cancelled(monkeypatc
         {"n": events.EVENTS_RETENTION_LOCK}) == []
 
 
-def test_the_application_starts_and_stops_the_sweep():
-    source = (PACKAGE / "factory.py").read_text(encoding="utf-8")
-    assert "asyncio.create_task(events_retention_background())" in source
-    assert "events_retention_task.cancel()" in source
+def test_the_capability_starts_and_stops_the_sweep():
+    """The audit capability owns the sweep; the kernel starts no loop (keepup-109)."""
+    kernel = (PACKAGE / "factory.py").read_text(encoding="utf-8")
+    assert "events_retention_background" not in kernel
+
+    plugin = (PACKAGE / "builtin" / "audit.py").read_text(encoding="utf-8")
+    assert "asyncio.create_task(events_retention_background())" in plugin
+    assert "task.cancel()" in plugin
 
 
 def test_the_audit_and_the_event_log_share_one_sweep():

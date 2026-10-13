@@ -13,6 +13,7 @@ import logging
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
+from typing import Any, Dict, List
 
 from fastapi import Depends, HTTPException, Query, status
 
@@ -189,6 +190,21 @@ class DatabaseLock:
 #: How much of max_lock_time may pass between renewals. A third leaves room
 #: for two missed beats before the row looks abandoned.
 RENEWAL_FRACTION = 3
+
+#: How many locks an administrator force-released since this process started.
+#: `samples()` is what a collector reads; the count is never written into
+#: another capability's table (keepup-109).
+_force_released = 0
+
+
+def force_released_total() -> int:
+    """How many locks were taken from their holder by hand."""
+    return _force_released
+
+
+def samples() -> List[Dict[str, Any]]:
+    """What this module contributes to the metrics service, when one is there."""
+    return [("locks.force_released", float(_force_released))]
 
 
 @asynccontextmanager
@@ -387,15 +403,13 @@ def register_lock_routes(app):
                     f"acquired at: {existing_lock['acquired_at']}"
                 )
 
-                try:
-                    DatabaseManagerV2.execute_commit('''
-                    INSERT INTO system_metrics (metric_name, metric_value, app_instance, tags)
-                    VALUES (:metric_name, :metric_value, :app_instance, :tags)
-                    ''', {"metric_name": "lock_force_released", "metric_value": 1,
-                        "app_instance": get_instance_id(),
-                        "tags": f"lock_name:{lock_name},admin:{admin['username']}"})
-                except Exception as metrics_error:
-                    logger.error(f"Failed to log lock release metric: {metrics_error}")
+                # Counted and published as a sample by whoever collects it;
+                # never written into `system_metrics`, which belongs to the
+                # metrics capability -- a lock is the kernel's business
+                # (keepup-109).
+                global _force_released
+
+                _force_released += 1
 
                 return {
                     "success": True,

@@ -12,6 +12,7 @@ routes, the sockets and the CSRF middleware it contributes. What is here is the
 claim: two services, two tables, and an identity the runtime adopts.
 """
 
+import asyncio
 import logging
 from typing import Any, Dict, List
 
@@ -74,6 +75,27 @@ class AuthPlugin(BasePlugin):
         if getattr(self, "identity", None) is None:
             self.identity = build_identity()
         return True
+
+    async def post_construct(self):
+        """Start the sweep that closes a socket whose session was revoked.
+
+        It was the kernel's task: the capability that signs a socket in is the
+        one that ends it (keepup-65, keepup-109).
+        """
+        from keepup.auth import socket_sessions
+
+        self._socket_sweep = asyncio.create_task(socket_sessions.run_forever())
+
+    async def cleanup(self):
+        """Stop the sweep with the application that started it."""
+        task, self._socket_sweep = getattr(self, "_socket_sweep", None), None
+        if task is None:
+            return
+        task.cancel()
+        try:
+            await task
+        except asyncio.CancelledError:
+            pass
 
     def get_declared_tables(self) -> List[Any]:
         """The two tables this capability owns, declared once, until keepup-124."""

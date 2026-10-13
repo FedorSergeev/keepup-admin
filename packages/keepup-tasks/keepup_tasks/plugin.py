@@ -48,6 +48,10 @@ SERVICE_SCHEDULER = "scheduler"
 #: What another plugin asks for to run its work once across the replicas.
 SERVICE_LOCKS = "locks"
 
+#: The metrics capability's service, asked for by name: the locks' own numbers
+#: are published as a sample instead of being written into its table.
+SERVICE_METRICS = "metrics"
+
 #: The panel's section: the jobs the scheduler holds and the locks in force.
 SECTION = {
     "id": "background_tasks",
@@ -92,6 +96,11 @@ class TasksPlugin(BasePlugin):
             from keepup import locks
 
             services.provide(SERVICE_LOCKS, locks, version=1, plugin_id="tasks")
+            # The locks' own numbers, when something is collecting them: the
+            # metrics capability is optional, and the lock machinery does not
+            # write into its table (keepup-109).
+            if services.has(SERVICE_METRICS):
+                services.require(SERVICE_METRICS).collect(locks.samples)
 
     async def initialize(self):
         """Create the scheduler and start it; the declared jobs join at the freeze."""

@@ -31,14 +31,13 @@ from keepup import audit, cluster, logging_setup, modules, notification_bus, web
 from keepup.kernel.lifecycle import PROFILE_METRICS_ONLY
 from keepup.api_docs import register_api_documentation
 from keepup.api_versions import ApiVersionMiddleware
-from keepup.audit import (audit_retention_background, background_buffer_flusher,
-                          init_incoming_requests_table)
+from keepup.audit import init_incoming_requests_table
 from keepup.auth import dependencies as auth_dependencies
 from keepup.auth import routes as auth_routes
 from keepup.auth import panel_session, socket_sessions
 from keepup.auth.oidc_routes import register_oidc_routes
 from keepup.auth.identity import runtime as identity_runtime
-from keepup.events import events_retention_background, init_event_manager
+from keepup.events import init_event_manager
 from keepup.events_api import register_event_api_routes
 from keepup.instance import get_instance_id
 from keepup.locks import register_lock_routes
@@ -297,16 +296,10 @@ def _build_lifespan(settings: KeepupSettings):
         # Idempotent: only rows the database has never seen are written.
         await asyncio.to_thread(modules.sync_new_modules_from_json,
                                 settings.plugins_config_path)
-        flusher_task = asyncio.create_task(background_buffer_flusher())
-        # The audit table had no sweep at all while snapshots and events both
-        # had one, so it grew for as long as the deployment ran (keepup-11).
-        audit_retention_task = asyncio.create_task(audit_retention_background())
-        # The event log had only a manual cleanup route (keepup-47).
-        events_retention_task = asyncio.create_task(events_retention_background())
-        # A socket is signed in once; this closes it when its session is
-        # revoked (keepup-65).
-        socket_sessions_task = asyncio.create_task(socket_sessions.run_forever())
-
+        # The four loops the framework used to start here -- the audit buffer,
+        # the audit sweep, the event log's sweep and the socket sweep -- belong
+        # to the capabilities that own them and start with their plugins
+        # (keepup-109). The kernel starts none of them.
         event_manager = await asyncio.to_thread(init_event_manager)
         if event_manager:
             logger.info("Event manager started successfully")
@@ -367,21 +360,6 @@ def _build_lifespan(settings: KeepupSettings):
         await identity_runtime.shutdown()
 
         await _stop_notification_bus(bus)
-
-        flusher_task.cancel()
-        audit_retention_task.cancel()
-        events_retention_task.cancel()
-        socket_sessions_task.cancel()
-        for task in (flusher_task, audit_retention_task,
-                     events_retention_task, socket_sessions_task):
-            try:
-                await task
-            except asyncio.CancelledError:
-                # Each task is awaited on its own: in a shared try the first
-                # cancellation left the block and the rest stayed uncancelled.
-                pass
-
-        await flush_remaining_logs()
 
         if remote_handler:
             remote_handler.wrapper.force_flush()
@@ -444,17 +422,6 @@ def _build_label():
     if version.get("build_number"):
         label += f" #{version['build_number']}"
     return label or None
-
-
-async def flush_remaining_logs():
-    """Ship the remaining incoming-request logs at shutdown."""
-    try:
-        logger.info("Flushing remaining incoming request logs...")
-        # Everything, the running requests too: nothing finishes after shutdown.
-        count = await audit.IncomingRequestLogger.flush_buffer(include_in_flight=True)
-        logger.info(f"Flushed {count} remaining logs")
-    except Exception as e:
-        logger.error(f"Error flushing remaining logs: {str(e)}")
 
 
 def _create_stripped_app(settings: KeepupSettings) -> FastAPI:
