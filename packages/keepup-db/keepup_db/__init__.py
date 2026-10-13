@@ -10,7 +10,7 @@ release: `keepup.compat` answers for it and names this distribution when it is n
 installed. The three names below are the declaration the moved module carried.
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 from keepup_db import tables  # noqa: E402 - the table language, with the manager
 from keepup_db.manager import (  # noqa: E402 - after the version, as a public face

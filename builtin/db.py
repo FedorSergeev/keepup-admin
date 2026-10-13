@@ -114,7 +114,7 @@ class DbPlugin(BasePlugin):
     descriptor = PluginDescriptor(
         id="db",
         name="Database abstraction",
-        version="0.4.0",
+        version="0.5.0",
         distribution="keepup-db",
         kind=KIND_REQUIRED,
         priority=10,

@@ -9,7 +9,7 @@ The code moves here in keepup-124: until then the plugin lives in the framework'
 own `builtin/auth.py` and this package is the home it is moving to.
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 
 # What the sign-in package exported, now that it is this distribution.

@@ -72,7 +72,7 @@ class TasksPlugin(BasePlugin):
     descriptor = PluginDescriptor(
         id="tasks",
         name="Background tasks",
-        version="0.4.0",
+        version="0.5.0",
         distribution="keepup-tasks",
         kind=KIND_OPTIONAL,
         priority=80,

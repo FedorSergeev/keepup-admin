@@ -47,7 +47,7 @@ class AuthPlugin(BasePlugin):
     descriptor = PluginDescriptor(
         id="auth",
         name="Sign-in and sessions",
-        version="0.4.0",
+        version="0.5.0",
         distribution="keepup-auth",
         kind=KIND_OPTIONAL,
         priority=30,

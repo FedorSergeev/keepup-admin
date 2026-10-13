@@ -18,7 +18,7 @@ from keepup_modules.catalogue import (
     sync_new_modules_from_json,
 )
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 __all__ = [
     "get_all_modules_from_db",

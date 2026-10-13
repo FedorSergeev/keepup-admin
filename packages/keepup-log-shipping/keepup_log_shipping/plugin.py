@@ -43,7 +43,7 @@ class Log_shippingPlugin(BasePlugin):
     descriptor = PluginDescriptor(
         id="log_shipping",
         name="Log shipping",
-        version="0.4.0",
+        version="0.5.0",
         distribution="keepup-log-shipping",
         kind=KIND_OPTIONAL,
         priority=90,

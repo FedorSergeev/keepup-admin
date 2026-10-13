@@ -58,7 +58,7 @@ class ClusterPlugin(BasePlugin):
     descriptor = PluginDescriptor(
         id="cluster",
         name="Cluster",
-        version="0.4.0",
+        version="0.5.0",
         distribution="keepup-cluster",
         kind=KIND_OPTIONAL,
         priority=85,

@@ -87,7 +87,7 @@ class UiPlugin(BasePlugin):
     descriptor = PluginDescriptor(
         id="ui",
         name="Panel",
-        version="0.4.0",
+        version="0.5.0",
         distribution="keepup-ui",
         kind=KIND_OPTIONAL,
         priority=70,

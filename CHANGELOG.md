@@ -2,6 +2,79 @@
 
 Notable changes to `keepup-admin`.
 
+## 0.5.0 -- a base that is the standard library
+
+The release in which the capabilities finish leaving the base, and the base stops
+pulling libraries it does not use. `keepup-admin` alone is the constructor: the
+catalogue, the service registry, the lifecycle and the transport seam, with no
+third-party dependency declared at all.
+
+**Upgrading from 0.4.0.** Install the capabilities by name as before; everything
+that moved keeps answering through the compatibility layer, which now goes away in
+0.6.0 rather than in this release -- `keepup.db`, `keepup.schema`, `keepup.audit`,
+`keepup.metrics`, `keepup.integrations`, `keepup.web`, `keepup.factory` and the
+rest still import, with a warning naming the distribution to install. The
+`disable_http_server` setting is gone: the `metrics-only` profile is what a stand
+that serves nothing but `/metrics` names. A deployment that used the setting
+should name the profile instead.
+
+### Added
+
+- **The HTTP layer is a distribution (keepup-121, keepup-148, keepup-149,
+  keepup-150).** `keepup-http` carries the application, the panel, the static
+  shell, the route wrapper, the middleware and the lock routes; the base keeps
+  `create_app` as a lazy wrapper that answers with the distribution to install
+  when it is not there, and `create_runtime` builds a runtime without one. The
+  capabilities declare the web layer they use: `keepup-http` and `keepup-auth`
+  FastAPI and Starlette, `keepup-auth` pydantic.
+- **The cluster is a distribution, and delivery between replicas is a service
+  (keepup-144, keepup-145).** `keepup-cluster` owns the registry, the commands,
+  the controller, the panel section and the stopped-replica gate; `notify_transport`
+  is the database driver's -- `keepup-postgres` carries LISTEN/NOTIFY, `keepup-sqlite`
+  the in-process one -- and the cluster requires it.
+- **Log shipping is a distribution (keepup-146).** `keepup-log-shipping` owns the
+  queue, the retries and `requests`; the kernel's `logging_setup` keeps the local
+  log and gained a `logging` contribution point, which the application attaches.
+- **A check that the base is the standard library (keepup-121).** A child
+  interpreter with every third-party library blocked imports the kernel, builds a
+  runtime, and hears the names that moved name the distribution to install.
+
+### Changed
+
+- **The last code leaves the base (keepup-151).** `schema.py` and `retention.py`
+  are `keepup-db`'s, `audit.py` and `admin_trail.py` are `keepup-audit`'s,
+  `integrations.py` is `keepup-integration-log`'s, and the table declarations are
+  asked from their capabilities where the old path created them. The floors that
+  pinned `cryptography` and `urllib3` travel with `keepup-auth` and
+  `keepup-log-shipping`.
+- **`disable_http_server` is removed (keepup-122).** The setting, its warning, the
+  second application factory it built and its raw-request log are gone; the
+  `metrics-only` profile assembles the same stand from the same code.
+- **The framework stops using its own old names (keepup-152).** The base and the
+  capabilities import the distributions directly.
+
+### Fixed
+
+- `IN :names`-style statements reached the driver as one bind and failed on a real
+  database -- the metrics history query was written against a stub data source
+  (keepup-113); both places write one named parameter per name now.
+- A write through a compatibility stand-in landed on the stand-in for any name
+  starting with an underscore, so `monkeypatch.setattr(admin, "_helper", ...)`
+  never reached the moved module (keepup-113).
+- `_module_exists` asked the finder about a name whose parent was already a
+  stand-in, which imported the distribution while `keepup` was still importing
+  (keepup-151).
+
+### Known, and left for 0.6.0
+
+- The compatibility layer for old names (`keepup.db`, `keepup.schema`,
+  `keepup.audit`, `keepup.web`, `keepup.factory`, ...) still answers: applications
+  and the suite are still migrating (keepup-122).
+- The panel shell still travels with the base package, and `keepup-http` reads it
+  from there (keepup-121).
+- `tests/plugin_runtime_tests.py` fails when its file runs alone: the routes answer
+  401 until another check of the suite has set the identity up (keepup-143).
+
 ## 0.4.0 — 2026-10-10
 
 The release that turns the framework into a constructor: a kernel that knows

@@ -115,7 +115,7 @@ def warn_moved(name: str, destination: str) -> None:
         return
     _said.add(name)
     warnings.warn(
-        f"{name} moved to {destination} in keepup 0.4.0 and goes away in 0.5.0; "
+        f"{name} moved to {destination} in keepup 0.4.0 and goes away in 0.6.0; "
         f"import it from there",
         DeprecationWarning,
         stacklevel=3,

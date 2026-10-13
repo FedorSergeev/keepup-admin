@@ -26,7 +26,9 @@ def report(*arguments):
 def test_the_report_names_the_base_its_extras_and_the_distributions():
     """What a deployment installs, and what each part carries."""
     text = report()
-    assert "keepup-admin 0.4.0" in text, "the release the graph describes"
+    from tests.distribution_layout_tests import RELEASE
+
+    assert f"keepup-admin {RELEASE}" in text, "the release the graph describes"
     for group in ("panel", "postgres", "sqlite", "test"):
         assert f"{group}: " in text, f"no extra {group} in the report"
     data = json.loads(report("--json"))

@@ -149,7 +149,7 @@ class MetricsPlugin(BasePlugin):
     descriptor = PluginDescriptor(
         id="metrics",
         name="System metrics",
-        version="0.4.0",
+        version="0.5.0",
         distribution="keepup-metrics",
         kind=KIND_OPTIONAL,
         priority=40,

@@ -32,7 +32,7 @@ class HttpPlugin(TransportPlugin):
     descriptor = PluginDescriptor(
         id="http",
         name="HTTP transport",
-        version="0.4.0",
+        version="0.5.0",
         distribution="keepup-http",
         kind=KIND_TRANSPORT,
         priority=5,

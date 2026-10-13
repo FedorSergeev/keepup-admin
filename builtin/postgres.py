@@ -22,7 +22,7 @@ class PostgresPlugin(BasePlugin):
     descriptor = PluginDescriptor(
         id="postgres",
         name="PostgreSQL driver",
-        version="0.4.0",
+        version="0.5.0",
         distribution="keepup-postgres",
         kind=KIND_REQUIRED,
         priority=6,

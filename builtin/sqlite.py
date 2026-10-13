@@ -22,7 +22,7 @@ class SqlitePlugin(BasePlugin):
     descriptor = PluginDescriptor(
         id="sqlite",
         name="SQLite driver",
-        version="0.4.0",
+        version="0.5.0",
         distribution="keepup-sqlite",
         kind=KIND_REQUIRED,
         priority=7,

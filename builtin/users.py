@@ -81,7 +81,7 @@ class UsersPlugin(BasePlugin):
     descriptor = PluginDescriptor(
         id="users",
         name="Users and roles",
-        version="0.4.0",
+        version="0.5.0",
         distribution="keepup-users",
         kind=KIND_OPTIONAL,
         priority=35,

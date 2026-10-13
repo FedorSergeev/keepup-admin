@@ -9,7 +9,7 @@ The plugin moved here from the framework's `builtin/integration_logs.py` in
 keepup-121: the base no longer carries a capability's routes.
 """
 
-__version__ = "0.4.0"
+__version__ = "0.5.0"
 
 
 _PLUGIN_NAMES = {"Integration_logsPlugin", "SERVICE_INTEGRATION_LOG"}

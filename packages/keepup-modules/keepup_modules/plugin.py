@@ -49,7 +49,7 @@ class ModulesPlugin(BasePlugin):
     descriptor = PluginDescriptor(
         id="modules",
         name="Module management",
-        version="0.4.0",
+        version="0.5.0",
         distribution="keepup-modules",
         kind=KIND_OPTIONAL,
         priority=70,

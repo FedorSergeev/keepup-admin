@@ -13,6 +13,9 @@ import tomllib
 from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parents[1]
+
+#: The release the tree declares; one tag names one release.
+RELEASE = "0.5.0"
 PACKAGES = PACKAGE / "packages"
 
 #: What each distribution is for: the plugin it declares, and what it provides.
@@ -64,7 +67,7 @@ def test_every_planned_capability_has_a_home():
     for name in EXPECTED:
         metadata = project(name)
         assert metadata["project"]["name"] == name
-        assert metadata["project"]["version"] == "0.4.0"
+        assert metadata["project"]["version"] == RELEASE
 
 
 def test_each_distribution_declares_its_plugin_by_name():
@@ -94,7 +97,7 @@ def test_every_distribution_is_importable_by_its_own_name():
             (PACKAGES / name / "pyproject.toml").read_text(encoding="utf-8")
         )["tool"]["setuptools"]["packages"][0]
         module = importlib.import_module(package)
-        assert module.__version__ == "0.4.0", f"{package} does not carry the release"
+        assert module.__version__ == RELEASE, f"{package} does not carry the release"
 
 
 def test_every_capability_is_named_by_an_extra_of_the_base():

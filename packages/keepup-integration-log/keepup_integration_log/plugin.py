@@ -155,7 +155,7 @@ class Integration_logsPlugin(BasePlugin):
     descriptor = PluginDescriptor(
         id="integration_logs",
         name="Integration log",
-        version="0.4.0",
+        version="0.5.0",
         distribution="keepup-integration-log",
         kind=KIND_OPTIONAL,
         priority=50,
