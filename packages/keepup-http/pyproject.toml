@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "keepup-http"
+version = "0.4.0"
+description = "The way into the application over HTTP: the application, its routes and its middleware."
+readme = "README.md"
+requires-python = ">=3.11"
+dependencies = [
+    "keepup-admin>=0.4.0",
+    "keepup-db>=0.4.0",
+    "keepup-auth>=0.4.0",
+    "fastapi>=0.128,<1",
+    "starlette>=1.3.1,<2",
+    "pydantic>=2.11,<3",
+]
+
+[project.entry-points."keepup.plugins"]
+http = "keepup_http:HttpPlugin"
+
+[tool.setuptools]
+packages = ["keepup_http"]

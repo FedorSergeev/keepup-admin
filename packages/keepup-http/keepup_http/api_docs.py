@@ -24,7 +24,7 @@ from fastapi.openapi.docs import (
 )
 from fastapi.responses import JSONResponse
 
-from keepup.auth.dependencies import get_current_admin
+from keepup_auth.dependencies import get_current_admin
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.

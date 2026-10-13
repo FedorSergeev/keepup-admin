@@ -13,7 +13,7 @@ from typing import Any, Dict, List, Optional
 from fastapi import Depends, HTTPException, Query
 from pydantic import BaseModel, Field
 
-from keepup.auth.dependencies import get_current_admin
+from keepup_auth.dependencies import get_current_admin
 from keepup import admin_trail, events
 from keepup.logging_setup import for_log
 

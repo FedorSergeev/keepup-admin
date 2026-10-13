@@ -25,16 +25,13 @@ SIGN_IN = "keepup.auth"
 
 #: Who may still import it, and why. Removing an entry is the point of 0.4.0.
 STILL_IMPORTING = {
-    "api_docs.py": "the API schema is served behind the administrator's sign-in",
     "builtin/users.py": "the roles it owns are read from keepup.auth.user_roles until keepup-124",
-    "events_api.py": "its routes are the administrator's",
     "factory.py": "the composition root puts the identity behind the seam (keepup-119)",
     "integrations.py": "a call is attributed to the user who made it",
     "locks.py": "its routes are the administrator's",
     "notification_bus.py": "it signs what replicas send to each other",
     "plugins/routes.py": "it registers the WebSocket sign-in; the HTTP one goes through the seam",
     "schema.py": "the first accounts are seeded with the schema",
-    "themes.py": "its routes are the administrator's",
     "web.py": "its routes are the administrator's",
 }
 

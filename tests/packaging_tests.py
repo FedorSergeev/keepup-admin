@@ -58,6 +58,7 @@ OPTIONAL_CAPABILITY_IMPORTS = {
     "keepup_cluster": "keepup-cluster",
     "keepup_postgres": "keepup-postgres",
     "keepup_log_shipping": "keepup-log-shipping",
+    "keepup_http": "keepup-http",
 }
 
 #: What the base package itself imports today, and therefore declares. The list
@@ -68,7 +69,7 @@ OPTIONAL_CAPABILITY_IMPORTS = {
 #: pydantic and SQLAlchemy are still here because the HTTP layer and the table
 #: declarations have not moved yet (keepup-121).
 DEPENDENCY_IMPORTS = {
-    "fastapi", "pydantic", "sqlalchemy", "starlette",
+    "fastapi", "sqlalchemy", "starlette",
     # Read for a version string in the cluster registry; whoever serves the
     # application brings it, and the suite declares it for its own servers.
     "uvicorn",

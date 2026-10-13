@@ -5,10 +5,10 @@ from typing import Any, Dict, List, Optional
 
 from fastapi import Depends, HTTPException
 
-from keepup.auth.dependencies import get_current_admin
+from keepup_auth.dependencies import get_current_admin
 
-from keepup import admin_trail, cache, tables
-from keepup.db import DatabaseManagerV2
+from keepup import admin_trail, cache
+from keepup_db import DatabaseManagerV2, tables
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -220,7 +220,7 @@ class ConfigService:
 
     def _add_default_theme(self):
         """Insert the default theme."""
-        from keepup.db import db_config
+        from keepup_db import db_config
 
         params = {
             "theme_name": "default",

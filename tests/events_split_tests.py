@@ -1,7 +1,7 @@
 """The event log apart from its HTTP routes (keepup-23).
 
 ``keepup/events.py`` is the journal -- the table, writing, reading, retention;
-``keepup/events_api.py`` holds its routes. A module that only emits events does
+``keepup_http/events_api.py`` holds its routes. A module that only emits events does
 not load FastAPI, and the routes read the journal like any other reader.
 
     python3 -m pytest keepup/tests/events_split_tests.py -v
@@ -15,7 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from keepup import events, events_api
+from keepup import events
+from keepup_http import events_api
 
 PACKAGE = Path(__file__).resolve().parents[1]
 def _paths():
@@ -50,12 +51,12 @@ def test_the_journal_knows_nothing_of_the_web_or_its_routes():
 
     loaded = module_imports(source_of("keepup.events"))
     assert not {name for name in loaded
-                if name.startswith(("fastapi", "pydantic", "keepup.events_api",
+                if name.startswith(("fastapi", "pydantic", "keepup_http.events_api",
                                     "keepup.auth"))}
 
 
 def test_emitting_an_event_does_not_load_the_routes():
-    probe = "import sys, keepup.events; print('keepup.events_api' in sys.modules)"
+    probe = "import sys, keepup.events; print('keepup_http.events_api' in sys.modules)"
     out = subprocess.run([sys.executable, "-c", probe], cwd=REPO, capture_output=True,
         env=_paths(),
                          text=True, check=True).stdout.strip()

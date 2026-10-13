@@ -61,6 +61,7 @@ jobs:
           - keepup-auth
           - keepup-cluster
           - keepup-db
+          - keepup-http
           - keepup-integration-log
           - keepup-log-shipping
           - keepup-metrics

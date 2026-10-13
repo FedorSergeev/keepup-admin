@@ -9,6 +9,7 @@ description = "The panel: the shell, its sections, its themes and the static fil
 readme = "README.md"
 requires-python = ">=3.11"
 dependencies = [
+    "fastapi>=0.128,<1",
     "keepup-admin>=0.4.0",
 ]
 

@@ -50,7 +50,6 @@ dependencies = [
     # version uninstallable, so an installation of this package could not be
     # made safe at all -- FastAPI itself asks only for >=0.46 (keepup-30).
     "starlette>=1.3.1,<2",
-    "pydantic>=2.11,<3",
     "sqlalchemy>=2.0,<3",
     # PyJWT and bcrypt are not here any more: they belong to the sign-in, which
     # declares them in its own distribution and audits them there (keepup-124).
@@ -104,6 +103,7 @@ tasks = ["keepup-tasks>=0.4.0"]
 modules = ["keepup-modules>=0.4.0"]
 cluster = ["keepup-cluster>=0.4.0"]
 log_shipping = ["keepup-log-shipping>=0.4.0"]
+http = ["keepup-http>=0.4.0"]
 integration_log = ["keepup-integration-log>=0.4.0"]
 
 # `pip install keepup-admin[panel,postgres]` is the full admin panel: the
@@ -120,6 +120,7 @@ panel = [
     "keepup-metrics>=0.4.0",
     "keepup-tasks>=0.4.0",
     "keepup-modules>=0.4.0",
+    "keepup-http>=0.4.0",
     "keepup-cluster>=0.4.0",
     "keepup-log-shipping>=0.4.0",
     "keepup-integration-log>=0.4.0",

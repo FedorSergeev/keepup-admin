@@ -16,6 +16,7 @@ dependencies = [
     # The authentication file is YAML, and the sign-in talks to the identity
     # provider over HTTP: both are this distribution's own (keepup-121).
     "PyYAML>=6.0,<7",
+    "pydantic>=2.11,<3",
     "httpx>=0.28",
 ]
 

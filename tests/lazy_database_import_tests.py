@@ -28,7 +28,6 @@ MOVES_WITH_ITS_CAPABILITY = {
     "builtin/postgres.py": "keepup-postgres",
     "builtin/sqlite.py": "keepup-sqlite",
     "schema.py": "the declarations themselves, until each owner takes its own",
-    "themes.py": "keepup-ui",
 }
 
 #: Modules whose import can be made lazy here and now: they reach the database
