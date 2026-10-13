@@ -429,7 +429,7 @@ def sync_framework_sections(path: str = FRAMEWORK_SECTIONS) -> Dict[str, int]:
     Returns:
         How many rows were added and how many had their paths corrected.
     """
-    from keepup_db import DatabaseManagerV2, db_config
+    from keepup_db import DatabaseManagerV2
     counted = {"modules": 0, "repointed": 0, "grants": 0}
     try:
         with open(path, "r", encoding="utf-8") as catalogue:

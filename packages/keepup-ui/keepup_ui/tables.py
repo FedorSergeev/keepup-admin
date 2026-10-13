@@ -6,9 +6,7 @@ reader keeps working. The catalogue's own two tables left for `keepup-modules`
 in keepup-113: the panel draws the navigation, the catalogue owns the model.
 """
 
-from sqlalchemy import (Boolean, Column, DateTime, Index, Integer,
-                        String, Text, UniqueConstraint)
-from sqlalchemy import text as sql_text
+from sqlalchemy import Boolean, Column, DateTime, Integer, String, Text
 
 from keepup_db import tables
 
