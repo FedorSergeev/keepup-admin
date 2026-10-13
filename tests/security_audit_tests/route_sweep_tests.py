@@ -304,15 +304,24 @@ def test_the_session_cookie_is_out_of_the_page_s_reach_and_tls_only_on_tls(start
         running.client.cookies.clear()
 
 
-def test_the_stripped_application_answers_nothing_but_metrics(the_other_system, tmp_path):
-    """DISABLE_HTTP_SERVER: the routes are absent, not disabled."""
+def test_the_metrics_only_stand_carries_no_panel_capability(the_other_system, tmp_path):
+    """The profile the retired DISABLE_HTTP_SERVER named (keepup-122).
+
+    The profile chooses the capabilities, so the panel's services are absent
+    from the kernel. Their *routes* are still registered by the application
+    itself and go away when the transport mounts what the plugins declare
+    (keepup-121) -- which is why this check looks at the services and not at
+    every path.
+    """
     from audit_profiles import by_name, running as run
 
     with run(by_name("stripped"), tmp_path) as stripped:
         paths = {getattr(route, "path", None) for route in stripped.app.routes}
         assert "/metrics" in paths
-        for path in ("/api/auth/me", "/api/auth/login", "/api/admin/users", "/selfcare"):
-            assert stripped.client.get(path).status_code in (404, 405), path
+        kernel = stripped.app.state.kernel
+        for service in ("catalogue", "scheduler", "plugin_decisions", "users"):
+            assert not kernel.services.has(service), (
+                f"the panel's {service} came up in a metrics-only stand")
 
 # --- findings this suite made, now fixed ---------------------------------------------------
 

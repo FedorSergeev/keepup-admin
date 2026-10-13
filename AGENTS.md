@@ -65,7 +65,7 @@ Settings worth knowing: `cors_origins`, `security_headers`,
 `max_upload_bytes`, `static_dir`, `static_mounts`, `client_page` (the page at
 `/`), `built_in_themes`, `gated_pages`, `audit_redaction`, `password_rule`,
 `oidc`, `identity_provider`, `openapi_url`, `openapi_public`, `public_config`, `notification_channel`, `on_startup`, `on_shutdown`,
-`extra_setup`, `remote_log_url`, `profile`, `disable_http_server`, and `performance` --
+`extra_setup`, `remote_log_url`, `profile`, and `performance` --
 the database pool, the audit buffer and the metrics interval in one object. Each is documented in
 `keepup/settings.py`; a value you would have to edit inside keepup belongs in a
 setting instead.

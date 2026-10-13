@@ -62,18 +62,26 @@ def test_two_applications_live_side_by_side_in_one_process():
     assert second.title == "Second"
 
 
-def test_the_stripped_application_has_only_its_metrics():
-    """DISABLE_HTTP_SERVER is a different application, not a disabled one.
+def test_the_metrics_only_profile_serves_its_metrics_and_no_panel():
+    """That stand is a different application, not a disabled one.
 
     Which is why a 404 from it is expected rather than a fault to look for
-    elsewhere -- the routes are absent.
+    elsewhere -- the routes are absent. The retired `disable_http_server` flag
+    named this profile, and 0.5.0 removed the flag (keepup-122).
     """
-    app = create_app(bare_settings(disable_http_server=True))
+    from keepup.kernel.lifecycle import PROFILE_METRICS_ONLY
 
-    paths = {route.path for route in app.routes}
-    assert "/metrics" in paths
-    assert "/api/health" not in paths
-    assert "/api/modules" not in paths
+    from fastapi.testclient import TestClient
+    from keepup_metrics.plugin import SERVICE_METRICS
+
+    app = create_app(bare_settings(profile=PROFILE_METRICS_ONLY))
+
+    assert "/metrics" in {route.path for route in app.routes}, "the stand serves no metrics"
+    # The panel's capabilities are not enabled by this profile: they are absent
+    # rather than switched off.
+    with TestClient(app):
+        assert app.state.kernel.services.has(SERVICE_METRICS)
+        assert not app.state.kernel.services.has("catalogue")
 
 
 def test_the_application_supplies_its_own_front_end_paths():

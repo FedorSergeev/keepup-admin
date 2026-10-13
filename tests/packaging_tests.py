@@ -60,22 +60,25 @@ OPTIONAL_CAPABILITY_IMPORTS = {
     "keepup_log_shipping": "keepup-log-shipping",
 }
 
+#: What the base package itself imports today, and therefore declares. The list
+#: shrinks with every capability that moves out: bcrypt, jwt and psycopg2 left
+#: with the sign-in and the drivers (keepup-124), APScheduler with the scheduler
+#: (keepup-109), psutil and prometheus_client with the metrics (keepup-136),
+#: requests and httpx with the log shipping (keepup-146). FastAPI, Starlette,
+#: pydantic and SQLAlchemy are still here because the HTTP layer and the table
+#: declarations have not moved yet (keepup-121).
 DEPENDENCY_IMPORTS = {
-    # bcrypt, jwt and psycopg2 are not here: no module of the base imports them
-    # any more, and the distributions that do declare them for themselves
-    # (keepup-auth, keepup-postgres -- keepup-124).
-    # APScheduler left with the scheduler, which the tasks capability owns
-    # (keepup-109); psutil and prometheus_client go with the metrics one.
-    "fastapi", "httpx", "prometheus_client",
-    "psutil", "pydantic", "requests", "sqlalchemy", "starlette",
-    "yaml", "multipart",
-    # Declared as an optional extra: the bus between replicas needs it on
-    # PostgreSQL, a single-process deployment on SQLite does not.
-    "asyncpg",
-    # Read for a version string in the cluster registry and the log setup;
-    # whoever serves the application brings it.
+    "fastapi", "pydantic", "sqlalchemy", "starlette",
+    # Read for a version string in the cluster registry; whoever serves the
+    # application brings it, and the suite declares it for its own servers.
     "uvicorn",
 }
+
+#: What the base declares without importing, and why. The floors are checked by
+#: the security workflow against the floors themselves (keepup-69); the form
+#: parser is what an application's upload route needs from FastAPI, which the
+#: HTTP layer declares when it moves out (keepup-121).
+DECLARED_WITHOUT_AN_IMPORT = {"cryptography", "urllib3", "python-multipart"}
 
 STANDARD_LIBRARY = set(sys.stdlib_module_names)
 
@@ -264,6 +267,116 @@ def test_the_package_asks_for_everything_it_imports():
     assert undeclared == [], (
         "the framework imports these and the package does not account for them: "
         + ", ".join(undeclared))
+
+
+def test_the_base_declares_nothing_it_does_not_use():
+    """A dead declaration is still an install, an audit and a CVE (keepup-121)."""
+    import tomllib
+
+    metadata = tomllib.loads(pyproject_text())["project"]
+    declared = set()
+    for dependency in metadata["dependencies"]:
+        name = dependency.split("[")[0]
+        for separator in (">", "<", "=", "!", " "):
+            name = name.split(separator)[0]
+        declared.add(name.strip().lower())
+    imported = {_distribution_of(name) for name in framework_imports()}
+    unused = sorted(declared - imported - DECLARED_WITHOUT_AN_IMPORT)
+    assert unused == [], (
+        "the base declares these and imports none of them: " + ", ".join(unused))
+
+
+def test_every_distribution_declares_what_its_code_imports():
+    """A capability installed alone must bring what it imports (keepup-121).
+
+    A distribution may satisfy an import by declaring the library itself or by
+    declaring the distribution that owns it -- the cluster imports SQLAlchemy and
+    declares `keepup-db`, which declares it.
+    """
+    import tomllib
+
+    problems = []
+    for directory in sorted((PACKAGE / "packages").iterdir()):
+        pyproject = directory / "pyproject.toml"
+        if not pyproject.is_file():
+            continue
+        available = _libraries_available_to(pyproject)
+        imported = {_distribution_of(name) for name in _imports_of(directory)}
+        missing = sorted(imported - available - DECLARED_WITHOUT_AN_IMPORT)
+        if missing:
+            problems.append(f"{directory.name}: {', '.join(missing)}")
+    assert problems == [], "; ".join(problems)
+
+
+def _name_of(dependency: str) -> str:
+    """A dependency as its distribution name, without a version or an extra."""
+    name = dependency.split("[")[0]
+    for separator in (">", "<", "=", "!", " ", ";"):
+        name = name.split(separator)[0]
+    return name.strip().lower()
+
+
+def _declared_libraries(pyproject: Path):
+    """What one pyproject declares, directly."""
+    import tomllib
+
+    metadata = tomllib.loads(pyproject.read_text(encoding="utf-8"))["project"]
+    return {_name_of(dependency) for dependency in metadata["dependencies"]}
+
+
+def _libraries_available_to(pyproject: Path) -> set:
+    """Everything a distribution may import: its own declarations and theirs.
+
+    The walk follows the distributions it declares -- `keepup-cluster` declares
+    `keepup-db`, which declares SQLAlchemy -- and stops at `keepup-admin`, whose
+    own declarations (FastAPI, Starlette, pydantic, SQLAlchemy) every capability
+    may use, because each of them is loaded by the base.
+    """
+    available = set()
+    seen = set()
+    pending = [pyproject]
+    while pending:
+        current = pending.pop()
+        if current in seen:
+            continue
+        seen.add(current)
+        declared = _declared_libraries(current)
+        available |= declared
+        for name in declared:
+            sibling = PACKAGE / "packages" / name / "pyproject.toml"
+            if sibling.is_file():
+                pending.append(sibling)
+            elif name in ("keepup-admin", "keepup"):
+                pending.append(PYPROJECT)
+    return available
+
+
+#: Import name -> distribution name, for the libraries whose two names differ.
+DISTRIBUTION_NAMES = {
+    "jwt": "pyjwt", "yaml": "pyyaml", "prometheus_client": "prometheus-client",
+    "psycopg2": "psycopg2-binary", "asyncpg": "asyncpg",
+}
+
+
+def _distribution_of(module: str) -> str:
+    return DISTRIBUTION_NAMES.get(module, module.replace("_", "-").lower())
+
+
+def _imports_of(directory: Path):
+    """Every third-party module one distribution's code imports."""
+    found = set()
+    for path in Path(directory).rglob("*.py"):
+        if any(part in ("tests", "__pycache__", "build", "dist") for part in path.parts):
+            continue
+        tree = ast.parse(path.read_text(encoding="utf-8"))
+        for node in ast.walk(tree):
+            if isinstance(node, ast.Import):
+                for alias in node.names:
+                    found.add(alias.name.split(".")[0])
+            elif isinstance(node, ast.ImportFrom) and node.level == 0 and node.module:
+                found.add(node.module.split(".")[0])
+    outside = found - STANDARD_LIBRARY
+    return {name for name in outside if not name.startswith("keepup")}
 
 
 def test_a_capability_the_framework_references_is_not_a_dependency():

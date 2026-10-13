@@ -238,7 +238,7 @@ def _write_files(profile: Profile, workdir: Path, other: Optional[OtherSystem]):
 
 def settings_for(profile: Profile, plugins: Path, modules: Path) -> KeepupSettings:
     options = dict(title=f"security-audit-{profile.name}", static_mounts=(),
-                   disable_http_server=profile.stripped)
+                   profile="metrics-only" if profile.stripped else None)
     if profile.plugins:
         options.update(plugin_manager=PluginManager(plugins_dir=str(plugins)),
                        plugins_config_path=str(modules))

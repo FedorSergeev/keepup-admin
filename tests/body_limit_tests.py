@@ -190,7 +190,13 @@ def test_a_body_over_the_limit_without_a_length_never_reaches_the_handler():
     assert refused.status_code == 413 and calls == []
 
 
-def test_the_stripped_mode_does_not_read_the_body_to_log_it():
+def test_the_retired_raw_request_log_is_gone():
+    """The stand that logged raw requests was the retired flag's (keepup-122).
+
+    Reading a body only to write its size into the log let one request of any
+    size into memory (keepup-61); the log went with the flag and nothing may
+    take its place.
+    """
     source = (Path(__file__).resolve().parents[1] / "factory.py").read_text(encoding="utf-8")
-    stripped = source[source.index("def _create_stripped_app"):source.index("def create_app(")]
-    assert "await request.body()" not in stripped
+    assert "RAW REQUEST" not in source
+    assert "_create_stripped_app" not in source

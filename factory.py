@@ -22,12 +22,11 @@ import logging
 import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI, Request
+from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 
-from keepup import audit, cluster, logging_setup, modules, notification_bus, web
-from keepup.kernel.lifecycle import PROFILE_METRICS_ONLY
+from keepup import audit, cluster, modules, notification_bus, web
 from keepup.api_docs import register_api_documentation
 from keepup.api_versions import ApiVersionMiddleware
 from keepup.audit import init_incoming_requests_table
@@ -429,53 +428,6 @@ async def _stop_notification_bus(bus):
 
 
 
-def _create_stripped_app(settings: KeepupSettings) -> FastAPI:
-    """The application DISABLE_HTTP_SERVER asks for: metrics and a raw log.
-
-    Not a smaller version of the real one -- a different one. Routes are absent
-    rather than disabled, which is why a request that 404s here is expected and
-    not a fault to look for elsewhere.
-    """
-    from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
-    from fastapi.responses import Response as FastAPIResponse
-
-    app = FastAPI(title=settings.title)
-
-    @app.middleware("http")
-    async def log_raw_request(request: Request, call_next):
-        """Middleware logging raw HTTP requests."""
-        logger.info("=" * 80)
-        logger.info("📥 RAW REQUEST RECEIVED")
-        logger.info(f"Method: {request.method}")
-        logger.info(f"URL: {logging_setup.for_log(request.url)}")
-        logger.info(f"Path: {logging_setup.for_log(request.url.path)}")
-        logger.info(f"Query params: {dict(request.query_params)}")
-
-        # Header names only, and never their values. This used to write every
-        # header out in full -- Authorization and Cookie among them -- and then
-        # the same thing again as text and as hex, and RemoteLoggerWrapper
-        # shipped the lot to a collector. One environment variable turned a
-        # replica into a device that records other people's credentials
-        # (task keepup-13).
-        logger.info(f"Header names: {', '.join(request.headers.keys())}")
-
-        # The declared length, not the body: reading it only to log its size
-        # let one request of any size into memory (keepup-61).
-        declared = request.headers.get("content-length")
-        if declared:
-            logger.info(f"Body: {declared} bytes declared")
-
-        logger.info("=" * 80)
-
-        response = await call_next(request)
-        logger.info(f"📤 RESPONSE: {response.status_code}")
-        return response
-
-    @app.get("/metrics")
-    async def metrics():
-        return FastAPIResponse(content=generate_latest(), media_type=CONTENT_TYPE_LATEST)
-
-    return app
 
 
 def create_app(settings: KeepupSettings = None) -> FastAPI:
@@ -490,23 +442,6 @@ def create_app(settings: KeepupSettings = None) -> FastAPI:
     # Before any route exists: a provider that cannot be built stops the start
     # here, and one that can is what the routes below reach (keepup-91).
     identity_runtime.configure(settings.identity_provider)
-
-    if settings.disable_http_server:
-        # The retired flag is the profile (keepup-123): a stand that serves no
-        # panel and no admin API is assembled from the same code and the same
-        # catalogue as every other stand, not from a second application factory.
-        # An explicit profile wins -- a deployment that named one meant it.
-        import warnings
-
-        warnings.warn(
-            "disable_http_server is retired in 0.4.0 and goes away in 0.5.0: it is "
-            "the 'metrics-only' profile now (KeepupSettings.profile)",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        if not settings.profile:
-            settings.profile = PROFILE_METRICS_ONLY
-        return _create_stripped_app(settings)
 
     # /docs belongs to the public gateway reference, so the interactive API docs
     # live under /api. FastAPI's own schema and pages are switched off: the

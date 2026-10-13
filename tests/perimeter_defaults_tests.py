@@ -146,16 +146,17 @@ def test_the_source_names_no_temporary_directory():
 
 # --- the debug mode -----------------------------------------------------------
 
-def test_the_debug_middleware_writes_no_header_values():
+def test_no_middleware_writes_header_values():
     """One environment variable used to turn a replica into a recorder.
 
     DISABLE_HTTP_SERVER logged every header in full -- Authorization and Cookie
-    among them -- then the same again as text and as hex, and the remote
-    logger shipped the lot to a collector.
+    among them -- then the same again as text and as hex, and the remote logger
+    shipped the lot to a collector. That stand went with the flag (keepup-122)
+    and nothing in the framework may log a header value in its place.
     """
     source = (PACKAGE / "factory.py").read_text(encoding="utf-8")
 
     assert "Raw request hex" not in source
     assert "Body hex" not in source
     assert 'logger.info(f"  {key}: {value}")' not in source
-    assert "Header names" in source
+    assert "Header names" not in source

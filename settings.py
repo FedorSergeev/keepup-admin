@@ -269,5 +269,3 @@ class KeepupSettings:
     #: learning a database library (keepup-123).
     database_dialect: Optional[str] = None
 
-    #: The stripped application: /metrics and a raw-request log, nothing else.
-    disable_http_server: bool = False

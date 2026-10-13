@@ -1,17 +1,19 @@
-"""The retired flag is the profile, not a second application factory.
+"""The retired flag is gone; the metrics-only profile is the way (keepup-122).
 
-Task keepup-123. `disable_http_server` asked for a stand that serves /metrics and
-a raw-request log and nothing else. 0.4.0 expresses that as a profile, so the
-same code and the same catalogue assemble every stand; the flag keeps working for
-one release and says where it went.
+`disable_http_server` asked for a stand that serves /metrics and a raw-request
+log and nothing else. 0.4.0 expressed that as a profile and kept the flag
+working for one release, with a warning; 0.5.0 removes the flag, the warning and
+the second application factory it built -- the same code and the same catalogue
+assemble every stand.
+
+    python3 -m pytest tests/retired_http_flag_tests.py -v
 """
 
-import warnings
+import json
 from pathlib import Path
 
 from keepup import KeepupSettings, create_app
 from keepup.kernel.lifecycle import PROFILE_METRICS_ONLY
-
 
 PACKAGE = Path(__file__).resolve().parents[1]
 
@@ -24,52 +26,53 @@ def bare_settings(**overrides):
     return KeepupSettings(**values)
 
 
-def test_the_flag_becomes_the_profile():
-    """A stand that serves no panel is the metrics-only profile."""
-    settings = bare_settings(disable_http_server=True)
-    with warnings.catch_warnings(record=True) as seen:
-        warnings.simplefilter("always")
-        create_app(settings)
-    assert settings.profile == PROFILE_METRICS_ONLY
-    assert any("metrics-only" in str(item.message) for item in seen)
-    assert any(issubclass(item.category, DeprecationWarning) for item in seen)
+def test_the_flag_is_gone():
+    """A setting that no longer exists is not quietly ignored."""
+    import dataclasses
+
+    names = {field.name for field in dataclasses.fields(KeepupSettings)}
+    assert "disable_http_server" not in names
+    try:
+        KeepupSettings(disable_http_server=True)
+    except TypeError:
+        pass
+    else:
+        raise AssertionError("the removed flag is still accepted")
+    source = (PACKAGE / "factory.py").read_text(encoding="utf-8")
+    assert "disable_http_server" not in source
+    assert "_create_stripped_app" not in source
+    assert "prometheus_client" not in source, (
+        "the framework still carries the collector library of the metrics capability")
 
 
-def test_an_explicit_profile_wins():
-    """A deployment that named a profile meant it."""
-    settings = bare_settings(disable_http_server=True, profile="panel")
-    with warnings.catch_warnings(record=True):
-        warnings.simplefilter("always")
-        create_app(settings)
-    assert settings.profile == "panel"
+def test_the_profile_is_the_way_to_a_metrics_only_stand():
+    """The stand the flag asked for comes from the same code and the same catalogue.
+
+    The profile chooses the capabilities: the metrics one is up and the panel's
+    are not. Routes are a separate matter until the transport mounts what the
+    plugins declare (keepup-121).
+    """
+    from fastapi.testclient import TestClient
+    from keepup_metrics.plugin import SERVICE_METRICS
+
+    app = create_app(bare_settings(profile=PROFILE_METRICS_ONLY))
+    assert "/metrics" in {route.path for route in app.routes}
+    with TestClient(app):
+        kernel = app.state.kernel
+        assert kernel.services.has(SERVICE_METRICS), "the stand's own capability is not up"
+        assert not kernel.services.has("catalogue"), "the panel came up in a metrics-only stand"
 
 
-def test_the_profile_the_flag_names_exists_in_the_catalogue():
-    """A flag that maps onto a profile nobody declared is a flag that breaks."""
-    import json
-    from pathlib import Path
-
+def test_the_profile_the_flag_named_exists_in_the_catalogue():
+    """A profile nobody declared is a profile that breaks."""
     catalogue = json.loads(
-        (Path(__file__).resolve().parents[1] / "plugins" / "builtin.json").read_text(
-            encoding="utf-8"))
+        (PACKAGE / "plugins" / "builtin.json").read_text(encoding="utf-8"))
     assert PROFILE_METRICS_ONLY in catalogue["profiles"]
 
 
-def test_without_the_flag_nothing_is_said():
-    """The mapping is about a retired flag, not about every application."""
+def test_without_a_profile_nothing_is_stripped():
+    """The stand is chosen by the profile, and by nothing else."""
     settings = bare_settings()
-    with warnings.catch_warnings(record=True) as seen:
-        warnings.simplefilter("always")
-        create_app(settings)
+    app = create_app(settings)
     assert settings.profile is None
-    assert [item for item in seen if "disable_http_server" in str(item.message)] == []
-
-
-def test_the_flag_still_builds_the_stripped_application():
-    """The behaviour it asked for is unchanged for one release."""
-    with warnings.catch_warnings(record=True):
-        warnings.simplefilter("always")
-        app = create_app(bare_settings(disable_http_server=True))
-    paths = {route.path for route in app.routes}
-    assert "/metrics" in paths
-    assert "/api/admin/plugins" not in paths
+    assert "/api/health" in {route.path for route in app.routes}
