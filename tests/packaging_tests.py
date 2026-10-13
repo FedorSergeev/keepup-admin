@@ -293,8 +293,6 @@ def test_every_distribution_declares_what_its_code_imports():
     declaring the distribution that owns it -- the cluster imports SQLAlchemy and
     declares `keepup-db`, which declares it.
     """
-    import tomllib
-
     problems = []
     for directory in sorted((PACKAGE / "packages").iterdir()):
         pyproject = directory / "pyproject.toml"
