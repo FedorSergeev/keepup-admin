@@ -179,6 +179,56 @@ def is_own_envelope(envelope: Dict[str, Any], instance_id: str) -> bool:
     return envelope.get(ORIGIN_FIELD) == instance_id
 
 
+#: The service a database driver publishes to carry envelopes between replicas.
+SERVICE_NOTIFY_TRANSPORT = "notify_transport"
+
+
+class Transport:
+    """How envelopes leave this process, and how the other replicas' arrive.
+
+    The kernel owns the bus -- the envelopes, the seal, the subscribers -- and
+    the *driver of the database* owns the delivery, because that is where the
+    library that can carry a message between processes lives (keepup-117). A
+    deployment whose driver publishes no transport keeps the in-process case: an
+    envelope reaches this process and no other.
+    """
+
+    @property
+    def is_running(self) -> bool:
+        """Whether envelopes from the other replicas are arriving."""
+        return False
+
+    async def start(self, channel: str, receive: Callable[[str], None]) -> bool:
+        """Begin listening; ``receive`` is handed every payload that arrives."""
+        return False
+
+    async def stop(self) -> None:
+        """Stop listening; called with the application."""
+
+    async def publish(self, channel: str, payload: str) -> bool:
+        """Send one payload to the channel. Never raises."""
+        return False
+
+
+class InProcessTransport(Transport):
+    """The single-replica case: what is published is delivered here, nowhere else.
+
+    Published by a driver whose database cannot carry a message between
+    processes (`keepup-sqlite`), so that a deployment keeps a working bus, and a
+    cluster that reports itself instead of one that hears nobody.
+    """
+
+    @property
+    def is_running(self) -> bool:
+        return True
+
+    async def start(self, channel: str, receive: Callable[[str], None]) -> bool:
+        return True
+
+    async def publish(self, channel: str, payload: str) -> bool:
+        return True
+
+
 class NotificationBus:
     """Publishes envelopes to the other replicas and receives theirs.
 
@@ -190,28 +240,37 @@ class NotificationBus:
     channel per kind would multiply connections without splitting real traffic.
     """
 
-    def __init__(self, instance_id: str, channel: str):
+    def __init__(self, instance_id: str, channel: str,
+                 transport: Optional[Transport] = None):
         if not channel:
             raise ValueError("a notification bus needs the application's channel name")
         self._instance_id = instance_id
         self._channel = channel
         self._handlers: List[Callable[[Dict[str, Any]], Awaitable[None]]] = []
-        self._connection = None
-        self._listener_task: Optional[asyncio.Task] = None
+        self._transport = transport
         self._stopping = False
         self._started = False
+
+    def set_transport(self, transport: Optional[Transport]) -> None:
+        """Hand the bus the delivery its driver publishes (keepup-117).
+
+        The bus is created before the plugins -- one of them subscribes while it
+        initialises -- and the transport is only known once they have all
+        registered their services.
+        """
+        self._transport = transport
 
     @property
     def is_running(self) -> bool:
         """Whether envelopes from other replicas are currently arriving."""
-        return self._connection is not None
+        return bool(self._transport is not None and self._transport.is_running)
 
     @property
     def can_publish(self) -> bool:
         """Whether envelopes can be sent to the other replicas.
 
-        Not the same as is_running: pg_notify needs no LISTEN, so sending works
-        from any pooled connection while the listener is reconnecting.
+        Not the same as is_running: sending needs no listening connection, so
+        publishing works while the driver's listener is reconnecting.
         """
         return self._started
 
@@ -249,7 +308,6 @@ class NotificationBus:
             bool: whether the envelope reached the channel. False also means
             "the bus is not running", which is the normal state on SQLite.
         """
-        from keepup.db import DatabaseManagerV2
         envelope = dict(envelope)
         envelope[ORIGIN_FIELD] = self._instance_id
 
@@ -263,134 +321,46 @@ class NotificationBus:
             logger.error(str(e))
             return False
 
-        # From the pool, never on the listening connection (keepup-50). asyncpg
-        # runs one operation at a time on a connection: two envelopes published
-        # at once there made the second fail with "another operation is in
-        # progress", returned False and were lost without a trace, and every
-        # publish held up the listener's reading. pg_notify needs no LISTEN on
-        # the connection that sends it.
+        if self._transport is None:
+            return False
         try:
-            await DatabaseManagerV2.execute_commit_async(
-                "SELECT pg_notify(:channel, :payload)",
-                {"channel": self._channel, "payload": payload})
-            return True
+            return await self._transport.publish(self._channel, payload)
         except Exception as e:
             logger.error(f"Could not publish a notification: {e}")
             return False
 
     async def start(self) -> bool:
-        """Open the listening connection and keep it open.
+        """Begin listening, through the transport the driver published.
 
         Returns:
-            bool: whether listening began. False on a database that has no
-            such mechanism, which is a working mode and not a failure.
+            bool: whether listening began. False without a transport, which is a
+            working mode and not a failure: notifications then reach this
+            process only.
         """
-        from keepup.db import db_config
-        if not db_config.is_postgres():
+        if self._transport is None:
             logger.info(
-                "Notification bus is off: it needs PostgreSQL, and notifications "
+                "Notification bus is off: no driver carries it, and notifications "
                 "will reach only the sockets of this process"
             )
             return False
 
         self._stopping = False
         self._started = True
-        self._listener_task = asyncio.create_task(self._listen_forever())
-        return True
+        return await self._transport.start(self._channel, self._receive)
 
-    async def stop(self) -> None:
-        """Close the listening connection and stop reconnecting."""
-        self._stopping = True
-        self._started = False
-
-        if self._listener_task:
-            self._listener_task.cancel()
-            try:
-                await self._listener_task
-            except (asyncio.CancelledError, Exception):
-                pass
-            self._listener_task = None
-
-        await self._close_connection()
-
-    async def _close_connection(self) -> None:
-        if self._connection is None:
-            return
-        connection, self._connection = self._connection, None
-        try:
-            await connection.close()
-        except Exception as e:
-            logger.warning(f"Could not close the notification connection: {e}")
-
-    async def _connect(self):
-        """Open a connection dedicated to listening.
-
-        Deliberately not from the SQLAlchemy pool: LISTEN occupies a connection
-        for as long as it listens, and a pooled connection handed back would
-        stop delivering while still looking reusable.
-        """
-        from keepup.db import db_config
-        import asyncpg
-
-        return await asyncpg.connect(
-            host=db_config.db_host,
-            port=int(db_config.db_port),
-            user=db_config.db_user,
-            password=db_config.db_password,
-            database=db_config.db_name,
-        )
-
-    def _on_notify(self, connection, pid, channel, payload) -> None:
-        """asyncpg calls this from the connection's reader task."""
+    def _receive(self, payload: str) -> None:
+        """A payload from the transport: decode it, skip our own, hand it on."""
         envelope = decode_envelope(payload)
-        if envelope is None:
-            return
-        if is_own_envelope(envelope, self._instance_id):
+        if envelope is None or is_own_envelope(envelope, self._instance_id):
             return
         asyncio.create_task(self.dispatch(envelope))
 
-    async def _listen_forever(self) -> None:
-        """Hold the listening connection, reopening it after a break.
-
-        The break is logged on both sides -- lost and restored -- because
-        delivery has no replay: what happened while this was down is not
-        recoverable from the bus, and a silent gap would be indistinguishable
-        from nothing having happened.
-        """
-        delay = RECONNECT_DELAY_INITIAL
-
-        while not self._stopping:
-            try:
-                # Published only once it listens: is_running answers "envelopes
-                # from other replicas are arriving", and a connection still
-                # attaching its listener does not deliver yet.
-                connection = await self._connect()
-                try:
-                    await connection.add_listener(self._channel, self._on_notify)
-                except BaseException:
-                    await connection.close()
-                    raise
-                self._connection = connection
-                logger.info(f"Notification bus listening on '{self._channel}'")
-                delay = RECONNECT_DELAY_INITIAL
-
-                while not self._stopping and self._connection is not None:
-                    if self._connection.is_closed():
-                        raise ConnectionError("the listening connection was closed")
-                    await asyncio.sleep(1)
-
-            except asyncio.CancelledError:
-                raise
-            except Exception as e:
-                await self._close_connection()
-                if self._stopping:
-                    return
-                logger.warning(
-                    f"Notification bus lost its connection ({e}); "
-                    f"reconnecting in {delay:.0f}s"
-                )
-                await asyncio.sleep(delay)
-                delay = min(delay * 2, RECONNECT_DELAY_MAX)
+    async def stop(self) -> None:
+        """Stop the transport with the application."""
+        self._stopping = True
+        self._started = False
+        if self._transport is not None:
+            await self._transport.stop()
 
 
 #: The application's bus. Created at startup so that a module importing this one

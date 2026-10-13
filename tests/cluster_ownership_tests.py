@@ -79,3 +79,20 @@ def test_an_application_with_the_profile_brings_the_cluster_up():
             assert registry.current_state() == registry.STATE_SERVING
     finally:
         assert registry.get_controller() is None, "the controller outlived the application"
+
+
+def test_the_delivery_between_replicas_is_the_driver_s():
+    """The bus is the kernel's; LISTEN/NOTIFY is the driver's (keepup-117)."""
+    kernel = (PACKAGE / "notification_bus.py").read_text(encoding="utf-8")
+    assert "asyncpg" not in kernel, "the kernel carries PostgreSQL's delivery again"
+    assert "pg_notify" not in kernel, "the kernel sends NOTIFY again"
+    assert "class Transport" in kernel and "class InProcessTransport" in kernel
+
+    driver = (PACKAGE / "packages" / "keepup-postgres" / "keepup_postgres"
+              / "transport.py").read_text(encoding="utf-8")
+    assert "pg_notify" in driver and "asyncpg" in driver, (
+        "the driver does not own the delivery its database provides")
+
+    sqlite = (PACKAGE / "builtin" / "sqlite.py").read_text(encoding="utf-8")
+    assert "InProcessTransport" in sqlite, (
+        "a driver that cannot carry a message between processes does not say so")

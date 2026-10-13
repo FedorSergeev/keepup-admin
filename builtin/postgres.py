@@ -42,6 +42,13 @@ class PostgresPlugin(BasePlugin):
             services: the runtime's registry.
         """
         services.provide(SERVICE_DATASOURCE_DRIVER, self, version=1, plugin_id="postgres")
+        # Delivery between replicas is this driver's: LISTEN/NOTIFY needs
+        # asyncpg, and asyncpg comes with this distribution (keepup-117).
+        from keepup_postgres.transport import PostgresTransport
+        from keepup.notification_bus import SERVICE_NOTIFY_TRANSPORT
+
+        services.provide(SERVICE_NOTIFY_TRANSPORT, PostgresTransport(), version=1,
+                         plugin_id="postgres")
 
     async def initialize(self):
         """Nothing to open: the abstraction owns the pool (keepup-106)."""

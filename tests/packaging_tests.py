@@ -56,6 +56,7 @@ OPTIONAL_CAPABILITY_IMPORTS = {
     # the base references the distribution without depending on it.
     "keepup_modules": "keepup-modules",
     "keepup_cluster": "keepup-cluster",
+    "keepup_postgres": "keepup-postgres",
 }
 
 DEPENDENCY_IMPORTS = {

@@ -16,7 +16,8 @@ from fastapi.testclient import TestClient
 
 from keepup import notification_bus as nb
 from keepup.db import DatabaseManagerV2
-from keepup.factory import _start_notification_bus, _stop_notification_bus, create_app
+from keepup.factory import (_create_notification_bus, _start_notification_bus,
+                            _stop_notification_bus, create_app)
 from keepup.settings import KeepupSettings
 
 
@@ -43,8 +44,8 @@ def test_an_own_echo_is_not_delivered_but_a_foreign_envelope_is():
     bus.subscribe(handler)
 
     async def scenario():
-        bus._on_notify(None, 0, "some_channel", nb.encode_envelope({"n": 1, nb.ORIGIN_FIELD: "replica-a"}))
-        bus._on_notify(None, 0, "some_channel", nb.encode_envelope({"n": 2, nb.ORIGIN_FIELD: "replica-b"}))
+        bus._receive(nb.encode_envelope({"n": 1, nb.ORIGIN_FIELD: "replica-a"}))
+        bus._receive(nb.encode_envelope({"n": 2, nb.ORIGIN_FIELD: "replica-b"}))
         await asyncio.sleep(0)
 
     asyncio.run(scenario())
@@ -52,6 +53,7 @@ def test_an_own_echo_is_not_delivered_but_a_foreign_envelope_is():
 
 
 def test_without_a_channel_no_bus_is_installed():
+    assert asyncio.run(_create_notification_bus(None)) is None
     assert asyncio.run(_start_notification_bus(None)) is None
     assert nb.get_notification_bus() is None
 
@@ -61,7 +63,8 @@ def test_on_sqlite_the_bus_is_installed_and_delivers_locally_only():
     received = []
 
     async def scenario():
-        bus = await _start_notification_bus("some_channel")
+        bus = await _create_notification_bus("some_channel")
+        await _start_notification_bus(bus)
         assert nb.get_notification_bus() is bus
         assert not bus.is_running
 
@@ -80,7 +83,8 @@ def test_on_sqlite_the_bus_is_installed_and_delivers_locally_only():
 
 def test_stopping_leaves_a_bus_installed_by_someone_else_alone():
     async def scenario():
-        ours = await _start_notification_bus("some_channel")
+        ours = await _create_notification_bus("some_channel")
+        await _start_notification_bus(ours)
         theirs = nb.NotificationBus("replica-b", "other_channel")
         nb.set_notification_bus(theirs)
         await _stop_notification_bus(ours)
@@ -154,9 +158,13 @@ def sent(monkeypatch):
 
 
 def started_bus():
-    bus = nb.NotificationBus("replica-a", "bus_test_channel")
+    """A bus whose driver's transport is listening, so publishing goes out."""
+    from keepup_postgres.transport import PostgresTransport
+
+    transport = PostgresTransport()
+    transport._connection = ListeningConnection()
+    bus = nb.NotificationBus("replica-a", "bus_test_channel", transport)
     bus._started = True
-    bus._connection = ListeningConnection()
     return bus
 
 
@@ -170,14 +178,14 @@ async def test_envelopes_published_at_once_all_go_out(sent):
 
 async def test_publishing_leaves_the_listening_connection_alone(sent):
     bus = started_bus()
-    listening = bus._connection
+    listening = bus._transport._connection
     listening.busy = True                  # the listener is in the middle of something
     assert await bus.publish({"kind": "k"}) is True
 
 
 async def test_publishing_works_while_the_listener_reconnects(sent):
     bus = started_bus()
-    bus._connection = None                 # the listener lost its connection
+    bus._transport._connection = None      # the listener lost its connection
     assert not bus.is_running and bus.can_publish
     assert await bus.publish({"kind": "k"}) is True
 
@@ -195,19 +203,23 @@ async def test_a_failed_publish_is_false_and_not_raised(monkeypatch):
     assert await started_bus().publish({"kind": "k"}) is False
 
 
-async def test_the_bus_says_it_runs_only_once_it_listens(monkeypatch):
-    bus = nb.NotificationBus("replica-a", "bus_test_channel")
+async def test_the_bus_says_it_runs_only_once_its_transport_listens(monkeypatch):
+    """The listening connection is the driver's transport now (keepup-117)."""
+    from keepup_postgres.transport import PostgresTransport
+
+    transport = PostgresTransport()
+    bus = nb.NotificationBus("replica-a", "bus_test_channel", transport)
     connection = ListeningConnection(attach_delay=0.2)
 
     async def connect():
         return connection
-    monkeypatch.setattr(bus, "_connect", connect)
-    listener = asyncio.create_task(bus._listen_forever())
+    monkeypatch.setattr(transport, "_connect", connect)
+    listener = asyncio.create_task(transport._listen_forever())
     await asyncio.sleep(0.05)
     assert not bus.is_running              # still attaching its listener
     await asyncio.sleep(0.3)
     assert bus.is_running
-    bus._stopping = True
+    transport._stopping = True
     listener.cancel()
     with pytest.raises(asyncio.CancelledError):
         await listener

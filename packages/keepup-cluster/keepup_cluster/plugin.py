@@ -19,9 +19,10 @@ The capability owns all of that now:
 `keepup.instance` and `keepup.notification_bus` stay kernel infrastructure: who
 this process is, and how replicas reach each other, are facts about the process.
 Delivery *between* replicas is a service -- `notify_transport` -- that the
-database driver provides; until every driver publishes it, this capability
-*wants* it rather than requiring it, so a deployment whose database cannot carry
-a message reports itself degraded instead of keeping a registry nobody hears.
+database driver provides, and this capability *requires* it: a registry nobody
+can hear is worse than a start that says which distribution is missing
+(keepup-117). `keepup-postgres` carries it over LISTEN/NOTIFY and
+`keepup-sqlite` inside the process -- one replica has nobody else to hear.
 """
 
 import logging
@@ -62,8 +63,8 @@ class ClusterPlugin(BasePlugin):
         kind=KIND_OPTIONAL,
         priority=85,
         provides=(f"{SERVICE_CLUSTER}>=1",),
-        requires=("datasource>=1",),
-        wants=("notify_transport>=1", "scheduler>=1"),
+        requires=("datasource>=1", "notify_transport>=1"),
+        wants=("scheduler>=1",),
         contributions=("routes", "sections", "tables", "middleware"),
     )
 

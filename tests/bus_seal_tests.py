@@ -28,7 +28,7 @@ def delivered(payload):
     import asyncio
 
     async def run():
-        bus._on_notify(None, 0, "some_channel", payload)
+        bus._receive(payload)
         await asyncio.sleep(0)
 
     asyncio.run(run())

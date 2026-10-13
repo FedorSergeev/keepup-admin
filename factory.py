@@ -311,7 +311,7 @@ def _build_lifespan(settings: KeepupSettings):
 
         # Before on_startup and the plugins: both subscribe to the bus while
         # initialising, and a bus created after them would have no subscribers.
-        bus = await _start_notification_bus(settings.notification_channel)
+        bus = await _create_notification_bus(settings.notification_channel)
 
         # Before the plugins: a plugin subscribes to the application's bus
         # while initialising, and a bus created after it would have no
@@ -321,6 +321,11 @@ def _build_lifespan(settings: KeepupSettings):
 
         if manager is not None:
             await initialize_plugins(app, manager, config_path=settings.plugins_config_path)
+
+        # The delivery between replicas is the database driver's (keepup-117):
+        # the bus existed before the plugins, and takes its transport once they
+        # have all registered the services they publish.
+        await _start_notification_bus(bus, kernel)
 
         # The scheduler belongs to the tasks capability (keepup-109) and is
         # running by the time this line is reached: it starts with its plugin
@@ -363,8 +368,13 @@ def _build_lifespan(settings: KeepupSettings):
     return lifespan
 
 
-async def _start_notification_bus(channel):
-    """Install and start the replicas' bus on the application's channel, if it named one."""
+async def _create_notification_bus(channel):
+    """Install the replicas' bus on the application's channel, if it named one.
+
+    Created before the plugins and started after them: a plugin subscribes to the
+    bus while it initialises, and the transport that carries an envelope to the
+    other replicas is a service only the drivers publish (keepup-117).
+    """
     if not channel:
         return None
     bus = notification_bus.NotificationBus(get_instance_id(), channel)
@@ -373,6 +383,16 @@ async def _start_notification_bus(channel):
     from keepup import cache
     cache.attach_to_bus(bus)
     socket_sessions.attach_to_bus(bus)
+    return bus
+
+
+async def _start_notification_bus(bus, kernel=None):
+    """Give the bus the delivery its driver published, and start listening."""
+    if bus is None:
+        return None
+    services = getattr(kernel, "services", None)
+    if services is not None and services.has(notification_bus.SERVICE_NOTIFY_TRANSPORT):
+        bus.set_transport(services.require(notification_bus.SERVICE_NOTIFY_TRANSPORT))
     await bus.start()
     return bus
 

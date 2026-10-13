@@ -40,6 +40,13 @@ class SqlitePlugin(BasePlugin):
             services: the runtime's registry.
         """
         services.provide(SERVICE_DATASOURCE_DRIVER, self, version=1, plugin_id="sqlite")
+        # SQLite carries messages inside one process and no further; saying so as
+        # a transport keeps the bus and the cluster working on one replica
+        # (keepup-117).
+        from keepup.notification_bus import InProcessTransport, SERVICE_NOTIFY_TRANSPORT
+
+        services.provide(SERVICE_NOTIFY_TRANSPORT, InProcessTransport(), version=1,
+                         plugin_id="sqlite")
 
     async def initialize(self):
         """Nothing to open: the abstraction owns the pool (keepup-106)."""
