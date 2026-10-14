@@ -21,9 +21,9 @@ package that calls `keepup.create_app(KeepupSettings(...))` and ships:
 - **configuration** -- `config/modules.json` (plugins, sections, roles),
   `config/auth.yaml`, database settings.
 
-The framework ships the panel shell (`static/`), its own sections
-(`sections.json`: users, panel sections, cluster, metrics, ...), sign-in,
-roles, audit, metrics, the cluster registry and the plugin runtime.
+The framework ships its own sections (`sections.json`: users, panel sections,
+cluster, metrics, ...), sign-in, roles, audit, metrics, the cluster registry, the
+plugin runtime and the panel shell -- which travels with `keepup-http`.
 
 ## The rules that are not negotiable
 
@@ -65,10 +65,10 @@ Settings worth knowing: `cors_origins`, `security_headers`,
 `max_upload_bytes`, `static_dir`, `static_mounts`, `client_page` (the page at
 `/`), `built_in_themes`, `gated_pages`, `audit_redaction`, `password_rule`,
 `oidc`, `identity_provider`, `openapi_url`, `openapi_public`, `public_config`, `notification_channel`, `on_startup`, `on_shutdown`,
-`extra_setup`, `remote_log_url`, `profile`, and `performance` --
-the database pool, the audit buffer and the metrics interval in one object. Each is documented in
-`keepup/settings.py`; a value you would have to edit inside keepup belongs in a
-setting instead.
+`extra_setup`, `remote_log_url`, `profile`, and `performance` -- the database
+pool, the audit buffer and the metrics interval in one object. Each is documented
+in `keepup/settings.py`; a value you would have to edit inside keepup belongs in
+a setting instead.
 
 ## Plugins
 
@@ -172,10 +172,9 @@ def ensure_schema():
   `tables.per_dialect(postgres=..., sqlite=...)`, `ddl_if`.
 - Foreign keys: `tables.foreign_key(...)`. A column on a table another module
   owns: `tables.ensure_columns(...)` -- never a second declaration of the table.
-- Queries: `keepup.db.DatabaseManagerV2` with **named** parameters
-  (`:id`) and `get_session()` for transactions; `raw_connection()` when code
-  needs a driver cursor. There is no other way in: the legacy
-  `DatabaseManager` was removed in 0.2.0.
+- Queries: `keepup_db.DatabaseManagerV2` with **named** parameters (`:id`) and
+  `get_session()` for transactions; `raw_connection()` when code needs a driver
+  cursor. There is no other way in: the legacy `DatabaseManager` went in 0.2.0.
 
 ## Panel sections and themes
 
@@ -223,10 +222,9 @@ two are `ADMIN` and `CLIENT`.
 
 ## Somebody else's identity system
 
-When the application is installed inside a larger system that already knows
-who everybody is and what they may do, a **provider plugin** puts that system
-behind keepup. Subclass `keepup.auth.identity.IdentityProvider` and override
-what the system can answer:
+When the application is installed inside a larger system that already knows who
+everybody is and what they may do, a **provider plugin** puts it behind keepup.
+Subclass `keepup.auth.identity.IdentityProvider` and override what it answers:
 
 ```python
 from keepup.auth.identity import ExternalIdentity, IdentityProvider, IdentityRejected
@@ -255,9 +253,8 @@ class CorpProvider(IdentityProvider):
   and `identity` added.
 - **A right** is a route's `permission` key or `Depends(require_permission("x"))`.
   Who decides is the deployment's `authorization`: `local` (ADMIN, a
-  `user_permissions` row, or the identity's own permissions) or `provider`.
-
-See `doc/external_identity_provider.md` in the repository this package comes from.
+  `user_permissions` row, or the identity's own permissions) or `provider`. See
+  `doc/external_identity_provider.md` in the repository this package comes from.
 
 ## Several replicas
 
@@ -266,25 +263,29 @@ The framework is built to run as several processes over one database:
 `keepup_cluster.cluster` registers replicas and carries commands to them,
 `keepup.notification_bus` passes messages between replicas, and
 `keepup_tasks.scheduler` holds the one scheduler. Anything a plugin keeps in process
-memory is per replica: use the database or the bus for what all replicas must see.
-There is no leader election: a scheduled job that must run once takes a lock.
+memory is per replica: use the database or the bus for what all replicas must
+see, and a job that must run once takes a lock -- there is no leader election.
 
 ## Checking your work
 
 ```bash
-python .github/scripts/dependency_graph.py  # who depends on whom, and what installs what
-pip install -e ".[test]" -e packages/keepup-* && python -m pytest tests/ -q  # the suite
-python -m pytest path/to/your_tests.py -v  # an application's test, by path
-tests/security_audit_tests/run_security_audit.sh  # the security audit, with a report
+pip install -e ".[test]" -e packages/keepup-*   # the tree, its capabilities and the suite
+.github/scripts/check.sh                        # every local check, one command (--fast: no wheels, no audit)
+python -m pytest path/to/your_tests.py -v       # an application's test, by path
 ```
 
-The security audit builds applications on this tree -- with and without
-plugins, OIDC, an identity provider, stripped, behind TLS -- and knocks on
-every route they register. A route that answers without a sign-in must be in
-`PUBLIC_ROUTES` of `tests/security_audit_tests/route_sweep_tests.py`, with the reason;
-adding one there is a decision, not a fix for a red check.
+`check.sh` runs the workflows' steps in their order -- the lint, the suite with
+coverage, the release metadata and the dependency graph, the security audit, and
+every wheel built, checked and stood up from an empty environment -- printing a
+summary and exiting non-zero if any failed; `tests/local_check_tests.py` holds it
+to the workflows' own commands.
 
-Tests are named `*_tests.py`; a test that needs the browser runs the JavaScript under `node` against a stand-in document -- see `tests/header_badge_tests.py`.
+The audit builds applications on this tree (plugins, OIDC, an identity provider,
+stripped, behind TLS) and knocks on every route they register: a route that
+answers without a sign-in belongs in `PUBLIC_ROUTES` of
+`tests/security_audit_tests/route_sweep_tests.py`, with the reason. Tests are
+named `*_tests.py`; one that needs the browser runs its JavaScript under `node`
+against a stand-in document -- see `tests/header_badge_tests.py`.
 
 ## Glossary
 
@@ -293,8 +294,7 @@ Tests are named `*_tests.py`; a test that needs the browser runs the JavaScript 
 - **Route** -- a dictionary a plugin returns; the framework turns it into an endpoint.
 - **Request mask** -- a route's `params`: what it accepts, checked before the handler.
 - **Section** -- a panel page: a JS module, its catalogue entry and role grants.
-- **Shell** -- the panel page and `main_new.js` the framework ships.
-- **Theme** -- a shell page and its stylesheet; owns the chrome and the tokens.
+- **Shell** -- the panel page and `main_new.js` the framework ships. **Theme** -- a shell page and its stylesheet.
 - **Catalogue** -- the database's copy of sections and grants, seeded from `modules.json`.
 - **Replica** -- one process of the application; several share one database.
-- **Stand** -- a deployed environment of an application.
+  **Stand** -- a deployed environment of an application.

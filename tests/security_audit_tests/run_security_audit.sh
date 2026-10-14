@@ -16,24 +16,32 @@
 set -u
 
 HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# The package is two directories up from here; the repository is where its
+# pyproject.toml is, which is the package itself in keepup's own checkout and the
+# directory above it in an application that vendored the package.
 PACKAGE="$(dirname "$(dirname "$HERE")")"
 ROOT="$(dirname "$PACKAGE")"
+[ -f "$PACKAGE/pyproject.toml" ] && ROOT="$PACKAGE"
+
+# The interpreter is the one the caller runs, so that the audit uses the
+# environment with keepup installed (keepup-154).
+PYTHON="${PYTHON:-python3}"
 
 REPORT="${1:-${TMPDIR:-/tmp}/keepup_security_audit_$(date +%Y%m%d_%H%M%S).md}"
 shift $(( $# > 0 ? 1 : 0 ))
 
 cd "$ROOT" || exit 2
-if ! python3 -c "import keepup" 2>/dev/null; then
+if ! "$PYTHON" -c "import keepup" 2>/dev/null; then
     echo "keepup is not importable from $ROOT -- activate the environment that has its dependencies" >&2
     exit 2
 fi
-if ! python3 -c "import pip_audit" 2>/dev/null; then
+if ! "$PYTHON" -c "import pip_audit" 2>/dev/null; then
     echo "pip-audit is not installed: the dependency check will be skipped" \
-         "(python3 -m pip install pip-audit)" >&2
+         "($PYTHON -m pip install pip-audit)" >&2
 fi
 
 export SECURITY_AUDIT_REPORT="$REPORT"
-python3 -m pytest "$HERE"/*_tests.py -q -rs -p no:cacheprovider "$@"
+"$PYTHON" -m pytest "$HERE"/*_tests.py -q -rs -p no:cacheprovider "$@"
 status=$?
 
 echo ""
