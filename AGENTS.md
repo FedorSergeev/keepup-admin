@@ -275,10 +275,11 @@ python -m pytest path/to/your_tests.py -v       # an application's test, by path
 ```
 
 `check.sh` runs the workflows' steps in their order -- the lint, the suite with
-coverage, the release metadata and the dependency graph, the security audit, and
-every wheel built, checked and stood up from an empty environment -- printing a
-summary and exiting non-zero if any failed; `tests/local_check_tests.py` holds it
-to the workflows' own commands.
+coverage, the release metadata and `.github/scripts/dependency_graph.py` (who
+depends on whom, and what installs what), the security audit, and every wheel
+built, checked and stood up from an empty environment -- printing a summary and
+exiting non-zero if any failed. `tests/local_check_tests.py` holds it to the
+workflows' own commands.
 
 The audit builds applications on this tree (plugins, OIDC, an identity provider,
 stripped, behind TLS) and knocks on every route they register: a route that
@@ -296,5 +297,4 @@ against a stand-in document -- see `tests/header_badge_tests.py`.
 - **Section** -- a panel page: a JS module, its catalogue entry and role grants.
 - **Shell** -- the panel page and `main_new.js` the framework ships. **Theme** -- a shell page and its stylesheet.
 - **Catalogue** -- the database's copy of sections and grants, seeded from `modules.json`.
-- **Replica** -- one process of the application; several share one database.
-  **Stand** -- a deployed environment of an application.
+  **Replica** -- one process of the application; a **stand** is one deployment of one.

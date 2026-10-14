@@ -133,9 +133,12 @@ run_step "the release" release
 
 if [ "$FAST" = "0" ]; then
     if "$PYTHON" -c "import pip_audit" 2>/dev/null; then
-        audit() { PYTHON="$PYTHON" bash tests/security_audit_tests/run_security_audit.sh "$WORK/security_audit.md"; }
+        # The report outlives the run: it goes to the temporary directory, not
+        # into the working copy, and its path is printed below.
+        REPORT="${TMPDIR:-/tmp}/keepup_security_audit_$(date +%Y%m%d_%H%M%S).md"
+        audit() { PYTHON="$PYTHON" bash tests/security_audit_tests/run_security_audit.sh "$REPORT"; }
         run_step "the security audit" audit
-        echo "  report: $WORK/security_audit.md"
+        echo "  report: $REPORT"
     else
         skip_step "the security audit" "install pip-audit: $PYTHON -m pip install pip-audit"
     fi
