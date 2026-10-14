@@ -53,13 +53,17 @@ jobs:
           /tmp/elsewhere/bin/pip install dist/*.whl
           cd /tmp
           /tmp/elsewhere/bin/python -c "
-          import pathlib, keepup
+          import pathlib, keepup, keepup_http
           from keepup import KeepupSettings, create_app
           app = create_app(KeepupSettings(title='Elsewhere', project_name='elsewhere',
                                           static_mounts=(), plugin_manager=None))
           here = pathlib.Path(keepup.__file__).parent
+          transport = pathlib.Path(keepup_http.__file__).parent
           assert app.routes, 'the application came up with no routes'
-          assert here.joinpath('static/js/main_new.js').is_file(), 'the panel shell did not ship'
+          # The shell travels with the transport that serves it and the base
+          # carries no front end at all (keepup-121, keepup-154).
+          assert transport.joinpath('static/js/main_new.js').is_file(), 'the panel shell did not ship'
+          assert not here.joinpath('static').exists(), 'the base ships a front end again'
           assert here.joinpath('sections.json').is_file(), 'the section catalogue did not ship'
           print('version', keepup.__version__, 'routes', len(app.routes))
           "

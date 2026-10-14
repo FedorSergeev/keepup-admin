@@ -3,7 +3,9 @@
 Task keepup-3. The theme pages, the panel's script and its stylesheets used to
 sit in the repository's static/ next to the sections of three applications. An
 installed keepup had nowhere to take them from: it could serve a panel only on
-a deployment that happened to carry a copy of main_new.js.
+a deployment that happened to carry a copy of main_new.js. The shell travelled
+with the base until 0.5.0, when it moved to the transport that serves it
+(keepup-154).
 
 Run by path, like the other *_tests.py files:
 
@@ -22,7 +24,10 @@ from keepup.settings import KeepupSettings
 
 PACKAGE = Path(__file__).resolve().parents[1]
 REPO = PACKAGE.parent
-SHELL = PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static"
+#: The shell is the transport's data (keepup-154): read where the installed
+#: package keeps it, not where the checkout does -- an installation from a wheel
+#: has no checkout, and a check that demanded one would pass only in a clone.
+SHELL = Path(web.__file__).resolve().parent / "static"
 
 #: What the package has to carry in order to draw a panel at all.
 SHELL_FILES = (
