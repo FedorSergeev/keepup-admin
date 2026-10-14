@@ -152,7 +152,11 @@ distributions() {
     local dist="$WORK/dist" empty="$WORK/elsewhere"
     mkdir -p "$dist"
     for package in "$PACKAGE" "$PACKAGE"/packages/keepup-*; do
-        "$PYTHON" -m build --outdir "$dist" "$package" > "$WORK/build.log" 2>&1 || {
+        # --no-isolation: the environment running the check has setuptools, and
+        # building in an isolated one asks the network for it -- which a machine
+        # without one answers with a very long failure (the CI job has the
+        # network and builds the way the release does).
+        "$PYTHON" -m build --no-isolation --outdir "$dist" "$package" > "$WORK/build.log" 2>&1 || {
             echo "building $package failed:"; tail -20 "$WORK/build.log"; return 1
         }
     done
@@ -183,10 +187,15 @@ PY
 }
 
 if [ "$FAST" = "0" ]; then
-    if "$PYTHON" -c "import build, twine" 2>/dev/null; then
-        run_step "the distributions" distributions
-    else
+    if ! "$PYTHON" -c "import build, twine" 2>/dev/null; then
         skip_step "the distributions" "install them: $PYTHON -m pip install build twine"
+    elif ! "$PYTHON" -c "import setuptools, wheel" 2>/dev/null; then
+        # Building without isolation needs setuptools and wheel in this
+        # environment, and building with it asks the network for them: a machine
+        # that has neither gets a long failure rather than a check.
+        skip_step "the distributions" "install them to build offline: $PYTHON -m pip install setuptools wheel"
+    else
+        run_step "the distributions" distributions
     fi
 else
     skip_step "the distributions" "--fast"
