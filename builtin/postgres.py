@@ -10,7 +10,6 @@ until the driver travels in a distribution of its own and keeps its own
 (keepup-124).
 """
 
-from keepup_db import db_config
 from keepup.kernel.datasource import SERVICE_DATASOURCE_DRIVER, DriverSpec
 from keepup.kernel.descriptor import KIND_REQUIRED, PluginDescriptor
 from keepup.plugins.base import BasePlugin
@@ -62,6 +61,8 @@ class PostgresPlugin(BasePlugin):
             things a capability may ask about: whether ``RETURNING`` answers the
             new row, and whether the database carries a message between replicas.
         """
+        from keepup_db import db_config
+
         return DriverSpec(
             dialect="postgresql",
             connection_url=db_config.get_connection_string(),

@@ -10,7 +10,7 @@ framework now carries it; these are the same cases, against its module.
 import pytest
 from sqlalchemy import create_engine, text
 
-from keepup.positional_sql import positional
+from keepup_db.positional_sql import positional
 
 
 @pytest.fixture
@@ -55,7 +55,7 @@ def test_the_drivers_own_percent_s_is_a_placeholder_too():
 def pool(tmp_path, monkeypatch):
     """DatabaseManagerV2 over a SQLite file of its own."""
     from sqlalchemy.orm import sessionmaker
-    from keepup.db import DatabaseManagerV2, db_config
+    from keepup_db import DatabaseManagerV2, db_config
     engine = create_engine(f"sqlite:///{tmp_path / 'p.db'}")
     monkeypatch.setattr(DatabaseManagerV2, "_engine", engine)
     monkeypatch.setattr(DatabaseManagerV2, "_session_factory", sessionmaker(bind=engine))
@@ -72,13 +72,13 @@ def notes(engine):
 
 
 def test_an_insert_answers_the_id_it_made(pool):
-    from keepup.positional_sql import insert_returning_id
+    from keepup_db.positional_sql import insert_returning_id
     assert insert_returning_id("INSERT INTO t (note) VALUES (?)", ("a",)) == 1
     assert insert_returning_id("INSERT INTO t (note) VALUES (?)", ("b",)) == 2
 
 
 def test_a_batch_is_written_whole_or_not_at_all(pool):
-    from keepup.positional_sql import execute_many
+    from keepup_db.positional_sql import execute_many
     assert execute_many("INSERT INTO t (note) VALUES (?)", [("a",), ("b",)]) is True
     assert execute_many("INSERT INTO t (note) VALUES (?)", [("c",), ("a",)]) is False
     assert notes(pool) == ["a", "b"]
@@ -86,7 +86,7 @@ def test_a_batch_is_written_whole_or_not_at_all(pool):
 
 
 def test_a_raw_connection_comes_from_the_pool_and_goes_back(pool):
-    from keepup.positional_sql import raw_connection
+    from keepup_db.positional_sql import raw_connection
     conn = raw_connection()
     cursor = conn.cursor()
     cursor.execute("INSERT INTO t (note) VALUES (?)", ("r",))

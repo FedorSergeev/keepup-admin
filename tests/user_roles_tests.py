@@ -22,14 +22,15 @@ import pytest
 from fastapi import HTTPException
 from fastapi.testclient import TestClient
 
-from keepup import cache, modules
-from keepup.auth import dependencies, user_roles
-from keepup.db import DatabaseManagerV2
-from keepup.factory import create_app
-from keepup.plugins import admin as plugins_admin
+from keepup_modules import catalogue as modules
+from keepup import cache
+from keepup_auth import dependencies, user_roles
+from keepup_db import DatabaseManagerV2
+from keepup_http.factory import create_app
+from keepup_modules import decisions as plugins_admin
 from keepup.settings import KeepupSettings
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
-from keepup.schema import init_db
+from keepup_db.schema import init_db
 
 
 @pytest.fixture(scope="module", autouse=True)

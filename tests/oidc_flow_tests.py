@@ -16,10 +16,10 @@ from urllib.parse import parse_qs, urlparse
 import pytest
 from fastapi.testclient import TestClient
 
-from keepup.auth import oidc, oidc_policy, panel_session
-from keepup.db import DatabaseManagerV2
-from keepup.factory import create_app
-from keepup.schema import init_db
+from keepup_auth import oidc, oidc_policy, panel_session
+from keepup_db import DatabaseManagerV2
+from keepup_http.factory import create_app
+from keepup_db.schema import init_db
 from keepup.settings import KeepupSettings, OidcSettings
 
 from oidc_tests import CLIENT_ID, ISSUER, REDIRECT, FakeProvider

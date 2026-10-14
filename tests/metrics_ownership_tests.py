@@ -14,7 +14,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from keepup import factory
+from keepup_http import factory
 from keepup.settings import KeepupSettings
 from keepup_metrics import plugin as metrics_plugin
 
@@ -68,8 +68,8 @@ def test_the_history_query_runs_against_a_real_database():
     keepup-113. It runs now, with one named parameter per name.
     """
     from builtin.db import DatabaseSource
-    from keepup.db import DatabaseManagerV2
-    from keepup.schema import init_db
+    from keepup_db import DatabaseManagerV2
+    from keepup_db.schema import init_db
     from keepup_metrics.plugin import HISTORY_METRICS, MetricsService
 
     init_db()

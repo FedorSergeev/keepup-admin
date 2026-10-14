@@ -22,11 +22,11 @@ import pytest
 import uvicorn
 from fastapi.testclient import TestClient
 
-from keepup.auth import login_throttle
-from keepup.db import DatabaseManagerV2
-from keepup.factory import create_app
+from keepup_auth import login_throttle
+from keepup_db import DatabaseManagerV2
+from keepup_http.factory import create_app
 from keepup.plugins.base import PluginManager
-from keepup.schema import init_db
+from keepup_db.schema import init_db
 from keepup.settings import KeepupSettings
 from keepup.tests.homegrown_as.service import build_service
 
@@ -315,7 +315,7 @@ def test_a_stand_without_the_secret_does_not_come_up(tmp_path, monkeypatch, othe
     auth_yaml, plugins, modules = deployment(tmp_path, base)
     monkeypatch.setenv("AUTH_CONFIG_PATH", str(auth_yaml))
     monkeypatch.delenv("HOMEGROWN_AS_KEY", raising=False)
-    from keepup.auth.identity import IdentityProviderMisconfigured
+    from keepup_auth.identity import IdentityProviderMisconfigured
     with pytest.raises(IdentityProviderMisconfigured, match="HOMEGROWN_AS_KEY"):
         create_app(KeepupSettings(static_mounts=(),
                                   plugin_manager=PluginManager(plugins_dir=str(plugins)),

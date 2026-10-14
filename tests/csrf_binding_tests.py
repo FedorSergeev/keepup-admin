@@ -15,10 +15,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from keepup.auth import dependencies, panel_session
-from keepup.auth.routes import register_auth_routes
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
+from keepup_auth import dependencies, panel_session
+from keepup_auth.routes import register_auth_routes
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
 
 PASSWORD = "a-long-password-72"
 

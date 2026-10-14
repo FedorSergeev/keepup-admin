@@ -49,7 +49,7 @@ class UsersService:
         Returns:
             The roles, never empty: an account without one is refused on write.
         """
-        from keepup.auth.user_roles import roles_of
+        from keepup_auth.user_roles import roles_of
 
         return roles_of(user_id, mirror)
 
@@ -63,7 +63,7 @@ class UsersService:
         Returns:
             True when it is held.
         """
-        from keepup.auth.user_roles import has_role
+        from keepup_auth.user_roles import has_role
 
         return has_role(user, role)
 

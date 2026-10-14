@@ -59,12 +59,13 @@ def test_every_route_key_the_guide_names_is_one_the_runtime_reads():
 
 
 def test_the_names_it_shows_in_code_exist():
-    from keepup import locks, tables
+    from keepup_db import tables
+    from keepup import locks
     from keepup.plugins.base import BasePlugin
 
     for name in ("table", "auto_id", "ensure_tables", "ensure_columns", "foreign_key",
                  "per_dialect", "NOW"):
-        assert hasattr(tables, name), f"keepup.tables has no {name}"
+        assert hasattr(tables, name), f"keepup_db.tables has no {name}"
     for name in ("distributed_lock", "with_distributed_lock"):
         assert hasattr(locks, name), f"keepup.locks has no {name}"
     for name in ("initialize", "get_api_routes", "get_handlers", "get_websocket_routes",

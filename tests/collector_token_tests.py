@@ -13,7 +13,7 @@ import logging
 
 import pytest
 
-from keepup import log_shipping
+from keepup_log_shipping import log_shipping
 
 
 class Issued:

@@ -19,11 +19,11 @@ saying so.
 from sqlalchemy import Column, DateTime, Integer, String
 
 from keepup import KeepupSettings, create_app
-from keepup.auth.identity import ExternalIdentity, IdentityProvider
-from keepup.db import DatabaseManagerV2
+from keepup_auth.identity import ExternalIdentity, IdentityProvider
+from keepup_db import DatabaseManagerV2
 from keepup.plugins.base import BasePlugin
 from keepup.security import DEFAULT_CONTENT_SECURITY_POLICY
-from keepup.tables import NOW, auto_id, ensure_tables, table
+from keepup_db.tables import NOW, auto_id, ensure_tables, table
 
 #: The application's own table, declared rather than written as DDL.
 notes = table(

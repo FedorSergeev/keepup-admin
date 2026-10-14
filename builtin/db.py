@@ -17,7 +17,6 @@ deployment that talks to a database, and every capability asks it by name.
 import logging
 from typing import Any, Dict, List, Mapping, Optional
 
-from keepup_db import DatabaseManagerV2, db_config
 from keepup.kernel.datasource import (
     SERVICE_DATASOURCE,
     SERVICE_DATASOURCE_DRIVER,
@@ -48,6 +47,8 @@ class DatabaseSource:
         """The dialect the driver named, or the configured one."""
         if self.spec is not None and self.spec.dialect:
             return self.spec.dialect
+        from keepup_db import db_config
+
         return "postgresql" if db_config.is_postgres() else "sqlite"
 
     async def execute(self, statement: str, params: Optional[Mapping[str, Any]] = None) -> Any:
@@ -74,7 +75,7 @@ class DatabaseSource:
         The declarations come from the capabilities that own them, which is why
         this takes them as arguments rather than knowing any itself.
         """
-        from keepup import tables as table_language
+        from keepup_db import tables as table_language
 
         flat = []
         for table in tables:
@@ -86,7 +87,7 @@ class DatabaseSource:
 
     def ensure_columns(self, table: Any) -> None:
         """Add the columns an existing table lacks."""
-        from keepup import tables as table_language
+        from keepup_db import tables as table_language
 
         table_language.ensure_columns(table)
 
@@ -136,6 +137,8 @@ class DbPlugin(BasePlugin):
         if services.has(SERVICE_DATASOURCE_DRIVER):
             driver = services.require(SERVICE_DATASOURCE_DRIVER)
             spec = driver.spec() if callable(getattr(driver, "spec", None)) else None
+        from keepup_db import DatabaseManagerV2
+
         self.source = DatabaseSource(DatabaseManagerV2, spec)
         services.provide(SERVICE_DATASOURCE, self.source, version=1, plugin_id="db")
         logger.info("The data source is %s", self.source.dialect)

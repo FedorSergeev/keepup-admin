@@ -9,14 +9,16 @@ pulling libraries it does not use. `keepup-admin` alone is the constructor: the
 catalogue, the service registry, the lifecycle and the transport seam, with no
 third-party dependency declared at all.
 
-**Upgrading from 0.4.0.** Install the capabilities by name as before; everything
-that moved keeps answering through the compatibility layer, which now goes away in
-0.6.0 rather than in this release -- `keepup.db`, `keepup.schema`, `keepup.audit`,
-`keepup.metrics`, `keepup.integrations`, `keepup.web`, `keepup.factory` and the
-rest still import, with a warning naming the distribution to install. The
-`disable_http_server` setting is gone: the `metrics-only` profile is what a stand
-that serves nothing but `/metrics` names. A deployment that used the setting
-should name the profile instead.
+**Upgrading from 0.4.0.** The names that moved are gone. `keepup.db`,
+`keepup.schema`, `keepup.audit`, `keepup.metrics`, `keepup.integrations`,
+`keepup.web`, `keepup.factory` and the rest no longer import: the module each one
+moved to is the import (`keepup_db`, `keepup_db.schema`, `keepup_audit.audit`,
+`keepup_metrics`, `keepup_integration_log.integrations`, `keepup_http.web`,
+`keepup_http.factory`), and the compatibility layer that answered them for one
+release is deleted. The `disable_http_server` setting is gone too: the
+`metrics-only` profile is what a stand that serves nothing but `/metrics` names.
+A deployment upgrades by installing the distributions it uses
+(`pip install "keepup-admin[panel,postgres]"`) and importing them by name.
 
 ### Added
 
@@ -41,6 +43,18 @@ should name the profile instead.
 
 ### Changed
 
+- **The compatibility layer is gone (keepup-122, keepup-153).** The names that
+  moved in 0.4.0 answered for one release and said where they went; the release is
+  over, so an old name is a `ModuleNotFoundError` and the module it moved to is
+  the import. The framework, its capabilities and the suite all import the
+  distributions directly, and the check that the layer is gone is a test.
+- **A module that moved is one module, not two (keepup-153).** `import
+  keepup.auth.dependencies` used to reach the file through the path of the module
+  that moved and execute it a second time; two copies hold two functions with the
+  same name, so a dependency override written against one never matched a route
+  built from the other, and the sign-in answered 401 on requests that had just
+  been authenticated for in a test. The alias finder answers an old submodule name
+  with the module that exists.
 - **The last code leaves the base (keepup-151).** `schema.py` and `retention.py`
   are `keepup-db`'s, `audit.py` and `admin_trail.py` are `keepup-audit`'s,
   `integrations.py` is `keepup-integration-log`'s, and the table declarations are
@@ -67,13 +81,11 @@ should name the profile instead.
 
 ### Known, and left for 0.6.0
 
-- The compatibility layer for old names (`keepup.db`, `keepup.schema`,
-  `keepup.audit`, `keepup.web`, `keepup.factory`, ...) still answers: applications
-  and the suite are still migrating (keepup-122).
 - The panel shell still travels with the base package, and `keepup-http` reads it
   from there (keepup-121).
-- `tests/plugin_runtime_tests.py` fails when its file runs alone: the routes answer
-  401 until another check of the suite has set the identity up (keepup-143).
+- Two shims inside capabilities outlive this release and go in 0.6.0:
+  `keepup_auth.routes._MOVED_TO_USER_ROUTES` and
+  `keepup.locks.register_lock_routes`.
 
 ## 0.4.0 — 2026-10-10
 

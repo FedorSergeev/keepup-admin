@@ -20,7 +20,7 @@ from typing import Any, Mapping, Optional
 
 import httpx
 
-from keepup.auth.identity import (
+from keepup_auth.identity import (
     AccessRequest,
     ExternalIdentity,
     IdentityProvider,

@@ -11,11 +11,11 @@ from pathlib import Path
 
 import pytest
 
-from keepup import scheduler as scheduling
-from keepup.db import DatabaseManagerV2
+from keepup_tasks import scheduler as scheduling
+from keepup_db import DatabaseManagerV2
 from keepup.plugins.base import BasePlugin
 from keepup.plugins.registry import _post_construct
-from keepup.schema import init_db
+from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
 

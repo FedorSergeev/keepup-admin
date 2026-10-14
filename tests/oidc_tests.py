@@ -16,7 +16,7 @@ import httpx
 import pytest
 import jwt
 
-from keepup.auth import oidc, oidc_policy
+from keepup_auth import oidc, oidc_policy
 from keepup.settings import OidcSettings
 
 ISSUER = "https://idp.test"

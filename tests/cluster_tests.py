@@ -19,10 +19,11 @@ from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from keepup import cluster, schema
+from keepup_cluster import cluster
+from keepup_db import schema
 from keepup.api_versions import ApiVersionMiddleware
-from keepup.auth.dependencies import get_current_user
-from keepup.db import DatabaseManagerV2, db_config
+from keepup_auth.dependencies import get_current_user
+from keepup_db import DatabaseManagerV2, db_config
 
 NOW = datetime(2026, 9, 18, 12, 0, 0)
 ADMIN = {"id": 1, "username": "admin", "role": "ADMIN"}
@@ -416,7 +417,7 @@ def test_a_stopped_replica_refuses_websockets():
 
 
 def test_health_of_a_stopped_replica_is_503_stopped():
-    from keepup.web import register_web_routes
+    from keepup_http.web import register_web_routes
     app = FastAPI()
     register_web_routes(app)
     stopped_controller()
@@ -428,7 +429,7 @@ def test_health_of_a_stopped_replica_is_503_stopped():
 
 
 def test_the_framework_installs_the_gate_inside_the_version_middleware():
-    from keepup.factory import create_app
+    from keepup_http.factory import create_app
     from keepup.settings import KeepupSettings
 
     app = create_app(KeepupSettings(title="t", static_mounts=(), plugin_manager=None))

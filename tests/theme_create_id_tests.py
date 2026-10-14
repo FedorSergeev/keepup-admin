@@ -13,9 +13,9 @@ import warnings
 import pytest
 
 from keepup import cache
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
-from keepup.themes import ConfigService
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
+from keepup_ui.themes import ConfigService
 
 
 @pytest.fixture(scope="module", autouse=True)

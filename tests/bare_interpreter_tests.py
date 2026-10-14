@@ -55,7 +55,7 @@ runtime = create_runtime(settings)
 print("runtime:", runtime is not None)
 
 def says_what_to_install(name, use):
-    """Whether using a moved name answers with the distribution to install."""
+    """Whether using a name that needs a distribution names the one to install."""
     try:
         use()
     except ImportError as error:
@@ -69,7 +69,19 @@ says_what_to_install("create_app", lambda: keepup.create_app)
 
 
 def use_tables():
-    from keepup.tables import table  # noqa: F401
+    """The names that moved are gone: the base answers none of them (keepup-153).
+
+    The import is asked for *by name* rather than through `keepup`, because a
+    module of the base answering it again is the thing this check is about.
+    """
+    import importlib
+
+    try:
+        importlib.import_module("keepup.tables")
+    except ModuleNotFoundError:
+        print("tables: gone")
+    else:
+        print("tables: False")
 
 
 says_what_to_install("tables", use_tables)
@@ -96,7 +108,7 @@ def test_a_bare_interpreter_imports_the_kernel_and_builds_a_runtime():
 
 
 def test_the_names_that_left_name_the_distribution_to_install():
-    """An ImportError from the depth of a dependency is a riddle, not an answer."""
+    """`create_app` says what to install; a moved module is simply not there."""
     result = run()
     assert "create_app: True" in result.stdout, result.stdout + result.stderr
-    assert "tables: True" in result.stdout, result.stdout + result.stderr
+    assert "tables: gone" in result.stdout, result.stdout + result.stderr

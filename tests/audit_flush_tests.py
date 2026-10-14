@@ -13,8 +13,9 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from keepup import audit, schema
-from keepup.db import DatabaseManagerV2, db_config
+from keepup_audit import audit
+from keepup_db import schema
+from keepup_db import DatabaseManagerV2, db_config
 
 
 @pytest.fixture

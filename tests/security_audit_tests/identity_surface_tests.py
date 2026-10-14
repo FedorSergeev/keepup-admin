@@ -18,8 +18,8 @@ import time
 import httpx
 import pytest
 
-from keepup.auth import dependencies, login_throttle, panel_session, user_roles
-from keepup.db import DatabaseManagerV2
+from keepup_auth import dependencies, login_throttle, panel_session, user_roles
+from keepup_db import DatabaseManagerV2
 from keepup.roles import ROLE_ADMIN
 
 import audit_actors
@@ -210,9 +210,9 @@ def test_guessing_the_other_system_s_password_hits_the_same_limit(identity, monk
 # --- a deployment that lost its secret does not come up ---------------------------------------
 
 def test_a_provider_without_its_secret_stops_the_start(tmp_path, monkeypatch, the_other_system):
-    from keepup.auth.identity import IdentityProviderMisconfigured
+    from keepup_auth.identity import IdentityProviderMisconfigured
     from audit_profiles import SERVICE_KEY_ENV, _write_files, by_name, settings_for
-    from keepup.factory import create_app
+    from keepup_http.factory import create_app
 
     auth_yaml, plugins, modules = _write_files(by_name("identity"), tmp_path, the_other_system)
     monkeypatch.setenv("AUTH_CONFIG_PATH", str(auth_yaml))
@@ -224,8 +224,8 @@ def test_a_provider_without_its_secret_stops_the_start(tmp_path, monkeypatch, th
 
 def test_a_plugin_named_wrong_stops_the_start_and_says_nothing_of_the_settings(tmp_path,
                                                                               monkeypatch):
-    from keepup.auth.identity import IdentityProviderMisconfigured
-    from keepup.factory import create_app
+    from keepup_auth.identity import IdentityProviderMisconfigured
+    from keepup_http.factory import create_app
     from keepup.settings import KeepupSettings
 
     config = tmp_path / "auth.yaml"

@@ -17,11 +17,11 @@ import time
 import pytest
 from fastapi import HTTPException
 
-from keepup.auth import dependencies, panel_session
-from keepup.auth.providers import local
-from keepup.auth.providers.base import AuthProvider
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
+from keepup_auth import dependencies, panel_session
+from keepup_auth.providers import local
+from keepup_auth.providers.base import AuthProvider
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
 
 
 @pytest.fixture(scope="module", autouse=True)

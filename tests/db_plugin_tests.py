@@ -69,7 +69,7 @@ class TableOwnerPlugin(BasePlugin):
 #: what it is handed, so the check has to hand it something a database accepts.
 from sqlalchemy import Column, Integer  # noqa: E402 - after the plugins above
 
-from keepup import tables as table_language  # noqa: E402
+from keepup_db import tables as table_language  # noqa: E402
 
 NOTES = table_language.table(
     "notes_probe_db_plugin",

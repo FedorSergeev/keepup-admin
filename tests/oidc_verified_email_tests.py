@@ -9,7 +9,7 @@ typed compared with the admitted domains.
 
 import pytest
 
-from keepup.auth import oidc_policy
+from keepup_auth import oidc_policy
 
 POLICY = oidc_policy.create_if_email_domain(["example.com"])
 

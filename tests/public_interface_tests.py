@@ -110,7 +110,7 @@ def test_a_module_an_application_imports_from_declares_what_is_public(module):
 def test_every_name_an_application_takes_is_public():
     """The rule, as one list of everything that breaks it.
 
-    Two private functions of keepup.auth.dependencies used to be here --
+    Two private functions of keepup_auth.dependencies used to be here --
     `_authenticated_by_cookie` and `_bearer_of`, imported into the application's
     facade and called by nobody.
     """

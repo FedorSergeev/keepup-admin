@@ -6,7 +6,7 @@ and the deployment's dialect choosing the driver, a deployment that names the
 `panel` profile brings its capabilities up: the abstraction publishes the data
 source and every capability offers its declarations to be created.
 
-This is the check that a declaration may leave `keepup.schema`: something in the
+This is the check that a declaration may leave `keepup_db.schema`: something in the
 deployment now asks the capability for it.
 """
 

@@ -15,7 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from keepup import metrics, metrics_api
+import keepup_metrics as metrics
+from keepup_metrics import api as metrics_api
 
 PACKAGE = Path(__file__).resolve().parents[1]
 #: The collector lives in the capability's distribution since keepup-124.
@@ -59,7 +60,7 @@ def test_the_collector_knows_nothing_of_the_web_or_the_api():
 
 
 def test_importing_the_collector_does_not_import_the_api():
-    probe = ("import sys, keepup.metrics; "
+    probe = ("import sys, keepup_metrics; "
              "print('keepup_metrics.api' in sys.modules)")
     out = subprocess.run([sys.executable, "-c", probe], cwd=REPO,
         env=_paths(), capture_output=True,
@@ -83,7 +84,7 @@ def test_an_unknown_name_is_still_an_attribute_error():
 
 def test_the_application_serves_the_same_routes():
     """The routes come from the capability, not from the kernel (keepup-124)."""
-    from keepup.factory import create_app
+    from keepup_http.factory import create_app
     from keepup.settings import KeepupSettings
 
     app = create_app(KeepupSettings(title="Metrics", static_mounts=(), plugin_manager=None))

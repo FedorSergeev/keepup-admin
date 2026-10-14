@@ -14,7 +14,7 @@ from fastapi.responses import PlainTextResponse, StreamingResponse
 from fastapi.testclient import TestClient
 from starlette.middleware.base import BaseHTTPMiddleware
 
-from keepup.factory import SecurityHeadersMiddleware
+from keepup_http.factory import SecurityHeadersMiddleware
 
 
 def app_with(https=False):

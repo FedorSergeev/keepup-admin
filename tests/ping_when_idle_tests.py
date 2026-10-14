@@ -8,17 +8,22 @@ the threshold is pinged, and one failing the ping is replaced.
     python3 -m pytest keepup/tests/ping_when_idle_tests.py -v
 """
 
+import time
+
 import pytest
 from sqlalchemy import create_engine, text
 from sqlalchemy.pool import QueuePool
 
-from keepup import db
+import keepup_db as db
+from keepup_db.manager import _ping_when_idle
 
 
 @pytest.fixture
 def clock(monkeypatch):
     now = {"t": 1000.0}
-    monkeypatch.setattr(db.time, "monotonic", lambda: now["t"])
+    # The pool asks the standard library for the time; patch that, not a
+    # package that never carried it (keepup-153).
+    monkeypatch.setattr(time, "monotonic", lambda: now["t"])
     return now
 
 
@@ -35,7 +40,7 @@ def engine_with(idle_seconds, tmp_path, pings, fail=None):
         return original(dbapi_connection)
 
     engine.dialect.do_ping = counted
-    db._ping_when_idle(engine, idle_seconds)
+    _ping_when_idle(engine, idle_seconds)
     return engine
 
 

@@ -16,9 +16,9 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from starlette.requests import Request
 
-from keepup.body_limit import BodyLimitMiddleware, declare_limit
-from keepup.plugins.routes import register_plugin_routes
-from keepup.schema import init_db
+from keepup_http.body_limit import BodyLimitMiddleware, declare_limit
+from keepup_http.routes import register_plugin_routes
+from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
 GENERAL = 100
@@ -131,7 +131,7 @@ def test_the_application_gets_the_middleware_with_its_setting():
 
 # --- keepup-61: small by default where the framework parses, and the holes around it ---
 
-from keepup.factory import create_app  # noqa: E402
+from keepup_http.factory import create_app  # noqa: E402
 from keepup.settings import KeepupSettings  # noqa: E402
 
 MIB = 1024 * 1024

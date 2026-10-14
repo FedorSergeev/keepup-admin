@@ -11,8 +11,8 @@ import asyncio
 
 import pytest
 
-from keepup import events
-from keepup.schema import init_db
+from keepup_audit import events
+from keepup_db.schema import init_db
 
 
 @pytest.fixture(scope="module", autouse=True)

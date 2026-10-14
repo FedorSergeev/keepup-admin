@@ -81,7 +81,7 @@ def test_a_missing_or_malformed_seal_is_refused(value):
 def test_publishing_without_a_secret_does_not_raise(monkeypatch):
     import asyncio
     monkeypatch.delenv("SECRET_KEY")
-    monkeypatch.setattr("keepup.auth.signing_key._configured_key", lambda config: "")
+    monkeypatch.setattr("keepup_auth.signing_key._configured_key", lambda config: "")
     bus = nb.NotificationBus("replica-a", "some_channel")
     bus._started = True
     assert asyncio.run(bus.publish({"kind": "x"})) is False

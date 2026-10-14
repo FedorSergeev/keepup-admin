@@ -12,7 +12,7 @@ import importlib
 import warnings
 from pathlib import Path
 
-from keepup import db
+import keepup_db as db
 
 DB = Path(importlib.import_module(db.DatabaseManagerV2.__module__).__file__)
 

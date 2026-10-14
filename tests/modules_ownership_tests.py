@@ -13,8 +13,8 @@ from pathlib import Path
 
 import pytest
 
-from keepup import modules
-from keepup.schema import init_db
+from keepup_modules import catalogue as modules
+from keepup_db.schema import init_db
 from keepup_db import DatabaseManagerV2
 from keepup_modules import catalogue
 

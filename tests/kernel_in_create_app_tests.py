@@ -4,7 +4,7 @@ Task keepup-123. The application is still assembled the way 0.3.0 assembled it -
 plugins from the directory, routes registered module by module -- and the runtime
 is raised with it: it resolves the catalogue and the profile, publishes what a
 capability offers and creates what a capability declares. That is what lets a
-declaration leave `keepup.schema` later without the table disappearing (keepup-124).
+declaration leave `keepup_db.schema` later without the table disappearing (keepup-124).
 
 A catalogue that cannot start must not take the application with it: deployments
 reach this code with a catalogue that never existed.

@@ -13,7 +13,7 @@ mirror again.
 
 from pathlib import Path
 
-from keepup.auth.user_roles import has_role
+from keepup_auth.user_roles import has_role
 
 PACKAGE = Path(__file__).resolve().parents[1]
 
@@ -97,7 +97,7 @@ def test_the_decision_follows_the_set_and_not_the_mirror():
 
 def test_the_payloads_still_carry_both_for_one_release():
     """An older panel reads the mirror; a newer one reads the set."""
-    text = source_of("keepup.auth.routes").read_text(encoding="utf-8")
+    text = source_of("keepup_auth.routes").read_text(encoding="utf-8")
     assert text.count('"roles": current_user.get("roles", [])') >= 2
     assert text.count('"role": current_user["role"]') >= 2
     assert "deprecated mirror" in text

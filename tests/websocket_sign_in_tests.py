@@ -10,9 +10,9 @@ from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
-from keepup.auth import dependencies, panel_session
-from keepup.auth import websocket as ws_auth
-from keepup.plugins import routes
+from keepup_auth import dependencies, panel_session
+from keepup_auth import websocket as ws_auth
+from keepup_http import routes
 from keepup.plugins.registry import signed_in_websocket
 
 USERS = {"good-token": {"id": 7, "username": "anna", "role": "CLIENT"}}

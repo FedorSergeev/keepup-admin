@@ -101,7 +101,7 @@ def _seal_key() -> bytes:
     turned against the tokens signed with it. Raises SigningKeyUnavailable when
     the application has no secret -- it would not have started without one.
     """
-    from keepup.auth.signing_key import resolve_signing_key
+    from keepup_auth.signing_key import resolve_signing_key
     return hmac.new(resolve_signing_key().encode("utf-8"), _SEAL_CONTEXT, hashlib.sha256).digest()
 
 

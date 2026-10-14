@@ -17,13 +17,13 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from keepup.auth import dependencies, user_roles
+from keepup_auth import dependencies, user_roles
 from keepup.tests.repository import is_not_the_package
-from keepup.auth.dependencies import get_current_admin
-from keepup.db import DatabaseManagerV2
+from keepup_auth.dependencies import get_current_admin
+from keepup_db import DatabaseManagerV2
 from keepup.locks import register_lock_routes
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
-from keepup.schema import init_db
+from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
 

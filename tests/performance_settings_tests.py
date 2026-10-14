@@ -11,7 +11,10 @@ place; and a replica writes its metrics under its own name.
 import inspect
 
 import pytest
-from keepup import audit, db, factory, metrics
+from keepup_audit import audit
+import keepup_db as db
+from keepup_http import factory
+import keepup_metrics as metrics
 from keepup.settings import KeepupSettings, PerformanceSettings
 
 

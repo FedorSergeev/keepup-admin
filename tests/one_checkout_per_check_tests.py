@@ -14,9 +14,9 @@ from datetime import timedelta
 import pytest
 from sqlalchemy import event
 
-from keepup.auth import dependencies, panel_session
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
+from keepup_auth import dependencies, panel_session
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
 
 
 @pytest.fixture(scope="module", autouse=True)

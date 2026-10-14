@@ -15,8 +15,9 @@ from pathlib import Path
 
 import pytest
 
-from keepup import locks, schema
-from keepup.db import DatabaseManagerV2, db_config
+from keepup_db import schema
+from keepup import locks
+from keepup_db import DatabaseManagerV2, db_config
 
 
 @pytest.fixture

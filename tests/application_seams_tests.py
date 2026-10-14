@@ -26,9 +26,9 @@ import pytest
 from unittest.mock import Mock
 from fastapi.testclient import TestClient
 
-from keepup.auth import dependencies as auth_dependencies
-from keepup.auth import routes as auth_routes
-from keepup.factory import create_app
+from keepup_auth import dependencies as auth_dependencies
+from keepup_auth import routes as auth_routes
+from keepup_http.factory import create_app
 from keepup.settings import KeepupSettings
 
 PACKAGE = Path(__file__).resolve().parents[1]

@@ -459,7 +459,7 @@ def test_an_installed_package_builds_an_application_with_nothing_of_ours_around_
     elsewhere.mkdir()
     probe = """
 from fastapi.testclient import TestClient
-from keepup.factory import create_app
+from keepup_http.factory import create_app
 from keepup.settings import KeepupSettings
 
 app = create_app(KeepupSettings(title="Somebody else", project_name="other",

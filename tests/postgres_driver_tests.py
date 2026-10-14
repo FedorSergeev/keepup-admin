@@ -11,7 +11,7 @@ stand (keepup-53), whose image is exactly such an installation.
 
 from sqlalchemy.engine import make_url
 
-from keepup.db import DatabaseConfig
+from keepup_db import DatabaseConfig
 
 
 def postgres_config(monkeypatch):

@@ -157,11 +157,11 @@ def alongside(*relative):
 def source_of(module_name: str) -> Path:
     """The file of a module, asked of the module rather than built from a path.
 
-    A module that moves into a distribution keeps its old name through
-    `keepup.compat` (keepup-124), so a check that *asks for the module* follows it
-    and keeps testing what it meant to test. A check that builds
-    `PACKAGE / "events.py"` does not: it reports a missing file, and the move looks
-    like a broken check rather than a moved module.
+    A check that *asks for the module* keeps testing what it meant to test
+    whatever the module is called now; a check that builds
+    `PACKAGE / "events.py"` reports a missing file instead, and a moved module then
+    looks like a broken check. The layer that answered the old names went with
+    0.5.0 (keepup-122, keepup-153), so the name asked for here is the module's own.
 
     Args:
         module_name: the import path, the old one included.

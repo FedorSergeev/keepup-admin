@@ -26,7 +26,7 @@ import pytest
 # --- the database ------------------------------------------------------------
 
 # DatabaseConfig reads these on import, so they have to be set before anything
-# imports keepup.db -- which is why they sit at module level in a conftest and
+# imports keepup_db -- which is why they sit at module level in a conftest and
 # not in a fixture. Without them the configuration falls back to
 # config/postgres.properties, a real server: the tests would either hang on an
 # unreachable host or run DDL against somebody's database.
@@ -68,11 +68,14 @@ def framework_state_restored():
     is its. In a test session there are dozens, and the last one built would
     otherwise decide how the rest of the run behaves.
     """
-    from keepup import audit, log_shipping, modules, web
-    from keepup.auth import dependencies, routes
-    from keepup.auth.identity import access as identity_access
+    from keepup_audit import audit
+    from keepup_log_shipping import log_shipping
+    from keepup_modules import catalogue as modules
+    from keepup_http import web
+    from keepup_auth import dependencies, routes
+    from keepup_auth.identity import access as identity_access
     from keepup.kernel import observability, security
-    from keepup.plugins import admin as plugins_admin
+    from keepup_modules import decisions as plugins_admin
 
     # What a deployment puts behind `auth` and `permissions` (keepup-119).
     # create_app does this too; here it is done for every check, because a check
@@ -80,7 +83,7 @@ def framework_state_restored():
     # routes on it -- would otherwise have no sign-in at all and answer 401
     # where it means to test something else.
     saved_recording = observability.recording()
-    from keepup.audit import IncomingRequestLogger, log_api_request
+    from keepup_audit.audit import IncomingRequestLogger, log_api_request
     observability.set_recording(observability.Recording(
         start=log_api_request, end=IncomingRequestLogger.end_request, name="keepup audit"))
     saved_identity = security.get_identity()
@@ -107,5 +110,5 @@ def framework_state_restored():
     security.set_identity(saved_identity)
     # The identity provider too: an application built with one must not hand it
     # to the next test's application (keepup-91).
-    from keepup.auth.identity import runtime as identity_runtime
+    from keepup_auth.identity import runtime as identity_runtime
     identity_runtime.install(None)

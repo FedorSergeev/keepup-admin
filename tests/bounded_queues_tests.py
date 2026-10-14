@@ -15,7 +15,8 @@ import threading
 
 import pytest
 
-from keepup import audit, log_shipping
+from keepup_audit import audit
+from keepup_log_shipping import log_shipping
 
 
 def record(message="m"):

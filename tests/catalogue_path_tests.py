@@ -16,10 +16,10 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from keepup import modules
-from keepup.db import DatabaseManagerV2
-from keepup.factory import create_app
-from keepup.schema import init_db
+from keepup_modules import catalogue as modules
+from keepup_db import DatabaseManagerV2
+from keepup_http.factory import create_app
+from keepup_db.schema import init_db
 from keepup.settings import KeepupSettings
 
 

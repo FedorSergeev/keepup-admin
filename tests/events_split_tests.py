@@ -50,7 +50,7 @@ def test_the_journal_knows_nothing_of_the_web_or_its_routes():
     loaded = module_imports(journal)
     assert not {name for name in loaded
                 if name.startswith(("fastapi", "pydantic", "keepup_http.events_api",
-                                    "keepup.auth"))}
+                                    "keepup_auth"))}
 
 
 def test_emitting_an_event_does_not_load_the_routes():

@@ -409,7 +409,8 @@ of them. What remains a bridge is the route registration: the application still
 registers this capability's routes itself while the transport that mounts what a
 plugin declares (`keepup-http`) is 0.5.0 work (task 121). The old names
 (`keepup.metrics`, `keepup.metrics_api`, `keepup.metrics_retention`) answer
-through `keepup/compat.py` for one release.
+through `keepup/compat.py` for one release -- and in 0.5.0 the layer
+itself was deleted, so an old name is a `ModuleNotFoundError` (keepup-122, keepup-153).
 
 **What it was.** `metrics.py` 587 (`SystemMetricsCollector:95`,
 `DEFAULT_INTERVAL_SECONDS=15:46`, `ERROR_BACKOFF_SECONDS:30:48`,

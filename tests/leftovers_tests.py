@@ -16,9 +16,9 @@ import importlib
 
 import pytest
 
-from keepup import tables
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
+from keepup_db import tables
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
 REPO = PACKAGE.parent
@@ -40,7 +40,7 @@ def no_locks_left_over():
 
 def test_the_legacy_connection_helper_is_gone():
     # The module moved into keepup-db (keepup-124): read it where it lives.
-    from keepup import db as db_module
+    import keepup_db as db_module
 
     source = Path(importlib.import_module(db_module.DatabaseManagerV2.__module__).__file__).read_text(
         encoding="utf-8")
@@ -59,7 +59,7 @@ def test_the_interval_is_not_built_out_of_a_string_literal():
     # By name, not by path: the journal may live in its distribution (keepup-124).
     from keepup.tests.repository import source_of
 
-    source = source_of("keepup.events").read_text(encoding="utf-8")
+    source = source_of("keepup_audit.events").read_text(encoding="utf-8")
     # The statements themselves, not the comment above them that quotes the
     # old shape in order to explain it.
     statements = "\n".join(line for line in source.splitlines()
@@ -165,7 +165,7 @@ def test_the_local_provider_reads_tokens_with_the_library_the_package_declares()
     """
     from keepup.tests.repository import source_of
 
-    source = source_of("keepup.auth.providers.local").read_text(encoding="utf-8")
+    source = source_of("keepup_auth.providers.local").read_text(encoding="utf-8")
     assert "\nimport jwt\n" in source
     assert "from jose import" not in source, \
         "python-jose is back, and with it an advisory that has no fix (keepup-32)"

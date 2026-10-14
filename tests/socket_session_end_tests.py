@@ -16,9 +16,9 @@ from starlette.websockets import WebSocketDisconnect
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from keepup.auth import dependencies, panel_session, socket_sessions
-from keepup.plugins.routes import signed_in_websocket
-from keepup.schema import init_db
+from keepup_auth import dependencies, panel_session, socket_sessions
+from keepup_http.routes import signed_in_websocket
+from keepup_db.schema import init_db
 
 
 @pytest.fixture(scope="module", autouse=True)

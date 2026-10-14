@@ -16,10 +16,10 @@ import httpx
 import pytest
 from fastapi import FastAPI
 
-from keepup.auth import dependencies, login_throttle
-from keepup.auth.routes import register_auth_routes
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
+from keepup_auth import dependencies, login_throttle
+from keepup_auth.routes import register_auth_routes
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
 
 LIMIT = 5
 PASSWORD = "a-long-password-63"

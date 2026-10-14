@@ -13,8 +13,8 @@ from sqlalchemy import (BigInteger, Boolean, Column, DateTime, ForeignKeyConstra
 from sqlalchemy.dialects import postgresql
 from sqlalchemy.schema import CreateTable
 
-from keepup import tables
-from keepup.db import DatabaseManagerV2, db_config
+from keepup_db import tables
+from keepup_db import DatabaseManagerV2, db_config
 
 
 @pytest.fixture

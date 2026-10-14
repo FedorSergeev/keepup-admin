@@ -13,7 +13,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from keepup import factory
+from keepup_http import factory
 from keepup.settings import KeepupSettings
 from keepup_cluster import cluster as registry
 from keepup_cluster.plugin import ClusterPlugin, SERVICE_CLUSTER

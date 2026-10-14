@@ -12,9 +12,10 @@ from pathlib import Path
 
 import pytest
 
-from keepup import events, retention
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
+from keepup_audit import events
+from keepup_db import retention
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
 

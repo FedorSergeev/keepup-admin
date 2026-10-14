@@ -14,10 +14,10 @@ from pathlib import Path
 
 import pytest
 
-import keepup.db
+import keepup_db
 from keepup.tests.repository import is_not_the_package
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
 
@@ -28,8 +28,8 @@ def framework_tables():
 
 
 def test_the_legacy_manager_is_gone_and_nothing_names_it():
-    assert not hasattr(keepup.db, "DatabaseManager")
-    assert "DatabaseManager" not in keepup.db.__all__
+    assert not hasattr(keepup_db, "DatabaseManager")
+    assert "DatabaseManager" not in keepup_db.__all__
     word = re.compile(r"\bDatabaseManager\b(?!V2)")
     naming = [str(path.relative_to(PACKAGE)) for path in PACKAGE.rglob("*.py")
               if "tests" not in path.parts and not is_not_the_package(path)

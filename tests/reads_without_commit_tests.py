@@ -12,8 +12,9 @@ and anything inside shared_session(), keeps its transaction.
 import pytest
 from sqlalchemy import event
 
-from keepup.db import DatabaseManagerV2, _reads_only
-from keepup.schema import init_db
+from keepup_db import DatabaseManagerV2
+from keepup_db.manager import _reads_only
+from keepup_db.schema import init_db
 
 
 @pytest.fixture(scope="module", autouse=True)

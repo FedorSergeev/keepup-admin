@@ -32,7 +32,7 @@ CAN_BE_MADE_LAZY = {
 }
 
 #: What "takes the database" means.
-TAKES = ("keepup.db", "sqlalchemy")
+TAKES = ("keepup_db", "sqlalchemy")
 
 
 def framework_files():
@@ -41,7 +41,10 @@ def framework_files():
         relative = str(path.relative_to(PACKAGE))
         parts = relative.split("/")
         if any(part.startswith(".") or part in
-               ("tests", "ci", "openspec", "doc", "packages", "build", "__pycache__")
+               ("tests", "ci", "openspec", "doc", "packages", "build", "__pycache__",
+                # The initializr and the site: projects of the repository kept on
+                # disk while they are not tracked, not part of the package.
+                "initializr", "keepupproject.ru")
                for part in parts):
             continue
         yield path, relative

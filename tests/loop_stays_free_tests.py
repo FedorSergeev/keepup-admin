@@ -22,11 +22,13 @@ from pathlib import Path
 
 import pytest
 
-from keepup import audit, cluster, locks
+from keepup_audit import audit
+from keepup_cluster import cluster
+from keepup import locks
 from keepup.tests.repository import is_not_the_package
-from keepup.db import DatabaseManagerV2
-from keepup.events import event_manager
-from keepup.schema import init_db
+from keepup_db import DatabaseManagerV2
+from keepup_audit.events import event_manager
+from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
 BLOCKING = {"execute", "execute_one", "execute_commit", "execute_many",

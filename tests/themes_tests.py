@@ -17,8 +17,8 @@ from pathlib import Path
 
 import pytest
 
-from keepup.db import DatabaseManagerV2
-from keepup.themes import THEMES_TABLE, ConfigService
+from keepup_db import DatabaseManagerV2
+from keepup_ui.themes import THEMES_TABLE, ConfigService
 
 PACKAGE = Path(__file__).resolve().parents[1]
 def _paths():
@@ -77,7 +77,7 @@ def test_importing_the_module_does_not_touch_the_database():
     before it by construction.
     """
     code = (
-        "import keepup.themes as t;"
+        "import keepup_ui.themes as t;"
         "print('INITIALIZED:' + str(t.config_service._initialized))"
     )
     result = subprocess.run([sys.executable, "-c", code], cwd=REPO,

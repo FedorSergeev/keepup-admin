@@ -13,9 +13,9 @@ import logging
 
 import pytest
 
-from keepup.auth import dependencies
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
+from keepup_auth import dependencies
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
 
 
 @pytest.fixture(scope="module", autouse=True)

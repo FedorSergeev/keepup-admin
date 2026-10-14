@@ -16,8 +16,11 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from keepup import metrics, metrics_api, metrics_retention as retention, schema
-from keepup.db import DatabaseManagerV2, db_config
+import keepup_metrics as metrics
+from keepup_metrics import api as metrics_api
+from keepup_db import schema
+from keepup_metrics import retention
+from keepup_db import DatabaseManagerV2, db_config
 
 NOW = datetime(2026, 9, 18, 12, 0, 0)
 #: The collector's names, taken from its own list: a test must not keep a
@@ -372,7 +375,7 @@ async def test_the_application_starts_the_sweep_at_startup(monkeypatch, tmp_path
     """A loop nobody starts is a sweep that does not exist."""
     from fastapi.testclient import TestClient
 
-    from keepup import factory
+    from keepup_http import factory
     from keepup.settings import KeepupSettings
 
     started = []

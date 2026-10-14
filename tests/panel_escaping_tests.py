@@ -19,8 +19,8 @@ from pathlib import Path
 
 import pytest
 
-from keepup.auth.oidc_routes import propose_username
-from keepup.auth.usernames import is_valid_username, safe_username
+from keepup_auth.oidc_routes import propose_username
+from keepup_auth.usernames import is_valid_username, safe_username
 
 PACKAGE = Path(__file__).resolve().parents[1]
 SECTIONS = PACKAGE / "static" / "modules" / "js"
@@ -151,7 +151,7 @@ def test_a_provider_s_name_is_made_to_fit():
 
 def test_registration_refuses_a_hostile_name():
     from pydantic import ValidationError
-    from keepup.auth.routes import UserCreate
+    from keepup_auth.routes import UserCreate
     with pytest.raises(ValidationError, match="Username may contain"):
         UserCreate(username=HOSTILE, password="a-long-password-62", agree_terms=True)
     assert UserCreate(username="renée", password="a-long-password-62", agree_terms=True)
@@ -160,7 +160,7 @@ def test_registration_refuses_a_hostile_name():
 def test_every_path_that_creates_an_account_refuses_it():
     """Whatever route or plugin creates the account, the provider's door holds."""
     from fastapi import HTTPException
-    from keepup.auth.dependencies import auth_provider, save_user_to_db
+    from keepup_auth.dependencies import auth_provider, save_user_to_db
     with pytest.raises(HTTPException) as refused:
         auth_provider.create_user_in_db(HOSTILE, "a-long-password-62", agree_terms=True)
     assert refused.value.status_code == 400

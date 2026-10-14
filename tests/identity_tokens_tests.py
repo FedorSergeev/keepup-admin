@@ -21,22 +21,22 @@ import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
-from keepup.auth import dependencies, login_throttle, user_roles
-from keepup.auth.dependencies import get_current_user, get_optional_user
-from keepup.auth.identity import runtime as identity_runtime
-from keepup.auth.identity.config import IdentityProviderConfig
-from keepup.auth.identity.contract import (
+from keepup_auth import dependencies, login_throttle, user_roles
+from keepup_auth.dependencies import get_current_user, get_optional_user
+from keepup_auth.identity import runtime as identity_runtime
+from keepup_auth.identity.config import IdentityProviderConfig
+from keepup_auth.identity.contract import (
     ExternalIdentity,
     IdentityProvider,
     IdentityRejected,
     ProviderUnavailable,
 )
-from keepup.auth.identity.runtime import IdentityRuntime, _Cache, fingerprint
-from keepup.auth.routes import register_auth_routes
-from keepup.auth.signing_key import resolve_signing_key
-from keepup.db import DatabaseManagerV2
+from keepup_auth.identity.runtime import IdentityRuntime, _Cache, fingerprint
+from keepup_auth.routes import register_auth_routes
+from keepup_auth.signing_key import resolve_signing_key
+from keepup_db import DatabaseManagerV2
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
-from keepup.schema import init_db
+from keepup_db.schema import init_db
 
 SOURCE = "memory-as"
 PASSWORD = "a-long-password-91"

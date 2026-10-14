@@ -146,7 +146,7 @@ def test_the_application_serves_the_scheduler_doors():
     """The section's four doors, through the bridge the application still carries."""
     from fastapi.testclient import TestClient
 
-    from keepup import factory
+    from keepup_http import factory
     from keepup.settings import KeepupSettings
 
     app = factory.create_app(KeepupSettings(title="Tasks", static_mounts=(),

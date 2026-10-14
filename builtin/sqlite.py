@@ -10,7 +10,6 @@ The knowledge is the framework's current configuration (``keepup_db.db_config``)
 until the driver travels in a distribution of its own (keepup-124).
 """
 
-from keepup_db import db_config
 from keepup.kernel.datasource import SERVICE_DATASOURCE_DRIVER, DriverSpec
 from keepup.kernel.descriptor import KIND_REQUIRED, PluginDescriptor
 from keepup.plugins.base import BasePlugin
@@ -60,6 +59,8 @@ class SqlitePlugin(BasePlugin):
             honest answers: no ``RETURNING``, and no messages between replicas,
             so a cluster on SQLite is reported rather than silently deaf.
         """
+        from keepup_db import db_config
+
         return DriverSpec(
             dialect="sqlite",
             connection_url=db_config.get_connection_string(),

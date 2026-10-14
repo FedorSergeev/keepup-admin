@@ -11,7 +11,7 @@ level, which is exactly what the entry point used to be made of.
 import pytest
 from fastapi.testclient import TestClient
 
-from keepup.factory import GatedStaticFiles, create_app
+from keepup_http.factory import GatedStaticFiles, create_app
 from keepup.settings import KeepupSettings, StaticMount
 
 
@@ -89,7 +89,7 @@ def test_the_application_supplies_its_own_front_end_paths():
                              version_file="build.json", favicon_file="icon.ico")
     create_app(settings)
 
-    from keepup import web
+    from keepup_http import web
 
     assert web.STATIC_DIR == "somewhere"
     assert web.CLIENT_PAGE == "index.html"
@@ -104,7 +104,7 @@ def test_the_application_supplies_the_redaction_of_its_secrets():
     does not guess that none of them does. An application that wants the
     contents recorded says so by name.
     """
-    from keepup import audit
+    from keepup_audit import audit
 
     create_app(bare_settings())
     assert audit.redact("token=abc") == audit.HIDDEN

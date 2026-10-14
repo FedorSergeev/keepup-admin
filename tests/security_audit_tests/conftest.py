@@ -199,7 +199,7 @@ def start(applications):
     application built with one must not hand it to the next); an application
     kept for the run gets it back before each check that uses it.
     """
-    from keepup.auth.identity import runtime as identity_runtime
+    from keepup_auth.identity import runtime as identity_runtime
 
     def get(name):
         running = applications(name)

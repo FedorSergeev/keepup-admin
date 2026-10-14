@@ -15,16 +15,16 @@ from pathlib import Path
 
 import pytest
 
-from keepup.auth.identity import runtime as identity_runtime
-from keepup.auth.identity.config import (
+from keepup_auth.identity import runtime as identity_runtime
+from keepup_auth.identity.config import (
     IdentityProviderConfig,
     IdentityProviderMisconfigured,
     load_section,
     parse,
     resolve,
 )
-from keepup.auth.identity.contract import ExternalIdentity, IdentityProvider
-from keepup.auth.identity.loader import build_provider, find_class
+from keepup_auth.identity.contract import ExternalIdentity, IdentityProvider
+from keepup_auth.identity.loader import build_provider, find_class
 
 MODULE = "keepup_identity_config_test_plugins"
 
@@ -259,7 +259,7 @@ def test_the_runtime_is_built_and_replaced(tmp_path, caplog):
 
 
 def test_create_app_refuses_a_provider_configured_twice(tmp_path, monkeypatch):
-    from keepup.factory import create_app
+    from keepup_http.factory import create_app
     from keepup.settings import KeepupSettings
 
     path = write(tmp_path, f"identity_provider:\n  name: a\n  plugin: {MODULE}:TokensOnly\n")

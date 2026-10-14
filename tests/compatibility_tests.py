@@ -1,199 +1,87 @@
-"""Names that moved keep working, and say where they went.
+"""The names that moved are gone, and the distributions answer for themselves.
 
-Task keepup-114. 0.4.0 moves code into the distributions beside the base package
-(keepup-124), and an application that imports an old name must keep working for
-one release -- while being told, because a silent shim is how an application ends
-up pinned to a release it cannot leave. This is the map, the warning and the
-stand-in, checked on a name that has moved and on the ones that will.
+Task keepup-122 and keepup-153. 0.4.0 moved ten capabilities out of the base and
+kept their old import paths answering for one release, with a warning that named
+the distribution to install. That release is over: 0.5.0 removes the layer, so an
+old name is an ImportError and the module it moved to is the import.
+
+    python3 -m pytest tests/compatibility_tests.py -v
 """
 
+import importlib
+import subprocess
 import sys
-import types
-import warnings
+from pathlib import Path
 
 import pytest
 
-from keepup import compat
+PACKAGE = Path(__file__).resolve().parents[1]
+
+#: Where each name that moved lives now. The list is the map the layer carried,
+#: kept here so that a name that stops working is reported by name.
+MOVED = {
+    "keepup.db": "keepup_db",
+    "keepup.tables": "keepup_db.tables",
+    "keepup.schema": "keepup_db.schema",
+    "keepup.positional_sql": "keepup_db.positional_sql",
+    "keepup.retention": "keepup_db.retention",
+    "keepup.audit": "keepup_audit.audit",
+    "keepup.events": "keepup_audit.events",
+    "keepup.admin_trail": "keepup_audit.trail",
+    "keepup.scheduler": "keepup_tasks.scheduler",
+    "keepup.metrics": "keepup_metrics",
+    "keepup.metrics_api": "keepup_metrics.api",
+    "keepup.metrics_retention": "keepup_metrics.retention",
+    "keepup.cluster": "keepup_cluster.cluster",
+    "keepup.log_shipping": "keepup_log_shipping.log_shipping",
+    "keepup.modules": "keepup_modules.catalogue",
+    "keepup.integrations": "keepup_integration_log.integrations",
+    "keepup.plugins.admin": "keepup_modules.decisions",
+    "keepup.plugins.routes": "keepup_http.routes",
+    "keepup.auth": "keepup_auth",
+    "keepup.auth.user_roles": "keepup_auth.user_roles",
+    "keepup.themes": "keepup_ui.themes",
+    "keepup.api_docs": "keepup_http.api_docs",
+    "keepup.events_api": "keepup_http.events_api",
+    "keepup.body_limit": "keepup_http.body_limit",
+    "keepup.factory": "keepup_http.factory",
+    "keepup.web": "keepup_http.web",
+}
 
 
-def test_every_name_that_moves_has_a_destination():
-    """The map is the promise: no old name without somewhere it went."""
-    assert compat.MOVED_NAMES
-    for old, new in compat.MOVED.items():
-        assert old.startswith("keepup.")
-        assert new.startswith("keepup_")
-        assert compat.destination_of(old) == new
+def test_the_layer_is_gone():
+    """A module that answers the old names is a module that keeps them alive."""
+    assert not (PACKAGE / "compat.py").exists(), "the compatibility layer is back"
+    source = (PACKAGE / "__init__.py").read_text(encoding="utf-8")
+    assert "compat" not in source, "the kernel installs the compatibility layer again"
 
 
-def test_a_name_below_a_moved_one_maps_under_it():
-    """A module that moves takes what is under it with it."""
-    # The roles module lives in the sign-in's distribution; the map said
-    # `keepup_users.roles`, which never existed, so the stand-in pointed at a
-    # missing home (keepup-113).
-    assert compat.destination_of("keepup.auth.user_roles") == "keepup_auth.user_roles"
-    assert compat.destination_of("keepup.not_moved") is None
-
-
-def test_a_stand_in_answers_like_the_module_it_stands_for():
-    """An application keeps working: the names it imported are all there."""
-    created = types.ModuleType("keepup_fake_target")
-    created.answer = 42
-    sys.modules["keepup_fake_target"] = created
-    try:
-        stand_in = compat.shim("keepup.fake", "keepup_fake_target")
-        with warnings.catch_warnings(record=True) as seen:
-            warnings.simplefilter("always")
-            assert stand_in.answer == 42
-        assert any("moved to keepup_fake_target" in str(item.message) for item in seen)
-    finally:
-        sys.modules.pop("keepup_fake_target", None)
-
-
-def test_the_warning_is_said_once_per_process():
-    """A log that repeats itself on every import is a log nobody reads."""
-    compat._said.clear()
-    with warnings.catch_warnings(record=True) as seen:
-        warnings.simplefilter("always")
-        compat.warn_moved("keepup.said.once", "keepup_said_once")
-        compat.warn_moved("keepup.said.once", "keepup_said_once")
-    assert len(seen) == 1
-    assert issubclass(seen[0].category, DeprecationWarning)
-
-
-def test_a_missing_home_names_the_distribution_to_install():
-    """The one thing an application can act on: which package to install."""
-    stand_in = compat.shim("keepup.moved.away", "keepup_nothing_here")
-    with pytest.raises(ModuleNotFoundError) as missing:
-        stand_in.anything
-    assert "install keepup-nothing-here" in str(missing.value)
-
-
-def test_a_stand_in_answers_for_a_module_not_only_a_package():
-    """A moved module exported names its new package does not re-export."""
-    import sys
-
-    package = types.ModuleType("keepup_fake_package")
-    package.__path__ = []
-    package.__file__ = "/nowhere/__init__.py"
-    inner = types.ModuleType("keepup_fake_package.inner")
-    inner._private_helper = "kept"
-    inner.__file__ = "/nowhere/inner.py"
-    sys.modules["keepup_fake_package"] = package
-    sys.modules["keepup_fake_package.inner"] = inner
-    package.inner = inner
-    try:
-        stand_in = compat.shim("keepup.fake_module", "keepup_fake_package")
-        assert stand_in.__file__ == "/nowhere/__init__.py"
-        assert stand_in._private_helper == "kept"
-    finally:
-        sys.modules.pop("keepup_fake_package", None)
-        sys.modules.pop("keepup_fake_package.inner", None)
-
-
-def test_installing_a_stand_in_imports_nothing(monkeypatch):
-    """An import must not drag a distribution in: several modules stay lazy.
-
-    `keepup.themes` and the metrics API are careful not to touch the database
-    when they are imported (keepup-112), and a stand-in that imported its
-    destination while it was being installed would break that from a distance.
-    """
-    calls = []
-
-    def spy(name, *args, **kwargs):
-        calls.append(name)
-        raise ModuleNotFoundError(name)
-
-    monkeypatch.setattr(compat.importlib, "import_module", spy)
-
-    # Installing one, and installing everything that has moved, imports nothing.
-    stand_in = compat.shim("keepup.fake_lazy", "keepup_fake_lazy_target")
-    compat.install()
-    assert calls == [], f"installing a stand-in imported {calls}"
-
-    # The destination is reached on attribute access, and only then.
+@pytest.mark.parametrize("old_name", sorted(MOVED))
+def test_an_old_name_is_an_import_error(old_name):
+    """The name a 0.4.0 application wrote does not resolve to a stand-in."""
+    assert old_name not in sys.modules
     with pytest.raises(ModuleNotFoundError):
-        stand_in.anything
-    assert calls == ["keepup_fake_lazy_target"]
+        importlib.import_module(old_name)
 
 
-def test_a_moved_submodule_keeps_one_module_object(tmp_path, monkeypatch):
-    """Two names for one file must be one object, or a setting lands on neither.
-
-    This is what a check caught when the sign-in package moved: a password rule
-    set through the old name did not reach the code reading the new one.
-    """
-    import sys
-
-    package = tmp_path / "keepup_fake_tree"
-    package.mkdir()
-    (package / "__init__.py").write_text("", encoding="utf-8")
-    (package / "inner.py").write_text("value = 1\n", encoding="utf-8")
-    monkeypatch.syspath_prepend(str(tmp_path))
-    try:
-        stand_in = compat.shim("keepup.fake_tree", "keepup_fake_tree")
-        stand_in.inner                      # touching the name aliases it
-        old = __import__("keepup.fake_tree.inner", fromlist=["inner"])
-        new = __import__("keepup_fake_tree.inner", fromlist=["inner"])
-        assert old is new, "the old name and the new one are two module objects"
-        old.value = 2
-        assert new.value == 2
-    finally:
-        for name in ("keepup.fake_tree", "keepup.fake_tree.inner",
-                     "keepup_fake_tree", "keepup_fake_tree.inner"):
-            sys.modules.pop(name, None)
+@pytest.mark.parametrize("old_name,destination", sorted(MOVED.items()))
+def test_the_module_it_moved_to_is_there(old_name, destination):
+    """And it is one module, not a copy under the old name as well."""
+    module = importlib.import_module(destination)
+    assert module is sys.modules[destination]
+    assert not old_name.startswith(destination)
 
 
-def test_a_stand_in_declares_what_the_module_declared():
-    """A check that reads `__all__` must learn the interface, not nothing."""
-    import sys
-
-    target = types.ModuleType("keepup_fake_declared")
-    target.__all__ = ["DatabaseManagerV2", "db_config"]
-    sys.modules["keepup_fake_declared"] = target
-    try:
-        stand_in = compat.shim("keepup.fake_declared", "keepup_fake_declared")
-        assert stand_in.__all__ == ["DatabaseManagerV2", "db_config"]
-    finally:
-        sys.modules.pop("keepup_fake_declared", None)
-
-
-def test_a_write_through_a_stand_in_reaches_the_module():
-    """Patching a moved module has to reach it, not the stand-in (keepup-124)."""
-    import sys
-
-    target = types.ModuleType("keepup_fake_writable")
-    target.metadata = "the module's own"
-    sys.modules["keepup_fake_writable"] = target
-    try:
-        stand_in = compat.shim("keepup.fake_writable", "keepup_fake_writable")
-        stand_in.metadata = "the test's own"
-        assert target.metadata == "the test's own"
-        assert stand_in.metadata == "the test's own"
-    finally:
-        sys.modules.pop("keepup_fake_writable", None)
-
-
-def test_a_name_that_did_not_move_needs_no_stand_in():
-    """The layer does not invent history for a module that is where it was."""
-    with pytest.raises(KeyError):
-        compat.shim("keepup.never_moved")
-
-
-def test_only_the_names_whose_module_is_gone_are_stood_in():
-    """The layer acts for what has moved, and leaves the rest alone.
-
-    In 0.4.0 that is `keepup.db`: the manager lives in `keepup-db` and answers
-    through here (keepup-124). Every other name on the map still has its module in
-    the base package, and standing in for it would be a lie.
-    """
-    installed = compat.install()
-    # The map is the list (keepup-114): a name whose module is gone from the
-    # base is stood in; a name that still has its module is not, because
-    # answering from somewhere else while the file sits right there is a lie.
-    for name in installed:
-        assert name in compat.MOVED, f"{name} was stood in without a home in the map"
-    for name in compat.MOVED:
-        if compat._module_exists(name):
-            assert name not in installed, (
-                f"{name} was stood in while its module is still in the base package")
-
+def test_an_old_name_is_not_resolvable_in_a_fresh_interpreter():
+    """Nothing of the layer survives a process that imports the kernel first."""
+    probe = ("import keepup, importlib\n"
+             "try:\n"
+             "    importlib.import_module('keepup.auth')\n"
+             "except ModuleNotFoundError:\n"
+             "    print('gone')\n"
+             "else:\n"
+             "    print('answered')\n")
+    result = subprocess.run([sys.executable, "-c", probe], cwd=PACKAGE,
+                            capture_output=True, text=True,
+                            env={"PATH": "/usr/bin:/bin"})
+    assert result.stdout.strip() == "gone", result.stdout + result.stderr

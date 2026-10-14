@@ -15,8 +15,8 @@ import pytest
 from fastapi.testclient import TestClient
 
 from keepup import notification_bus as nb
-from keepup.db import DatabaseManagerV2
-from keepup.factory import (_create_notification_bus, _start_notification_bus,
+from keepup_db import DatabaseManagerV2
+from keepup_http.factory import (_create_notification_bus, _start_notification_bus,
                             _stop_notification_bus, create_app)
 from keepup.settings import KeepupSettings
 

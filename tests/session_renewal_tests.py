@@ -17,11 +17,11 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from keepup.auth import dependencies, panel_session
-from keepup.auth.providers.base import ALGORITHM
-from keepup.auth.signing_key import resolve_signing_key
-from keepup.auth.routes import register_auth_routes
-from keepup.schema import init_db
+from keepup_auth import dependencies, panel_session
+from keepup_auth.providers.base import ALGORITHM
+from keepup_auth.signing_key import resolve_signing_key
+from keepup_auth.routes import register_auth_routes
+from keepup_db.schema import init_db
 
 
 @pytest.fixture(scope="module", autouse=True)

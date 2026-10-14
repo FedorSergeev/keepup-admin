@@ -29,9 +29,11 @@ import pytest
 from fastapi import FastAPI, HTTPException
 from fastapi.testclient import TestClient
 
-from keepup import audit
-from keepup.auth.dependencies import get_panel_user
-from keepup.plugins import admin, registry, routes
+from keepup_audit import audit
+from keepup_auth.dependencies import get_panel_user
+from keepup.plugins import registry
+from keepup_http import routes
+from keepup_modules import decisions as admin
 from keepup.plugins.base import (
     OUTCOME_DISABLED,
     OUTCOME_INITIALIZED,
@@ -995,7 +997,7 @@ def test_a_database_that_cannot_answer_does_not_keep_the_server_from_starting(mo
 
     # Patched where the name lives, not on the module that used to take it at
     # import time: the import moved into the function that needs it (keepup-127).
-    from keepup.db import DatabaseManagerV2 as _manager
+    from keepup_db import DatabaseManagerV2 as _manager
 
     monkeypatch.setattr(_manager, "execute", staticmethod(Unreachable.execute))
 

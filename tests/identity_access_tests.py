@@ -16,22 +16,22 @@ import pytest
 from fastapi import Depends, FastAPI
 from fastapi.testclient import TestClient
 
-from keepup.auth import dependencies, user_roles
-from keepup.auth.identity import require_permission
-from keepup.auth.identity import runtime as identity_runtime
-from keepup.auth.identity.config import IdentityProviderConfig
-from keepup.auth.identity.contract import (
+from keepup_auth import dependencies, user_roles
+from keepup_auth.identity import require_permission
+from keepup_auth.identity import runtime as identity_runtime
+from keepup_auth.identity.config import IdentityProviderConfig
+from keepup_auth.identity.contract import (
     ExternalIdentity,
     IdentityProvider,
     IdentityRejected,
     ProviderUnavailable,
 )
-from keepup.auth.identity.runtime import IdentityRuntime
-from keepup.auth.permissions import require_permission as old_decorator
-from keepup.db import DatabaseManagerV2
-from keepup.plugins.routes import register_plugin_routes
+from keepup_auth.identity.runtime import IdentityRuntime
+from keepup_auth.permissions import require_permission as old_decorator
+from keepup_db import DatabaseManagerV2
+from keepup_http.routes import register_plugin_routes
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
-from keepup.schema import init_db
+from keepup_db.schema import init_db
 
 SOURCE = "deciding-as"
 

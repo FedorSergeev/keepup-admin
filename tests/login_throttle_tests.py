@@ -14,9 +14,9 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from keepup.auth import login_throttle
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
+from keepup_auth import login_throttle
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
 
 AT_ONCE = 20
 

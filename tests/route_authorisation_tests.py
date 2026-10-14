@@ -21,7 +21,8 @@ from keepup.tests.repository import some_application
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from keepup import themes, web
+from keepup_ui import themes
+from keepup_http import web
 
 PACKAGE = Path(__file__).resolve().parents[1]
 REPO = PACKAGE.parent
@@ -161,10 +162,10 @@ def test_the_user_dependency_takes_nothing_from_the_query():
     `ignore_empty_user` stood here and was published on every route of the
     framework and of every plugin -- as a switch a caller could set.
     """
-    from keepup.auth import dependencies
+    from keepup_auth import dependencies
 
     signature = ast.parse(
-        source_of("keepup.auth.dependencies").read_text(encoding="utf-8"))
+        source_of("keepup_auth.dependencies").read_text(encoding="utf-8"))
     found = [node for node in ast.walk(signature)
              if isinstance(node, ast.AsyncFunctionDef) and node.name == "get_current_user"]
     assert found, "get_current_user is gone"

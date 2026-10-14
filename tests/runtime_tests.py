@@ -10,11 +10,13 @@ import logging
 
 import pytest
 
-from keepup import audit, log_shipping, logging_setup
-from keepup.db import DatabaseManagerV2
+from keepup_audit import audit
+from keepup_log_shipping import log_shipping
+from keepup import logging_setup
+from keepup_db import DatabaseManagerV2
 from keepup.instance import get_instance_id, get_instance_name
 from keepup.locks import DatabaseLock, distributed_lock, with_distributed_lock
-from keepup.schema import init_db
+from keepup_db.schema import init_db
 from keepup.settings import KeepupSettings
 
 

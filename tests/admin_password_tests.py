@@ -18,10 +18,10 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from keepup.auth import seed_accounts
-from keepup.auth.routes import register_auth_routes
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
+from keepup_auth import seed_accounts
+from keepup_auth.routes import register_auth_routes
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
 
 PUBLIC = seed_accounts.RETIRED_ADMIN_PASSWORDS[0]
 

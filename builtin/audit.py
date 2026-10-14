@@ -115,7 +115,7 @@ class AuditPlugin(BasePlugin):
                 await task
             except asyncio.CancelledError:
                 pass
-        from keepup import audit as recording
+        from keepup_audit import audit as recording
 
         try:
             flushed = await recording.IncomingRequestLogger.flush_buffer(include_in_flight=True)

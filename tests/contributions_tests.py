@@ -20,8 +20,8 @@ import pytest
 from fastapi import FastAPI, Response
 from fastapi.testclient import TestClient
 
-from keepup import audit
-from keepup.auth.dependencies import get_panel_user
+from keepup_audit import audit
+from keepup_auth.dependencies import get_panel_user
 from keepup.kernel import (
     KIND_OPTIONAL,
     KIND_TRANSPORT,

@@ -16,7 +16,7 @@ from types import SimpleNamespace
 import pytest
 from fastapi import FastAPI
 
-from keepup.auth import routes, user_routes
+from keepup_auth import routes, user_routes
 
 AUTH = Path(routes.__file__).parent
 
@@ -48,14 +48,14 @@ def test_a_moved_name_still_answers_and_says_where_it_went(name):
         warnings.simplefilter("always")
         value = getattr(routes, name)
     assert value is getattr(user_routes, name)
-    assert any(f"keepup.auth.user_routes.{name}" in str(w.message) for w in caught)
+    assert any(f"keepup_auth.user_routes.{name}" in str(w.message) for w in caught)
 
 
 def test_the_password_rule_configured_for_sign_in_governs_the_administrator_too():
     """One rule for both doors, as before the split."""
     from fastapi.testclient import TestClient
-    from keepup.auth.dependencies import get_current_admin, save_user_to_db, update_user
-    from keepup.schema import init_db
+    from keepup_auth.dependencies import get_current_admin, save_user_to_db, update_user
+    from keepup_db.schema import init_db
     init_db()
     uid = save_user_to_db("split-rule", "a-long-password-59")
     update_user(uid, status="active")

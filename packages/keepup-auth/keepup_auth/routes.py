@@ -498,7 +498,7 @@ def register_auth_routes(app, manager):
     user_routes.register_user_routes(app, manager)
 
 
-#: Names that moved to keepup.auth.user_routes with keepup-59.
+#: Names that moved to keepup_auth.user_routes with keepup-59.
 _MOVED_TO_USER_ROUTES = {
     "UserResponse", "UserRolesUpdate", "UserUpdateRequest", "UserProfileUpdate",
     "UserPasswordUpdate", "update_user_profile", "notify_account_blocked",
@@ -508,7 +508,7 @@ _MOVED_TO_USER_ROUTES = {
 def __getattr__(name):
     if name in _MOVED_TO_USER_ROUTES:
         import warnings
-        warnings.warn(f"keepup.auth.routes.{name} moved to keepup.auth.user_routes.{name}",
+        warnings.warn(f"keepup.auth.routes.{name} moved to keepup_auth.user_routes.{name}",
                       DeprecationWarning, stacklevel=2)
         return getattr(user_routes, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

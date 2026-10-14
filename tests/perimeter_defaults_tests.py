@@ -14,7 +14,7 @@ from pathlib import Path
 
 from fastapi.testclient import TestClient
 
-from keepup.factory import create_app
+from keepup_http.factory import create_app
 from keepup.settings import KeepupSettings
 
 PACKAGE = Path(__file__).resolve().parents[1]

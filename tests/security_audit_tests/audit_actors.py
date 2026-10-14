@@ -17,8 +17,8 @@ from typing import Dict, Optional
 
 import jwt
 
-from keepup.auth import dependencies, panel_session, user_roles
-from keepup.auth.signing_key import resolve_signing_key
+from keepup_auth import dependencies, panel_session, user_roles
+from keepup_auth.signing_key import resolve_signing_key
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
 
 #: A password long enough for any rule an application might supply.

@@ -74,7 +74,7 @@ def require_signing_key() -> None:
     a server that came up with the placeholder key from the setup examples
     would accept a token anybody could sign for any account.
     """
-    from keepup.auth.signing_key import SigningKeyUnavailable, signing_key_problem
+    from keepup_auth.signing_key import SigningKeyUnavailable, signing_key_problem
 
     problem = signing_key_problem()
     if problem:
@@ -176,7 +176,7 @@ def apply_settings(settings: KeepupSettings) -> None:
     # Who is calling and what they may do, behind the two names the kernel owns
     # (keepup-119). Until keepup-auth is a plugin of its own this is the
     # framework's own sign-in; afterwards it is that plugin's register().
-    from keepup.auth.identity import access as identity_access
+    from keepup_auth.identity import access as identity_access
     from keepup.kernel import observability, security
     # What is written down about a call, behind the two names the kernel owns
     # (keepup-111). Until keepup-audit is a plugin this is the framework's own,
@@ -198,7 +198,7 @@ def apply_settings(settings: KeepupSettings) -> None:
     # The panel's plugin report reads the deployment's own catalogue, wherever
     # the application keeps it -- not the default path (keepup-93).
     try:
-        from keepup.plugins import admin as plugins_admin
+        from keepup_modules import decisions as plugins_admin
 
         plugins_admin.configure(settings.plugins_config_path)
     except ImportError:

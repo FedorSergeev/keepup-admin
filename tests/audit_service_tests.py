@@ -131,6 +131,6 @@ def test_the_route_runtime_does_not_import_the_audit_module():
     found = set()
     for node in ast.walk(tree):
         if isinstance(node, ast.ImportFrom) and node.module:
-            if node.module.startswith("keepup.audit") or node.module.startswith("keepup.events"):
+            if node.module.startswith("keepup_audit.audit") or node.module.startswith("keepup_audit.events"):
                 found.add(node.module)
     assert found == set(), f"the route runtime still imports {sorted(found)}"

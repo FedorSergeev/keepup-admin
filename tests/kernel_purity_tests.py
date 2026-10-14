@@ -2,7 +2,7 @@
 
 Task keepup-119. The kernel's whole claim is that it knows nothing about the
 capabilities it ships, and the load-bearing part of that claim is an import: one
-convenient `from keepup.auth...` inside a function and the boundary is gone
+convenient `from keepup_auth...` inside a function and the boundary is gone
 invisibly, because nothing fails. This check is the thing that fails.
 
 It is a list that may only shrink. A module that stops importing the sign-in has
@@ -22,11 +22,11 @@ PACKAGE = Path(__file__).resolve().parents[1]
 SKIPPED = ("__pycache__", ".venv", "build", "dist", "tests", "ci", "openspec", "doc")
 
 #: What the sign-in is: the modules a capability owns, and the shape it uses.
-SIGN_IN = "keepup.auth"
+SIGN_IN = "keepup_auth"
 
 #: Who may still import it, and why. Removing an entry is the point of 0.4.0.
 STILL_IMPORTING = {
-    "builtin/users.py": "the roles it owns are read from keepup.auth.user_roles until keepup-124",
+    "builtin/users.py": "the roles it owns are read from keepup_auth.user_roles until keepup-124",
     "notification_bus.py": "it signs what replicas send to each other",
 }
 
@@ -41,7 +41,7 @@ def package_files():
 
 
 def imports_of(path):
-    """The ``keepup.auth`` names a file imports, at any depth.
+    """The ``keepup_auth`` names a file imports, at any depth.
 
     Walks the tree rather than reading the module: an import inside a function
     crosses the same boundary as one at the top of the file, and it is the one
@@ -129,14 +129,14 @@ def test_the_router_no_longer_imports_the_subject_or_the_right():
     """
     found = imports_of(PACKAGE / "packages" / "keepup-http" / "keepup_http"
                        / "routes.py")
-    assert found <= {"keepup.auth.websocket"}, (
+    assert found <= {"keepup_auth.websocket"}, (
         f"the route wrapper still imports the subject or the right: {sorted(found)}"
     )
 
 
 def test_the_shape_of_a_right_is_the_kernel_s_own():
     """The sign-in re-exports it, and the kernel does not import the sign-in to get it."""
-    from keepup.auth.identity.contract import AccessRequest as Published
+    from keepup_auth.identity.contract import AccessRequest as Published
     from keepup.kernel.security import AccessRequest as Owned
 
     assert Published is Owned

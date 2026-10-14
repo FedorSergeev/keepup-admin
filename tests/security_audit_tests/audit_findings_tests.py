@@ -27,8 +27,8 @@ from pathlib import Path
 import httpx
 import pytest
 
-from keepup.auth import dependencies, login_throttle, panel_session, user_roles
-from keepup.db import DatabaseManagerV2
+from keepup_auth import dependencies, login_throttle, panel_session, user_roles
+from keepup_db import DatabaseManagerV2
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
 
 import audit_actors
@@ -47,7 +47,7 @@ def finding(number: int):
 @pytest.fixture
 def throttle(monkeypatch):
     """A known limit and a clean count, for the checks that sign in."""
-    from keepup.schema import init_db
+    from keepup_db.schema import init_db
     init_db()
 
     def set_limit(limit):
@@ -95,8 +95,8 @@ def test_2_a_name_with_markup_never_becomes_an_account(start, monkeypatch):
     assert answer.status_code in (400, 422), answer.text
     assert dependencies.get_user_by_username(hostile) is None
     # And the name an outside identity brings is made plain before it is used.
-    from keepup.auth.external_accounts import propose_username
-    from keepup.auth.usernames import is_valid_username
+    from keepup_auth.external_accounts import propose_username
+    from keepup_auth.usernames import is_valid_username
     assert is_valid_username(propose_username(hostile))
 
 
@@ -166,7 +166,7 @@ class HeldSocket:
 
 @finding(6)
 def test_6_a_revoked_session_closes_its_open_socket(start):
-    from keepup.auth import socket_sessions
+    from keepup_auth import socket_sessions
 
     start("plugins")
     ended, going_on = audit_actors.client_actor(), audit_actors.client_actor()
@@ -196,7 +196,7 @@ def test_7_an_envelope_on_the_bus_that_nobody_sealed_is_dropped():
 
 @finding(8)
 def test_8_the_administrator_leaves_a_trail_and_cannot_forge_one(start):
-    from keepup import admin_trail
+    from keepup_audit import trail as admin_trail
 
     running = start("bare")
     admin = audit_actors.admin()
@@ -216,7 +216,8 @@ def test_8_the_administrator_leaves_a_trail_and_cannot_forge_one(start):
 
 @finding(9)
 def test_9_log_and_audit_queues_are_bounded(monkeypatch):
-    from keepup import audit, log_shipping
+    from keepup_audit import audit
+    from keepup_log_shipping import log_shipping
 
     monkeypatch.setattr(log_shipping, "REMOTE_LOG_URL", None)
     monkeypatch.setattr(log_shipping, "REMOTE_LOG_TOKEN", "a-token")
@@ -299,7 +300,7 @@ def test_13_the_csrf_value_belongs_to_the_session_and_changes_with_it(start, thr
 @finding(14)
 @pytest.mark.parametrize("verified", [False, "false", "False", "", "yes", 1, None])
 def test_14_the_domain_policy_admits_only_a_verified_address(verified):
-    from keepup.auth import oidc_policy
+    from keepup_auth import oidc_policy
 
     policy = oidc_policy.create_if_email_domain(["example.com"])
     decision = oidc_policy.decide(policy, {"sub": "s", "email": "person@example.com",
@@ -309,7 +310,7 @@ def test_14_the_domain_policy_admits_only_a_verified_address(verified):
 
 @finding(15)
 def test_15_the_first_administrator_s_password_stays_out_of_the_logs(caplog, start, throttle):
-    from keepup.auth import seed_accounts
+    from keepup_auth import seed_accounts
 
     connection = sqlite3.connect(":memory:")
     connection.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, "
@@ -344,7 +345,7 @@ def test_15_the_first_administrator_s_password_stays_out_of_the_logs(caplog, sta
 
 @finding(16)
 def test_16_the_collector_s_token_is_written_nowhere(monkeypatch, tmp_path, caplog):
-    from keepup import log_shipping
+    from keepup_log_shipping import log_shipping
 
     class Issued:
         status_code = 200
@@ -370,7 +371,7 @@ def test_16_the_collector_s_token_is_written_nowhere(monkeypatch, tmp_path, capl
 @finding(17)
 def test_17_a_failure_answers_without_its_text_and_a_path_cannot_forge_a_log_line(
         start, monkeypatch):
-    from keepup import events
+    from keepup_audit import events
     from keepup.logging_setup import for_log
 
     running = start("bare")

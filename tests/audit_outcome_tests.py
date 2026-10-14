@@ -14,9 +14,9 @@ from datetime import datetime, timedelta
 
 import pytest
 
-from keepup import audit
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
+from keepup_audit import audit
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
 
 
 @pytest.fixture(scope="module", autouse=True)

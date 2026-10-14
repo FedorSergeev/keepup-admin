@@ -18,11 +18,11 @@ from datetime import datetime
 from typing import Dict, Optional
 
 
-from keepup.auth.dependencies import get_user_by_id, get_user_by_username
+from keepup_auth.dependencies import get_user_by_id, get_user_by_username
 
 logger = logging.getLogger(__name__)
 
-from keepup.auth import seed_accounts
+from keepup_auth import seed_accounts
 
 
 class IntegrationLogger:

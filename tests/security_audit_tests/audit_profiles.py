@@ -23,9 +23,9 @@ import pytest
 import uvicorn
 from fastapi.testclient import TestClient
 
-from keepup.factory import create_app
+from keepup_http.factory import create_app
 from keepup.plugins.base import PluginManager
-from keepup.schema import init_db
+from keepup_db.schema import init_db
 from keepup.settings import KeepupSettings, OidcSettings
 
 SERVICE_KEY = "audit-homegrown-service-key"
@@ -37,7 +37,7 @@ IDENTITY_SOURCE = "homegrown-as"
 AUDIT_PLUGIN = '''
 from fastapi import HTTPException
 
-from keepup.auth.dependencies import get_optional_user
+from keepup_auth.dependencies import get_optional_user
 from keepup.plugins.base import BasePlugin
 
 
@@ -261,7 +261,7 @@ def running(profile: Profile, workdir: Path, other: Optional[OtherSystem] = None
         patch.setenv("SSL_ENABLED", "true" if profile.https else "false")
         app = create_app(settings_for(profile, plugins, modules))
         base = "https://testserver" if profile.https else "http://testserver"
-        from keepup.auth.identity import runtime as identity_runtime
+        from keepup_auth.identity import runtime as identity_runtime
         configured = identity_runtime.current()
         with TestClient(app, base_url=base, raise_server_exceptions=False) as client:
             yield Running(profile, app, client, other, configured)

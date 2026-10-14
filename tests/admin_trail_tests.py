@@ -15,14 +15,15 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from keepup import admin_trail, events
-from keepup.auth.dependencies import get_current_admin
-from keepup.db import DatabaseManagerV2
-from keepup.events_api import register_event_api_routes
-from keepup.metrics_api import register_metrics_routes
-from keepup.modules import register_module_routes
-from keepup.schema import init_db
-from keepup.themes import config_service, register_theme_routes
+from keepup_audit import trail as admin_trail
+from keepup_audit import events
+from keepup_auth.dependencies import get_current_admin
+from keepup_db import DatabaseManagerV2
+from keepup_http.events_api import register_event_api_routes
+from keepup_metrics.api import register_metrics_routes
+from keepup_modules.catalogue import register_module_routes
+from keepup_db.schema import init_db
+from keepup_ui.themes import config_service, register_theme_routes
 
 ADMIN = {"id": 41, "username": "trail-admin"}
 DECLARED = ("audit_user_login", "audit_order_repriced")
@@ -84,7 +85,7 @@ def test_purging_the_log_is_itself_written_into_it(client):
 
 def test_a_section_change_names_its_author(client):
     """Section routes read and write the database off the loop and await the trail."""
-    from keepup.modules import create_or_update_module
+    from keepup_modules.catalogue import create_or_update_module
     create_or_update_module({"id": "trail_section", "name": "Trail"})
 
     answer = client.post("/api/admin/role-modules",
@@ -110,7 +111,7 @@ def test_a_theme_change_names_its_author(client):
 
 def test_a_plugin_decision_names_its_author(monkeypatch):
     import asyncio
-    from keepup.plugins import admin as plugin_admin
+    from keepup_modules import decisions as plugin_admin
     monkeypatch.setattr(plugin_admin, "_refuse_if_the_deployment_decides", lambda plugin_id: None)
     monkeypatch.setattr(plugin_admin, "clear_plugin_override", lambda plugin_id: None)
     asyncio.run(plugin_admin.clear_plugin_enabled("trail_plugin", ADMIN))

@@ -169,7 +169,7 @@ def test_a_distribution_does_not_loop_over_its_modules_attributes():
 
     A loop over `dir(module)` reads every attribute the module has, which is both
     a way to import something nobody asked for and a way to touch a database on
-    import -- the mistake the first attempt at moving `keepup.db` made
+    import -- the mistake the first attempt at moving `keepup_db` made
     (keepup-126). The moved module declares `__all__`; that is the list.
     """
     for name in EXPECTED:

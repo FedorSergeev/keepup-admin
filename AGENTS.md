@@ -263,9 +263,9 @@ See `doc/external_identity_provider.md` in the repository this package comes fro
 
 The framework is built to run as several processes over one database:
 `keepup.locks` (`distributed_lock`, `with_distributed_lock`) serialises jobs,
-`keepup.cluster` registers replicas and carries commands to them,
+`keepup_cluster.cluster` registers replicas and carries commands to them,
 `keepup.notification_bus` passes messages between replicas, and
-`keepup.scheduler` holds the one scheduler. Anything a plugin keeps in process
+`keepup_tasks.scheduler` holds the one scheduler. Anything a plugin keeps in process
 memory is per replica: use the database or the bus for what all replicas must see.
 There is no leader election: a scheduled job that must run once takes a lock.
 

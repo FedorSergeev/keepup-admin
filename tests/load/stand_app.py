@@ -13,9 +13,9 @@ import sys
 
 from fastapi import Depends
 
-from keepup.auth.dependencies import get_current_admin
-from keepup.db import DatabaseManagerV2
-from keepup.factory import create_app
+from keepup_auth.dependencies import get_current_admin
+from keepup_db import DatabaseManagerV2
+from keepup_http.factory import create_app
 from keepup.instance import get_instance_id
 from keepup.plugins.base import PluginManager
 from keepup.settings import KeepupSettings
@@ -50,6 +50,6 @@ async def pools(admin: dict = Depends(get_current_admin)):
 
 
 if __name__ == "__main__" and sys.argv[1:] == ["init"]:
-    from keepup.schema import init_db
+    from keepup_db.schema import init_db
     init_db()
     print("schema ready")

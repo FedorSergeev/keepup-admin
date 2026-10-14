@@ -22,7 +22,7 @@ from fastapi.routing import APIRoute
 from starlette.routing import Mount, Route, WebSocketRoute
 from starlette.websockets import WebSocketDisconnect
 
-from keepup.auth import dependencies, panel_session
+from keepup_auth import dependencies, panel_session
 
 import audit_actors
 from audit_profiles import (

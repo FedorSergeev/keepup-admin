@@ -12,10 +12,11 @@ import asyncio
 import pytest
 from pathlib import Path
 
-from keepup import cache, modules, notification_bus
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
-from keepup.themes import ACTIVE_THEME_CACHE, config_service
+from keepup_modules import catalogue as modules
+from keepup import cache, notification_bus
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
+from keepup_ui.themes import ACTIVE_THEME_CACHE, config_service
 
 
 @pytest.fixture(scope="module", autouse=True)

@@ -22,7 +22,7 @@ from keepup.plugins.base import (
     BasePlugin,
     PluginManager,
 )
-from keepup.plugins.admin import get_plugins_status
+from keepup_modules.decisions import get_plugins_status
 
 PACKAGE = Path(__file__).resolve().parents[1]
 REPO = PACKAGE.parent
@@ -132,7 +132,7 @@ async def test_the_status_report_tells_a_failure_from_a_switch(plugins_dir, monk
     manager.record_outcome("refusing", OUTCOME_DISABLED)
     await manager.initialize_plugins()
 
-    from keepup.plugins import admin
+    from keepup_modules import decisions as admin
 
     monkeypatch.setattr(admin, "MODULES_CONFIG_PATH", str(config_path))
     monkeypatch.setattr(admin, "read_plugin_overrides", lambda: {})
@@ -173,8 +173,8 @@ def test_the_report_reads_the_application_s_own_catalogue(tmp_path):
     answered 500 on ``GET /api/admin/plugins`` while its plugins came up from
     the file it did name.
     """
-    from keepup.factory import create_app
-    from keepup.plugins import admin
+    from keepup_http.factory import create_app
+    from keepup_modules import decisions as admin
     from keepup.settings import KeepupSettings
 
     elsewhere = tmp_path / "catalogue.json"

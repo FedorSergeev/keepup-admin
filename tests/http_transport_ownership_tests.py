@@ -40,28 +40,16 @@ def test_the_capability_carries_what_the_kernel_does_not_need():
         assert not (PACKAGE / gone).exists(), f"{gone} is still in the base"
 
 
-def test_the_old_names_answer_from_the_distribution_and_say_so():
-    """The compatibility layer names the distribution to install (keepup-122)."""
-    import keepup.api_docs as old_docs
-    import keepup.events_api as old_events
-    import keepup.themes as old_themes
-
+def test_the_moved_modules_are_the_distribution_and_not_a_copy():
+    """The layer that answered the old names went with 0.5.0 (keepup-122, 153)."""
     from keepup_http.api_docs import register_api_documentation
     from keepup_http.events_api import register_event_api_routes
     from keepup_ui.themes import config_service, register_theme_routes
 
-    assert old_docs.register_api_documentation is register_api_documentation
-    assert old_events.register_event_api_routes is register_event_api_routes
-    assert old_themes.config_service is config_service
-    assert old_themes.register_theme_routes is register_theme_routes
-
-    # The map says which distribution to install; the warning is said once per
-    # name in a process, which an earlier import may already have done.
-    from keepup import compat
-
-    assert compat.destination_of("keepup.api_docs") == "keepup_http.api_docs"
-    assert compat.destination_of("keepup.events_api") == "keepup_http.events_api"
-    assert compat.destination_of("keepup.themes") == "keepup_ui.themes"
+    assert callable(register_api_documentation)
+    assert callable(register_event_api_routes)
+    assert config_service is not None and callable(register_theme_routes)
+    assert not (PACKAGE / "compat.py").exists()
 
 
 def test_the_transport_is_a_transport_plugin():

@@ -103,7 +103,7 @@ def test_the_old_settings_fields_still_work_and_say_they_moved(monkeypatch):
 
 def test_the_application_attaches_what_the_capabilities_contribute():
     """The contribution is the contract; the root logger is the application's."""
-    from keepup.factory import _attach_log_handlers, _detach_log_handlers
+    from keepup_http.factory import _attach_log_handlers, _detach_log_handlers
 
     contributions_object = contributions.Contributions()
     contributions_object.by_kind["logging"].append(

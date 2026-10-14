@@ -16,7 +16,7 @@ from fastapi import FastAPI
 from fastapi.responses import PlainTextResponse
 from fastapi.testclient import TestClient
 
-from keepup.factory import SecurityHeadersMiddleware, create_app
+from keepup_http.factory import SecurityHeadersMiddleware, create_app
 from keepup.security import DEFAULT_CONTENT_SECURITY_POLICY
 from keepup.settings import KeepupSettings
 

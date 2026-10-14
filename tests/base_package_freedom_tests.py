@@ -82,10 +82,10 @@ def test_a_library_that_left_is_no_dependency_and_has_no_keeper():
 
 
 def test_the_kernel_does_not_import_a_capability_module():
-    """The other direction of the same boundary: no `keepup.db`, `keepup.auth`."""
-    capabilities = ("keepup.db", "keepup.tables", "keepup.schema", "keepup.audit",
-                    "keepup.events", "keepup.metrics", "keepup.themes",
-                    "keepup.integrations", "keepup.auth")
+    """The other direction of the same boundary: no `keepup_db`, `keepup_auth`."""
+    capabilities = ("keepup_db", "keepup_db.tables", "keepup_db.schema", "keepup_audit.audit",
+                    "keepup_audit.events", "keepup_metrics", "keepup_ui.themes",
+                    "keepup_integration_log.integrations", "keepup_auth")
     offenders = {}
     for path in sorted(KERNEL.rglob("*.py")):
         text = path.read_text(encoding="utf-8")

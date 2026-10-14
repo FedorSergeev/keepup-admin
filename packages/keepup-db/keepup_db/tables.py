@@ -38,7 +38,7 @@ from sqlalchemy.sql.expression import ColumnElement
 from sqlalchemy.dialects import postgresql, sqlite
 from sqlalchemy.schema import CreateColumn, CreateIndex, CreateSequence, CreateTable
 
-from keepup import db as _db
+import keepup_db as _db
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.

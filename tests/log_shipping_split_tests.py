@@ -15,7 +15,8 @@ import sys
 from pathlib import Path
 
 
-from keepup import log_shipping, logging_setup
+from keepup_log_shipping import log_shipping
+from keepup import logging_setup
 
 PACKAGE = Path(__file__).resolve().parents[1]
 def _paths():
@@ -47,7 +48,7 @@ def test_local_logging_loads_none_of_the_shipping_machinery():
             loaded |= {alias.name for alias in node.names}
         elif isinstance(node, ast.ImportFrom):
             loaded.add(node.module or "")
-    assert not loaded & {"requests", "threading", "queue", "asyncio", "keepup.log_shipping"}
+    assert not loaded & {"requests", "threading", "queue", "asyncio", "keepup_log_shipping.log_shipping"}
 
 
 def test_a_file_log_does_not_load_the_shipping(tmp_path):
@@ -59,7 +60,7 @@ def test_a_file_log_does_not_load_the_shipping(tmp_path):
 
 def test_an_application_without_a_collector_does_not_load_it():
     code = ("import sys; from fastapi.testclient import TestClient; "
-            "from keepup.factory import create_app; from keepup.settings import KeepupSettings; "
+            "from keepup_http.factory import create_app; from keepup.settings import KeepupSettings; "
             "app = create_app(KeepupSettings(title='t', static_mounts=(), plugin_manager=None)); "
             "c = TestClient(app); c.__enter__(); "
             "print('keepup_log_shipping.log_shipping' in sys.modules)")

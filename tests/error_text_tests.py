@@ -15,12 +15,12 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
-from keepup import events
-from keepup.auth.dependencies import get_current_admin
-from keepup.body_limit import BodyLimitMiddleware
-from keepup.events_api import register_event_api_routes
+from keepup_audit import events
+from keepup_auth.dependencies import get_current_admin
+from keepup_http.body_limit import BodyLimitMiddleware
+from keepup_http.events_api import register_event_api_routes
 from keepup.logging_setup import for_log
-from keepup.schema import init_db
+from keepup_db.schema import init_db
 
 SECRET = "relation users: password_hash='$2b$12$abc' for token sk-live-1"
 
@@ -91,7 +91,7 @@ def test_a_failing_route_answers_without_the_exception_s_text(monkeypatch, caplo
 # --- the audit ----------------------------------------------------------------------
 
 def test_the_audit_records_the_kind_of_failure_not_its_text(monkeypatch):
-    from keepup import audit
+    from keepup_audit import audit
     monkeypatch.setattr(audit, "incoming_requests_buffer", {})
 
     async def failing_request():

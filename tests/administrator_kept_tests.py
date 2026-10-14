@@ -18,12 +18,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from keepup import cache
-from keepup.auth import dependencies, user_roles
-from keepup.auth.dependencies import get_current_admin
-from keepup.auth.routes import register_auth_routes
-from keepup.db import DatabaseManagerV2, db_config
+from keepup_auth import dependencies, user_roles
+from keepup_auth.dependencies import get_current_admin
+from keepup_auth.routes import register_auth_routes
+from keepup_db import DatabaseManagerV2, db_config
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
-from keepup.schema import init_db
+from keepup_db.schema import init_db
 
 
 @pytest.fixture(autouse=True)

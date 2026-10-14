@@ -22,7 +22,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from sqlalchemy import Index
 
-from keepup import retention
+from keepup_db import retention
 from keepup_db import tables
 from keepup_db import DatabaseManagerV2
 from keepup.instance import get_instance_id, get_instance_name

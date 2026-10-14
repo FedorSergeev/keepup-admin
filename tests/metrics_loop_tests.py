@@ -19,7 +19,9 @@ import time
 
 import pytest
 
-from keepup import metrics as M
+import psutil
+
+import keepup_metrics as M
 
 #: A tick of the clock beside the pass, and how late a tick may be before the
 #: page in somebody's browser would notice. Ten ticks fit in one blocking read.
@@ -79,7 +81,7 @@ def test_the_load_is_read_without_an_interval(collector, monkeypatch):
         asked.append(interval)
         return [1.0, 2.0] if percpu else 1.5
 
-    monkeypatch.setattr(M.psutil, "cpu_percent", reading)
+    monkeypatch.setattr(psutil, "cpu_percent", reading)
     asyncio.run(collector.collect_metrics())
     collector.update_prometheus_metrics()
     assert asked, "the pass read no load at all"
@@ -94,7 +96,7 @@ def test_the_load_is_read_once_a_pass(collector, monkeypatch):
         readings.append(percpu)
         return [3.0, 5.0] if percpu else 4.0
 
-    monkeypatch.setattr(M.psutil, "cpu_percent", reading)
+    monkeypatch.setattr(psutil, "cpu_percent", reading)
     metrics = asyncio.run(collector.collect_metrics())
     collector.update_prometheus_metrics()
     assert readings.count(False) == 1 and readings.count(True) == 1

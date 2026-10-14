@@ -13,10 +13,10 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from keepup import cache
-from keepup.auth.dependencies import get_current_admin
-from keepup.db import DatabaseManagerV2
-from keepup.schema import init_db
-from keepup.themes import config_service, register_theme_routes
+from keepup_auth.dependencies import get_current_admin
+from keepup_db import DatabaseManagerV2
+from keepup_db.schema import init_db
+from keepup_ui.themes import config_service, register_theme_routes
 
 
 @pytest.fixture(scope="module", autouse=True)

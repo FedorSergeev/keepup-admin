@@ -35,8 +35,8 @@ def build_identity(name: str = "keepup-auth") -> Identity:
     Returns:
         The identity: how a caller is found, and what decides a right.
     """
-    from keepup.auth.dependencies import get_panel_user
-    from keepup.auth.identity import access
+    from keepup_auth.dependencies import get_panel_user
+    from keepup_auth.identity import access
 
     return Identity(subject_dependency=get_panel_user, checker=access.check, name=name)
 
@@ -82,7 +82,7 @@ class AuthPlugin(BasePlugin):
         It was the kernel's task: the capability that signs a socket in is the
         one that ends it (keepup-65, keepup-109).
         """
-        from keepup.auth import socket_sessions
+        from keepup_auth import socket_sessions
 
         self._socket_sweep = asyncio.create_task(socket_sessions.run_forever())
 
@@ -99,8 +99,8 @@ class AuthPlugin(BasePlugin):
 
     def get_declared_tables(self) -> List[Any]:
         """The two tables this capability owns, declared once, until keepup-124."""
-        from keepup.auth.login_throttle import LOGIN_ATTEMPTS
-        from keepup.auth.panel_session import AUTH_SESSION
+        from keepup_auth.login_throttle import LOGIN_ATTEMPTS
+        from keepup_auth.panel_session import AUTH_SESSION
 
         return [AUTH_SESSION, LOGIN_ATTEMPTS]
 
