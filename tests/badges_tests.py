@@ -12,8 +12,8 @@ contributor's branch, which is not what a reader takes it to mean.
 
 What a badge does not do is stop anything. A red check blocks no merge by
 itself; that is a branch rule, and it lives in the repository's settings rather
-than in any file here. This is said in the README and in doc/keepup.md because
-a picture of a green tick is easy to mistake for a gate.
+than in any file here -- which is why the front page does not claim otherwise.
+The page shows the badges and gets on with what the package is.
 
 Run by path, like the other *_tests.py files:
 
@@ -132,13 +132,3 @@ def test_a_badge_is_clickable_to_where_it_came_from():
         link = badge.group("link")
         assert link.startswith(("http", "LICENSE", "CHANGELOG")), (
             f"the {badge.group('label')!r} badge leads to {link!r}")
-
-
-# --- and say plainly what they are not -----------------------------------------
-
-def test_the_page_says_a_badge_does_not_block_a_merge():
-    """The easiest thing to misread here is a green tick as a gate."""
-    readme = README.read_text(encoding="utf-8").lower()
-
-    assert "does not require" in readme or "shows; it does not" in readme, (
-        "the README lets a badge be mistaken for a required check")

@@ -40,6 +40,15 @@ A deployment upgrades by installing the distributions it uses
 - **A check that the base is the standard library (keepup-121).** A child
   interpreter with every third-party library blocked imports the kernel, builds a
   runtime, and hears the names that moved name the distribution to install.
+- **The pages that say how to install, build and test (keepup-156).** `INSTALL.md`
+  is the long form -- requirements, every extra and what it brings, one driver,
+  installing from the repository, building all the distributions, the release,
+  the suite and its heavier checks; `README.md` keeps the short form and links
+  it. Both pages are held to the metadata and the workflows
+  (`tests/install_guide_tests.py`), because this is the release in which
+  `pip install keepup-admin` stopped installing a panel. The front page also
+  stopped arguing about its own badges: which four are shown, and that none of
+  them gates a merge, is a decision that lives where it is checked.
 
 ### Changed
 

@@ -1,4 +1,4 @@
-"""The pages that say how to install, build and test keepup (0.5.0).
+"""The pages that say how to install, build and test keepup (keepup-156, 0.5.0).
 
 The release is the one where the capabilities become distributions of their
 own, and that turns two ordinary sentences into traps. `pip install keepup-admin`
