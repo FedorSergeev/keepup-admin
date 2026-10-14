@@ -317,18 +317,3 @@ def lock_stats(now: datetime = None) -> dict:
     }
 
 
-def register_lock_routes(app):
-    """Deprecated: the panel's lock endpoints are the HTTP transport's (keepup-121).
-
-    Answered here for one release so that code written against 0.4.0 keeps
-    working; it says where the routes went (keepup-122).
-    """
-    import warnings
-
-    warnings.warn(
-        "keepup.locks.register_lock_routes moved to keepup_http.lock_routes "
-        "in keepup 0.5.0",
-        DeprecationWarning, stacklevel=2)
-    from keepup_http.lock_routes import register_lock_routes as register
-
-    return register(app)

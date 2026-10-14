@@ -9,11 +9,9 @@ from the old module, with a warning.
     python3 -m pytest keepup/tests/auth_split_tests.py -v
 """
 
-import warnings
 from pathlib import Path
 from types import SimpleNamespace
 
-import pytest
 from fastapi import FastAPI
 
 from keepup_auth import routes, user_routes
@@ -42,13 +40,13 @@ def test_each_path_is_declared_in_its_own_module():
         assert f'"{path}"' in sign_in and f'"{path}"' not in users
 
 
-@pytest.mark.parametrize("name", sorted(routes._MOVED_TO_USER_ROUTES))
-def test_a_moved_name_still_answers_and_says_where_it_went(name):
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        value = getattr(routes, name)
-    assert value is getattr(user_routes, name)
-    assert any(f"keepup_auth.user_routes.{name}" in str(w.message) for w in caught)
+def test_the_names_of_user_routes_are_only_in_user_routes():
+    """The shim that answered them from `routes` went with 0.5.0 (keepup-155)."""
+    for name in ("UserResponse", "UserRolesUpdate", "UserUpdateRequest",
+                 "UserProfileUpdate", "UserPasswordUpdate", "update_user_profile",
+                 "notify_account_blocked"):
+        assert not hasattr(routes, name), f"{name} is answered by the sign-in routes again"
+        assert hasattr(user_routes, name), f"{name} is nowhere"
 
 
 def test_the_password_rule_configured_for_sign_in_governs_the_administrator_too():

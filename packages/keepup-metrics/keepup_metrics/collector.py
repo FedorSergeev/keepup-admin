@@ -567,11 +567,3 @@ async def update_metrics_background(collector: Optional[SystemMetricsCollector] 
             await asyncio.sleep(ERROR_BACKOFF_SECONDS)
 
 
-#: Names that moved to keepup/metrics_api.py (keepup-22). Still answered here
-#: for code written against 0.1, with a warning naming the new place; looked up
-#: on access, so importing the collector does not import the API.
-_MOVED_TO_API = {
-    "register_metrics_routes", "PANEL_METRICS", "HISTORY_METRICS",
-    "PANEL_HISTORY_HOURS", "FRESH_WINDOW_MINUTES", "fresh_since",
-    "SystemMetricsResponse", "get_latest_metric_value", "get_historical_metrics",
-}

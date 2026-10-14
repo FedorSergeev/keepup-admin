@@ -10,7 +10,6 @@ the API reads what the collector wrote, the collector knows nothing of the API.
 import ast
 import subprocess
 import sys
-import warnings
 from pathlib import Path
 
 import pytest
@@ -68,13 +67,14 @@ def test_importing_the_collector_does_not_import_the_api():
     assert out == "False"
 
 
-@pytest.mark.parametrize("name", sorted(metrics._MOVED_TO_API))
-def test_a_moved_name_still_answers_and_says_where_it_went(name):
-    with warnings.catch_warnings(record=True) as caught:
-        warnings.simplefilter("always")
-        value = getattr(metrics, name)
-    assert value is getattr(metrics_api, name)
-    assert any(f"keepup_metrics.api.{name}" in str(w.message) for w in caught)
+def test_the_names_of_the_api_are_only_in_the_api():
+    """The shim that answered them from the package went with 0.5.0 (keepup-155)."""
+    for name in ("register_metrics_routes", "PANEL_METRICS", "HISTORY_METRICS",
+                 "PANEL_HISTORY_HOURS", "FRESH_WINDOW_MINUTES", "fresh_since",
+                 "SystemMetricsResponse", "get_latest_metric_value",
+                 "get_historical_metrics"):
+        assert not hasattr(metrics, name), f"{name} is answered by the package again"
+        assert hasattr(metrics_api, name), f"{name} is nowhere"
 
 
 def test_an_unknown_name_is_still_an_attribute_error():

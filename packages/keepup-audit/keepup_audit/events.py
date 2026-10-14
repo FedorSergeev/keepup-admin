@@ -480,17 +480,3 @@ def init_event_manager():
         return None
 
 
-#: Names that moved to keepup/events_api.py (keepup-23). Still answered here for
-#: code written against 0.1, with a warning naming the new place; looked up on
-#: access, so the journal does not import its API.
-_MOVED_TO_API = {"register_event_api_routes", "AppEvent", "EventCreate", "EventListResponse"}
-
-
-def __getattr__(name):
-    if name in _MOVED_TO_API:
-        import warnings
-        from keepup_http import events_api as events_api
-        warnings.warn(f"keepup_audit.events.{name} moved to keepup_http.events_api.{name}",
-                      DeprecationWarning, stacklevel=2)
-        return getattr(events_api, name)
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

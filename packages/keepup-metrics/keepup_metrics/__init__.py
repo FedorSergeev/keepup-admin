@@ -32,13 +32,6 @@ __all__ = [
 #: Names that left the collector for the API (keepup-22). They are answered here
 #: for code written against 0.1 -- and looked up on access, so importing the
 #: collector does not import the API, which is the split the module exists for.
-_MOVED_TO_API = {
-    "register_metrics_routes", "PANEL_METRICS", "HISTORY_METRICS",
-    "PANEL_HISTORY_HOURS", "FRESH_WINDOW_MINUTES", "fresh_since",
-    "SystemMetricsResponse", "get_latest_metric_value", "get_historical_metrics",
-}
-
-
 #: What the entry point asks for. Looked up on access, so the light half of the
 #: distribution stays light (keepup-22) and the plugin's own imports -- the web
 #: framework, the panel's guard -- are paid for by a deployment that enables it.
@@ -50,12 +43,4 @@ def __getattr__(name):
         from keepup_metrics import plugin
 
         return getattr(plugin, name)
-    if name in _MOVED_TO_API:
-        import warnings
-
-        from keepup_metrics import api
-
-        warnings.warn(f"keepup_metrics.{name} moved to keepup_metrics.api.{name}",
-                      DeprecationWarning, stacklevel=2)
-        return getattr(api, name)
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

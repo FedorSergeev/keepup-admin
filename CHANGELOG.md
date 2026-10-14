@@ -55,6 +55,10 @@ A deployment upgrades by installing the distributions it uses
   built from the other, and the sign-in answered 401 on requests that had just
   been authenticated for in a test. The alias finder answers an old submodule name
   with the module that exists.
+- **The shims inside capabilities are gone (keepup-155).** `keepup_auth.routes`
+  no longer answers for the user routes, `keepup_audit.events` for the event API,
+  `keepup_metrics` and its collector for the metrics API, and `keepup.locks` for
+  the panel's lock routes: each name lives in the module that owns it.
 - **The panel shell travels with the transport (keepup-154).** `keepup-http`
   carries the pages, the styles and the framework's own sections, and reads them
   from its own package; the base ships no front end, so a deployment that serves
