@@ -22,7 +22,7 @@ from keepup.settings import KeepupSettings
 
 PACKAGE = Path(__file__).resolve().parents[1]
 REPO = PACKAGE.parent
-SHELL = PACKAGE / "static"
+SHELL = PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static"
 
 #: What the package has to carry in order to draw a panel at all.
 SHELL_FILES = (

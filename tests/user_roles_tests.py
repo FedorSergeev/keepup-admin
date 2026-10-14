@@ -444,7 +444,7 @@ def test_the_current_user_is_told_its_whole_set(client):
 # markers and executed by a real `node`: what the panel decides cannot be read off
 # the source.
 
-SHELL = Path(__file__).resolve().parents[1] / "static" / "js" / "main_new.js"
+SHELL = Path(__file__).resolve().parents[1] / "packages" / "keepup-http" / "keepup_http" / "static" / "js" / "main_new.js"
 ROLES_START = "// --- The roles a user holds"
 ROLES_END = "// --- end of the roles a user holds"
 NODE = shutil.which("node")

@@ -43,14 +43,10 @@ VERSION_FILE = "version.json"
 FAVICON_FILE = "favicon.ico"
 
 
-#: The panel shell the framework ships. Read from the base package while the
-#: shell still travels with it: this capability serves it and the base carries
-#: the files, which is the last piece of the HTTP layer to move (keepup-121).
-#: Resolved from the package and never from the working directory -- the
-#: process may have been started anywhere.
-import keepup as _keepup  # noqa: E402  (the base package, for its own data)
-
-SHELL_DIR = str(Path(_keepup.__file__).resolve().parent / "static")
+#: The package's own front end -- the panel shell. Resolved from this file's
+#: location and never from the working directory: it is data of the package, and
+#: the process may have been started anywhere.
+SHELL_DIR = str(Path(__file__).resolve().parent / "static")
 
 #: The page served when the active theme names a file that may not be served.
 #: Not an error page: an administrator who broke the theme still has to be able

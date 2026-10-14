@@ -13,7 +13,7 @@ from pathlib import Path
 
 import pytest
 
-SHELL = Path(__file__).resolve().parents[1] / "static" / "js" / "main_new.js"
+SHELL = Path(__file__).resolve().parents[1] / "packages" / "keepup-http" / "keepup_http" / "static" / "js" / "main_new.js"
 START = "// --- The application's badge in the header"
 END = "// --- end of the application's badge in the header"
 #: The corner reads the user's roles, and the region that answers what they are

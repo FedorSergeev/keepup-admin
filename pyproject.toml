@@ -156,17 +156,11 @@ packages = [
 keepup = "."
 
 [tool.setuptools.package-data]
-# The panel shell (keepup-3) is data of the package: without it an installed
-# keepup serves no panel at all.
+# The panel shell travels with the HTTP transport, which serves it (keepup-121,
+# keepup-154): a deployment that serves no HTTP carries no front end. What stays
+# here is the data the kernel reads: the sections the framework ships and the
+# catalogue of its own plugins.
 keepup = [
-    "static/*.html",
-    "static/js/*.js",
-    "static/css/*.css",
-    # The panel sections the framework ships (keepup-4) and their
-    # declaration: without them an installed package serves a panel with no
-    # sections at all.
-    "static/modules/js/*.js",
-    "static/modules/css/*.css",
     "sections.json",
     # The framework's own plugin catalogue (keepup-101). The kernel reads it
     # without importing anything, so a clone with nothing installed still knows

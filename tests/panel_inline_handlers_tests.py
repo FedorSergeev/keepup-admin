@@ -21,7 +21,7 @@ from pathlib import Path
 import pytest
 
 PACKAGE = Path(__file__).resolve().parents[1]
-STATIC = PACKAGE / "static"
+STATIC = PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static"
 
 #: The panel's pages and the framework's own scripts. The vendored libraries
 #: are named rather than matched, so a new one has to be added on purpose.

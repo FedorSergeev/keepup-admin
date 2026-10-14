@@ -111,12 +111,11 @@ def test_the_assembly_is_the_capability_and_the_bridges_are_its_debt():
         assert call in source, f"{call} is not wired where the assembly lives now"
 
 
-def test_the_panel_shell_still_travels_with_the_base():
-    """The last piece of the HTTP layer to move: the capability serves it.
-
-    Until the shell moves, the transport reads it from the base package; a
-    deployment that serves no HTTP must not carry a front end (keepup-121).
-    """
+def test_the_panel_shell_is_the_transports_data():
+    """The last piece of the HTTP layer: the shell travels with the transport."""
     web = (PACKAGE / "packages" / "keepup-http" / "keepup_http"
            / "web.py").read_text(encoding="utf-8")
-    assert "keepup.__file__" in web and 'SHELL_DIR' in web
+    assert "SHELL_DIR" in web and "keepup.__file__" not in web
+    assert not (PACKAGE / "static").exists(), "the shell is still in the base"
+    assert (PACKAGE / "packages" / "keepup-http" / "keepup_http"
+            / "static" / "js" / "main_new.js").is_file()

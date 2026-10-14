@@ -55,6 +55,10 @@ A deployment upgrades by installing the distributions it uses
   built from the other, and the sign-in answered 401 on requests that had just
   been authenticated for in a test. The alias finder answers an old submodule name
   with the module that exists.
+- **The panel shell travels with the transport (keepup-154).** `keepup-http`
+  carries the pages, the styles and the framework's own sections, and reads them
+  from its own package; the base ships no front end, so a deployment that serves
+  no HTTP installs none.
 - **The last code leaves the base (keepup-151).** `schema.py` and `retention.py`
   are `keepup-db`'s, `audit.py` and `admin_trail.py` are `keepup-audit`'s,
   `integrations.py` is `keepup-integration-log`'s, and the table declarations are
@@ -81,11 +85,9 @@ A deployment upgrades by installing the distributions it uses
 
 ### Known, and left for 0.6.0
 
-- The panel shell still travels with the base package, and `keepup-http` reads it
-  from there (keepup-121).
-- Two shims inside capabilities outlive this release and go in 0.6.0:
-  `keepup_auth.routes._MOVED_TO_USER_ROUTES` and
-  `keepup.locks.register_lock_routes`.
+- The `users.role` mirror the guide names, and the 0.3.0 table declarations that
+  `keepup_db.schema.init_db` still creates for applications that predate the
+  catalogue.
 
 ## 0.4.0 — 2026-10-10
 

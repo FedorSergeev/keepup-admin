@@ -393,7 +393,7 @@ def test_17_a_failure_answers_without_its_text_and_a_path_cannot_forge_a_log_lin
 @finding(18)
 def test_18_the_panel_shell_hears_only_its_own_origin():
     """The message handler of the shell; its behaviour under node is keepup/tests'."""
-    shell = (PACKAGE / "static" / "js" / "main_new.js").read_text(encoding="utf-8")
+    shell = (PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static" / "js" / "main_new.js").read_text(encoding="utf-8")
     start_at = shell.find("addEventListener('message'")
     if start_at < 0:
         start_at = shell.find('addEventListener("message"')

@@ -65,7 +65,7 @@ def test_every_declared_section_has_its_files_in_the_package(section):
     [entry] = [m for m in declared()["modules"] if m["id"] == section]
     for url in (entry["js"], entry["css"]):
         assert url.startswith("/keepup-static/"), url
-        assert (PACKAGE / "static" / url[len("/keepup-static/"):]).is_file(), url
+        assert (PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static" / url[len("/keepup-static/"):]).is_file(), url
 
 
 

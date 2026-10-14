@@ -173,18 +173,25 @@ def keepup_assets():
     ``pyproject.toml`` sit at the top and ship as surely as anything under it
     -- and both carried Russian until the walk was widened (keepup-27).
 
+    The distributions beside the package ship assets too, and the panel shell is
+    one of them now (keepup-154): a walk that stopped at the base would report
+    every route the shell calls as called by nobody.
+
     Returns:
         A sorted list of paths.
     """
     found = []
-    for path in sorted(KEEPUP.rglob("*")):
-        if not path.is_file() or path.suffix not in SHIPPED_SUFFIXES:
-            continue
-        if any(str(path).endswith(name) for name in VENDORED):
-            continue
-        if is_not_the_package(path):
-            continue
-        found.append(path)
+    for root in (KEEPUP, *sorted((PACKAGE / "packages").glob("*"))):
+        for path in sorted(root.rglob("*")):
+            if not path.is_file() or path.suffix not in SHIPPED_SUFFIXES:
+                continue
+            if any(part in ("build", "dist", "__pycache__", ".venv") for part in path.parts):
+                continue
+            if any(str(path).endswith(name) for name in VENDORED):
+                continue
+            if root is KEEPUP and is_not_the_package(path):
+                continue
+            found.append(path)
     return found
 
 

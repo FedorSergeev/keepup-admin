@@ -32,7 +32,7 @@ HOST = "testserver"
 PREFIXED_SESSION = f"{panel_session.HOST_PREFIX}{panel_session.SESSION_COOKIE}"
 PREFIXED_CSRF = f"{panel_session.HOST_PREFIX}{panel_session.CSRF_COOKIE}"
 
-SHELL = Path(__file__).resolve().parents[1] / "static" / "js" / "main_new.js"
+SHELL = Path(__file__).resolve().parents[1] / "packages" / "keepup-http" / "keepup_http" / "static" / "js" / "main_new.js"
 CSRF_REGION_START = "const SESSION_MARKER"
 CSRF_REGION_END = "installCsrfFetch(window);"
 NODE = shutil.which("node")

@@ -32,8 +32,8 @@ from keepup_http.factory import create_app
 from keepup.settings import KeepupSettings
 
 PACKAGE = Path(__file__).resolve().parents[1]
-USERS_SECTION = PACKAGE / "static" / "modules" / "js" / "users.js"
-SHELL = PACKAGE / "static" / "js" / "main_new.js"
+USERS_SECTION = PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static" / "modules" / "js" / "users.js"
+SHELL = PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static" / "js" / "main_new.js"
 
 
 def client(**settings):

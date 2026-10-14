@@ -23,8 +23,8 @@ from keepup_auth.oidc_routes import propose_username
 from keepup_auth.usernames import is_valid_username, safe_username
 
 PACKAGE = Path(__file__).resolve().parents[1]
-SECTIONS = PACKAGE / "static" / "modules" / "js"
-SHELL = PACKAGE / "static" / "js" / "main_new.js"
+SECTIONS = PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static" / "modules" / "js"
+SHELL = PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static" / "js" / "main_new.js"
 NODE = shutil.which("node")
 HOSTILE = "<img src=x onerror=alert(1)>');alert('x"
 ACTIONS_START = "// --- what a section asks the shell to do (keepup-93)"

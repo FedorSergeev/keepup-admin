@@ -32,3 +32,15 @@ http = "keepup_http:HttpPlugin"
 
 [tool.setuptools]
 packages = ["keepup_http"]
+
+[tool.setuptools.package-data]
+# The panel shell (keepup-3): the pages, the styles and the panel sections the
+# framework ships. This distribution serves them, so this is where they travel
+# (keepup-121, keepup-154).
+keepup_http = [
+    "static/*.html",
+    "static/js/*.js",
+    "static/css/*.css",
+    "static/modules/js/*.js",
+    "static/modules/css/*.css",
+]

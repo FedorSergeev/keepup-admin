@@ -204,11 +204,18 @@ def test_every_subpackage_of_a_capability_is_declared(metadata):
     assert missing == [], f"not declared in {metadata.relative_to(PACKAGE)}: {missing}"
 
 
-def test_the_panel_shell_travels_with_the_package():
-    """Without it an installed keepup serves no panel at all (keepup-3)."""
-    text = pyproject_text()
+def test_the_panel_shell_travels_with_the_transport():
+    """Without it an installed keepup serves no panel at all (keepup-3).
+
+    The shell is the HTTP layer's data (keepup-121, keepup-154): the distribution
+    that serves it carries it, and the base -- which a deployment without HTTP
+    installs alone -- carries no front end.
+    """
+    transport = (PACKAGE / "packages" / "keepup-http"
+                 / "pyproject.toml").read_text(encoding="utf-8")
     for pattern in ("static/*.html", "static/js/*.js", "static/css/*.css"):
-        assert pattern in text
+        assert pattern in transport, f"{pattern} is not declared by keepup-http"
+    assert "static/" not in pyproject_text(), "the base still ships the shell"
 
 
 # --- the licence ----------------------------------------------------------------

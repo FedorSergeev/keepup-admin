@@ -22,7 +22,7 @@ from keepup.plugins.base import BasePlugin
 from keepup_integration_log import Integration_logsPlugin as FrameworkPlugin
 
 PACKAGE = Path(__file__).resolve().parents[1]
-SECTION_JS = PACKAGE / "static" / "modules" / "js" / "integration_logs.js"
+SECTION_JS = PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static" / "modules" / "js" / "integration_logs.js"
 
 
 class RecordingSource:

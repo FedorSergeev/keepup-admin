@@ -14,7 +14,7 @@ from pathlib import Path
 
 import pytest
 
-SHELL = Path(__file__).resolve().parents[1] / "static" / "js" / "main_new.js"
+SHELL = Path(__file__).resolve().parents[1] / "packages" / "keepup-http" / "keepup_http" / "static" / "js" / "main_new.js"
 ACTIONS_START = "// --- what a section asks the shell to do (keepup-93)"
 ACTIONS_END = "// --- end of what a section asks the shell to do"
 NODE = shutil.which("node")

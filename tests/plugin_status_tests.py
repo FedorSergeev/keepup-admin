@@ -21,11 +21,11 @@ import pytest
 
 PACKAGE = Path(__file__).resolve().parents[1]
 
-MODULES_JS = PACKAGE / "static" / "modules" / "js" / "modules.js"
+MODULES_JS = PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static" / "modules" / "js" / "modules.js"
 #: The shell's escaping helpers, which sections call (keepup-62), and the action
 #: registry a section registers into (keepup-93): both cut out of main_new.js by
 #: their markers and loaded before the section, as the page does.
-SHELL_JS = PACKAGE / "static" / "js" / "main_new.js"
+SHELL_JS = PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static" / "js" / "main_new.js"
 ACTIONS_START = "// --- what a section asks the shell to do (keepup-93)"
 ACTIONS_END = "// --- end of what a section asks the shell to do"
 NODE = shutil.which("node")
