@@ -77,13 +77,20 @@ class AuthPlugin(BasePlugin):
         return True
 
     async def post_construct(self):
-        """Start the sweep that closes a socket whose session was revoked.
+        """Start the sweep that closes a socket whose session was revoked, and
+        give the accounts that predate the role set the role they were created
+        with.
 
-        It was the kernel's task: the capability that signs a socket in is the
-        one that ends it (keepup-65, keepup-109).
+        Both are the capability's: the kernel's task became the sign-in's when
+        the loops moved (keepup-65, keepup-109), and the one-time read of the
+        legacy ``users.role`` column is nobody else's business (keepup-157).
         """
-        from keepup_auth import socket_sessions
+        from keepup_auth import socket_sessions, user_roles
 
+        try:
+            await asyncio.to_thread(user_roles.backfill_from_legacy_column)
+        except Exception as error:  # noqa: BLE001 - a start that cannot backfill still serves
+            logger.warning("Could not give the legacy roles out: %s", error)
         self._socket_sweep = asyncio.create_task(socket_sessions.run_forever())
 
     async def cleanup(self):

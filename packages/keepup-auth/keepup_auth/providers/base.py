@@ -186,15 +186,15 @@ class AuthProvider(ABC):
         password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
         query = """
-        INSERT INTO users (username, password_hash, email, phone, full_name, agree_terms, status, role, auth_source) 
-        VALUES (:username, :password_hash, :email, :phone, :full_name, :agree_terms, :status, :role, :auth_source)
+        INSERT INTO users (username, password_hash, email, phone, full_name, agree_terms, status, auth_source) 
+        VALUES (:username, :password_hash, :email, :phone, :full_name, :agree_terms, :status, :auth_source)
         """
 
         try:
             row = DatabaseManagerV2.execute_commit_returning(query, {
                 "username": username, "password_hash": password_hash, "email": email,
                 "phone": phone, "full_name": full_name, "agree_terms": agree_terms,
-                "status": "blocked", "role": ROLE_CLIENT, "auth_source": self.type,
+                "status": "blocked", "auth_source": self.type,
             })
             user_id = row["id"] if row else None
             if user_id is not None:

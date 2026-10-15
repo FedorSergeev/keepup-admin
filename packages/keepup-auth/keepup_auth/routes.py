@@ -24,7 +24,7 @@ from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, Field, field_validator
 
 from keepup_auth.usernames import is_valid_username
-from keepup_auth import panel_session, seed_accounts, user_routes
+from keepup_auth import panel_session, seed_accounts, user_roles, user_routes
 from keepup_auth.dependencies import (
     _authenticated_by_cookie,
     _bearer_of,
@@ -163,7 +163,7 @@ def get_user_from_database_by_username(username: str):
     try:
         query = '''
         SELECT 
-            id, username, password_hash, status, role,
+            id, username, password_hash, status,
             email, phone, full_name, agree_terms,
             created_at, updated_at,
             external_id, auth_source, last_external_sync
@@ -463,7 +463,9 @@ def register_auth_routes(app, manager):
                 "username": current_user["username"],
                 "status": current_user["status"],
                 "roles": current_user.get("roles", []),
-                "role": current_user["role"],
+                # The one role that answers for the set, computed and not read
+                # from a column: the set is the truth (keepup/auth/user_roles.py).
+                "role": user_roles.primary_role(current_user.get("roles", [])),
                 "created_at": current_user["created_at"]
             }
         }
@@ -478,10 +480,9 @@ def register_auth_routes(app, manager):
             "full_name": current_user.get("full_name"),
             "status": current_user["status"],
             "roles": current_user.get("roles", []),
-            # The deprecated mirror of the set: ADMIN when it is held, otherwise
-            # the first role granted. Read `roles` instead -- this goes away in
-            # keepup 0.3.0 (keepup-51).
-            "role": current_user["role"],
+            # The one role that answers for the set, for a caller that asks for
+            # one; computed, never stored. Read `roles` where you can.
+            "role": user_roles.primary_role(current_user.get("roles", [])),
             "created_at": current_user["created_at"],
             "updated_at": current_user.get("updated_at"),
             # Whether this person has documents left to accept. The framework

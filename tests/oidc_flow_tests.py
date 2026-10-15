@@ -287,29 +287,33 @@ def test_a_role_from_the_claims_becomes_a_role_here_and_is_taken_away_again(clie
         {"role": "staff-admins", "permission": "admin", "source": ISSUER})
 
     state, nonce, cookie = begin(client)
-    return_from_provider(client, provider, state, nonce, cookie,
-                         claims={"groups": ["staff-admins"]})
-    promoted = DatabaseManagerV2.execute_one(
-        "SELECT role FROM users WHERE external_id = :subject", {"subject": "subject-42"})
+    answer = return_from_provider(client, provider, state, nonce, cookie,
+                                  claims={"groups": ["staff-admins"]})
+    assert answer.status_code == 303, answer.text
+    # What the provider's mapping buys is a *right* that lasts as long as the
+    # claims do, not a role of ours: the set is what we decide by, and the
+    # permission is what the route checks (keepup-51).
+    def permissions():
+        return [row["permission_name"] for row in DatabaseManagerV2.execute(
+            "SELECT permission_name FROM user_permissions WHERE user_id = "
+            "(SELECT id FROM users WHERE external_id = :subject)",
+            {"subject": "subject-42"})]
+
+    def held():
+        return [row["role_name"] for row in DatabaseManagerV2.execute(
+            "SELECT role_name FROM user_roles WHERE user_id = "
+            "(SELECT id FROM users WHERE external_id = :subject)",
+            {"subject": "subject-42"})]
+
+    assert permissions() == ["admin"]
 
     client.cookies.clear()
     state, nonce, cookie = begin(client)
     return_from_provider(client, provider, state, nonce, cookie, claims={"groups": []})
-    demoted = DatabaseManagerV2.execute_one(
-        "SELECT role FROM users WHERE external_id = :subject", {"subject": "subject-42"})
 
-    assert promoted["role"] == "ADMIN"
-    assert demoted["role"] == "CLIENT"
-    # The set follows, not only its mirror: the framework decides by the set, so
-    # a provider's promotion that moved the column alone would grant nothing
-    # (keepup-51).
-    assert [row["role_name"] for row in DatabaseManagerV2.execute(
-        "SELECT role_name FROM user_roles WHERE user_id = "
-        "(SELECT id FROM users WHERE external_id = :subject)",
-        {"subject": "subject-42"})] == ["CLIENT"]
-    assert DatabaseManagerV2.execute(
-        "SELECT permission_name FROM user_permissions WHERE user_id = "
-        "(SELECT id FROM users WHERE external_id = :subject)", {"subject": "subject-42"}) == []
+    assert permissions() == []
+    # The account's own role never moved: a right came and went.
+    assert held() == ["CLIENT"]
 
 
 def test_the_providers_tokens_are_not_written_down(client_and_provider):

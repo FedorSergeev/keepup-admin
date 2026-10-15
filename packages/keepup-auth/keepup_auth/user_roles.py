@@ -12,17 +12,15 @@ The sections and the plugins of every role in the set are glued together
 (``keepup_modules.catalogue``, ``keepup_modules.decisions``), and the administrative right is
 ``ADMIN`` being in the set rather than one role being equal to it.
 
-``users.role`` stays for one release as a **deprecated mirror** of the set:
-``ADMIN`` when that role is held, otherwise the first role granted. That rule
-looks arbitrary until one looks at why the field is read -- in every application
-on this framework it is compared with ``ROLE_ADMIN`` -- so the mirror keeps
-exactly that answer. It is written in one place, together with the set, and no
-decision of the framework is taken from it. It goes away in keepup 0.3.0, once
-the applications read ``roles``.
+``users.role`` was the mirror of the set: ``ADMIN`` when that role was held,
+otherwise the first role granted. It is gone -- the column is no longer declared,
+written or read. A deployment upgrading from 0.4.0 has the column on disk, and
+the accounts that predate the set are given one from it **once**, at start-up
+(``backfill_from_legacy_column``); after that nothing looks at it.
 
-An empty set means "not filled in yet", never "no rights": a row created by code
-that knows nothing of the set reads as one role from the mirror. Which is why
-writing an empty set is refused -- access is taken away by blocking the account.
+An empty set means "not filled in yet", never "no rights": an account with no row
+reads as ``CLIENT``, which is why writing an empty set is refused -- access is
+taken away by blocking the account, not by holding no role.
 """
 
 from __future__ import annotations
@@ -159,12 +157,11 @@ def normalise(names: Iterable[str], known: Optional[Sequence[str]] = None,
 
 
 def _other_active_administrators(user_id: int) -> int:
-    """Active accounts other than this one that hold ADMIN -- in the set, or
-    in the mirror for an account whose set is still empty (see roles_of)."""
+    """Active accounts other than this one that hold ADMIN."""
     row = DatabaseManagerV2.execute_one(
-        "SELECT COUNT(*) AS n FROM users u WHERE u.id <> :id AND u.status = 'active' AND ("
-        " EXISTS (SELECT 1 FROM user_roles r WHERE r.user_id = u.id AND r.role_name = :admin)"
-        " OR (u.role = :admin AND NOT EXISTS (SELECT 1 FROM user_roles r WHERE r.user_id = u.id)))",
+        "SELECT COUNT(*) AS n FROM users u WHERE u.id <> :id AND u.status = 'active'"
+        " AND EXISTS (SELECT 1 FROM user_roles r"
+        "             WHERE r.user_id = u.id AND r.role_name = :admin)",
         {"id": user_id, "admin": ROLE_ADMIN})
     return int((row or {}).get("n") or 0)
 
@@ -197,17 +194,17 @@ def ensure_an_administrator_remains(user_id: int, roles: Sequence[str],
 
 
 def primary_role(roles: Sequence[str]) -> str:
-    """The deprecated ``users.role`` mirror for this set.
+    """The one role that stands for this set, for a caller that asks for one.
 
-    ``ADMIN`` when it is held, otherwise the first role of the set. Every reader
-    of the old field asks the same question -- is this an administrator -- and
-    this keeps that answer true.
+    ``ADMIN`` when it is held, otherwise the first role of the set. It is
+    *computed* and never stored: every reader of the old ``users.role`` asked
+    one question -- is this an administrator -- and the answer is in the set.
 
     Args:
         roles: the set, already normalised.
 
     Returns:
-        The role to mirror, or CLIENT for an empty set.
+        The role that answers for the set, or CLIENT for an empty one.
     """
     for role in roles:
         if role == ROLE_ADMIN:
@@ -215,16 +212,15 @@ def primary_role(roles: Sequence[str]) -> str:
     return roles[0] if roles else ROLE_CLIENT
 
 
-def roles_of(user_id: int, mirror: Optional[str] = None) -> List[str]:
+def roles_of(user_id: int) -> List[str]:
     """The roles this account holds.
 
     Args:
         user_id: the account.
-        mirror: its ``users.role``, when the caller has already read it. Saves
-            the read below for an account whose set has not been filled in.
 
     Returns:
-        The role names, sorted; never empty.
+        The role names, sorted; never empty. An account with no row reads as
+        CLIENT -- "not filled in yet", never "no rights".
     """
     rows = []
     try:
@@ -232,23 +228,16 @@ def roles_of(user_id: int, mirror: Optional[str] = None) -> List[str]:
             "SELECT role_name FROM user_roles WHERE user_id = :id", {"id": user_id}) or []
     except Exception as error:
         # The table is created at start-up; a deployment mid-upgrade may not
-        # have it yet, and the mirror is a complete answer for one role.
-        logger.warning("Could not read the roles of user %s: %s", user_id, error)
-    held = sorted({(row["role_name"] or "").strip() for row in rows} - {""})
-    if held:
-        return held
-
-    # Nothing granted: the account predates the set, and the mirror is what it
-    # was judged by until now. Read only on this path -- it does not happen on a
-    # deployment whose start has filled the sets in.
-    if not (mirror or "").strip():
-        try:
-            row = DatabaseManagerV2.execute_one(
-                "SELECT role FROM users WHERE id = :id", {"id": user_id})
-            mirror = (row or {}).get("role")
-        except Exception as error:
-            logger.warning("Could not read the role of user %s: %s", user_id, error)
-    return [(mirror or "").strip() or ROLE_CLIENT]
+        # have it yet, and one role is the safe answer for a moment.
+        logger.warning("Could not read the roles of %s: %s", user_id, error)
+        return [ROLE_CLIENT]
+    names = [row["role_name"] for row in rows if (row["role_name"] or "").strip()]
+    # normalise() refuses an empty set on purpose -- writing one is how access
+    # would be taken away by accident -- but *reading* one is the ordinary case
+    # of an account that has not been filled in yet.
+    if not names:
+        return [ROLE_CLIENT]
+    return normalise(names, checked=False)
 
 
 def held_by(user: Optional[Mapping[str, Any]]) -> List[str]:
@@ -304,12 +293,16 @@ def attach_roles(user: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
     if user is None:
         return None
     user = dict(user)
-    user["roles"] = roles_of(user.get("id"), user.get("role"))
+    user["roles"] = roles_of(user.get("id"))
+    # The model of an answer still asks for one role (keepup-51); it is computed
+    # here, in the one place a row becomes a payload, and never read from a
+    # column -- there is none (keepup-157).
+    user["role"] = primary_role(user["roles"])
     return user
 
 
 def set_roles(user_id: int, names: Iterable[str], checked: bool = True) -> List[str]:
-    """Replace the set this account holds, and the mirror with it.
+    """Replace the set this account holds.
 
     Args:
         user_id: the account.
@@ -340,37 +333,35 @@ def set_roles(user_id: int, names: Iterable[str], checked: bool = True) -> List[
             session.execute(
                 sql_text("INSERT INTO user_roles (user_id, role_name) VALUES (:id, :role)"),
                 {"id": user_id, "role": role})
-        # The mirror is written here and nowhere else, which is what keeps two
-        # representations of one fact from drifting.
-        session.execute(
-            sql_text("UPDATE users SET role = :role, updated_at = CURRENT_TIMESTAMP "
-                     "WHERE id = :id"),
-            {"role": primary_role(roles), "id": user_id})
     return roles
 
 
-def fill_from_mirror(cursor, is_postgres: bool) -> int:
-    """Give every account with no roles the one its mirror names.
+def backfill_from_legacy_column() -> int:
+    """Give every account with no roles the one the old column named.
 
-    Run at start-up. Idempotent: an account that already holds a role is not
-    touched, so the second start writes nothing. Without this the release day
-    would find ``user_roles`` empty and everybody relying on the fallback in
-    roles_of() -- which works, but leaves the panel with nothing to show.
-
-    Args:
-        cursor: an open cursor on the users table.
-        is_postgres: whether the connection is PostgreSQL.
+    The column is gone from the declaration (0.6.0) and is written by nothing;
+    a deployment that upgraded still has it on disk, and the accounts that
+    predate the set deserve the role they were created with rather than the
+    CLIENT that an empty set reads as. Run at start-up by the sign-in plugin;
+    idempotent, because an account that already holds a role is not touched, and
+    silent on a database created after the column went -- there it does not
+    exist, which is not an error.
 
     Returns:
         How many accounts were given a role.
     """
     query = (
         "INSERT INTO user_roles (user_id, role_name) "
-        "SELECT u.id, COALESCE(NULLIF(TRIM(u.role), ''), ?) FROM users u "
+        "SELECT u.id, COALESCE(NULLIF(TRIM(u.role), ''), :fallback) FROM users u "
         "WHERE NOT EXISTS (SELECT 1 FROM user_roles r WHERE r.user_id = u.id)"
     )
-    cursor.execute(query.replace("?", "%s") if is_postgres else query, (ROLE_CLIENT,))
-    filled = cursor.rowcount if cursor.rowcount and cursor.rowcount > 0 else 0
+    try:
+        with DatabaseManagerV2.get_session() as session:
+            result = session.execute(sql_text(query), {"fallback": ROLE_CLIENT})
+            filled = result.rowcount if result.rowcount and result.rowcount > 0 else 0
+    except Exception as error:  # noqa: BLE001 - no column is the expected case
+        logger.info("No legacy 'role' column to read: %s", error)
+        return 0
     if filled:
         logger.info("Gave %s account(s) the role their 'role' column named", filled)
     return filled

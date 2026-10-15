@@ -49,8 +49,8 @@ class UserResponse(BaseModel):
     full_name: Optional[str] = None
     agree_terms: bool = False
     status: str
-    #: The roles this account holds. `role` below is the deprecated mirror of
-    #: this set and goes away in keepup 0.3.0 (keepup-51).
+    #: The roles this account holds, and the one role that answers for the set,
+    #: which is computed for a caller that reads one (keepup-51, keepup-157).
     roles: List[str] = []
     role: str
     created_at: datetime

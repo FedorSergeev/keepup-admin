@@ -29,8 +29,11 @@ PUBLIC = seed_accounts.RETIRED_ADMIN_PASSWORDS[0]
 @pytest.fixture
 def cursor():
     connection = sqlite3.connect(":memory:")
+    # A database of the shape the seed writes to: the account, and the set that
+    # holds its roles (keepup-157).
     connection.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, "
-                       "password_hash TEXT, status TEXT, role TEXT, auth_source TEXT)")
+                       "password_hash TEXT, status TEXT, auth_source TEXT)")
+    connection.execute("CREATE TABLE user_roles (user_id INTEGER, role_name TEXT)")
     yield connection.cursor()
     connection.close()
 
@@ -42,8 +45,8 @@ def stored(cursor):
 
 
 def with_public_password(cursor):
-    cursor.execute("INSERT INTO users (username, password_hash, status, role, auth_source) "
-                   "VALUES (?, ?, 'active', 'ADMIN', 'local')",
+    cursor.execute("INSERT INTO users (username, password_hash, status, auth_source) "
+                   "VALUES (?, ?, 'active', 'local')",
                    (seed_accounts.ADMIN_USERNAME, seed_accounts.hash_password(PUBLIC)))
 
 

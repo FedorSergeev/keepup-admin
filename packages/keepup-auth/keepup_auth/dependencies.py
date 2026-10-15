@@ -111,7 +111,7 @@ def get_system_user_id():
 def get_all_users():
     """Return every user, with the roles each of them holds."""
     users = DatabaseManagerV2.execute(
-        "SELECT id, username, status, role, created_at FROM users ORDER BY created_at DESC"
+        "SELECT id, username, status, created_at FROM users ORDER BY created_at DESC"
     ) or []
     held = {}
     for row in DatabaseManagerV2.execute(
@@ -119,11 +119,12 @@ def get_all_users():
         held.setdefault(row["user_id"], []).append(row["role_name"])
     # One read for the whole list rather than one per user: this is the panel's
     # first screen, and a query per row is what makes it slow on a real stand.
-    # An account whose set has never been filled in reads as its mirror says,
-    # which is known from the row already read.
-    return [dict(user, roles=(sorted(held.get(user["id"], []))
-                              or user_roles.held_by(user) or [ROLE_CLIENT]))
-            for user in users]
+    # An account whose set has never been filled in reads as CLIENT.
+    answer = []
+    for user in users:
+        roles = sorted(held.get(user["id"], [])) or [ROLE_CLIENT]
+        answer.append(dict(user, roles=roles, role=user_roles.primary_role(roles)))
+    return answer
 
 
 def save_user_to_db(username: str, password: str):
@@ -134,20 +135,18 @@ def save_user_to_db(username: str, password: str):
     password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
     query = """
-    INSERT INTO users (username, password_hash, status, role) 
-    VALUES (:username, :password_hash, :status, :role)
+    INSERT INTO users (username, password_hash, status)
+    VALUES (:username, :password_hash, :status)
     """
 
     try:
         row = DatabaseManagerV2.execute_commit_returning(
             query,
-            {"username": username, "password_hash": password_hash, "status": "blocked",
-             "role": ROLE_CLIENT})
+            {"username": username, "password_hash": password_hash, "status": "blocked"})
         user_id = row["id"] if row else None
         if user_id is not None:
-            # The set is the truth about who this is, so a new account gets its
-            # row now rather than relying on the read's fallback until the next
-            # start (keepup/auth/user_roles.py).
+            # The set is the truth about who this is, and the only place a role
+            # of a new account is written (keepup/auth/user_roles.py).
             user_roles.set_roles(user_id, [ROLE_CLIENT])
         return user_id
 
@@ -183,8 +182,11 @@ async def create_user(
 def update_user(user_id: int, status: Optional[str] = None, role: Optional[str] = None,
                 email: Optional[str] = None, phone: Optional[str] = None, full_name: Optional[str] = None):
     """Update a user, including the extra fields."""
-    changes = {"status": status, "role": role, "email": email, "phone": phone,
-               "full_name": full_name}
+    if role is not None:
+        # "The role" is the set now: a caller that names one role means the
+        # person holds exactly that (keepup/auth/user_roles.py).
+        user_roles.set_roles(user_id, [role])
+    changes = {"status": status, "email": email, "phone": phone, "full_name": full_name}
     changes = {column: value for column, value in changes.items() if value is not None}
     if not changes:
         return

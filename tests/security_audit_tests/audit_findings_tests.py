@@ -314,7 +314,10 @@ def test_15_the_first_administrator_s_password_stays_out_of_the_logs(caplog, sta
 
     connection = sqlite3.connect(":memory:")
     connection.execute("CREATE TABLE users (id INTEGER PRIMARY KEY, username TEXT, "
-                       "password_hash TEXT, status TEXT, role TEXT, auth_source TEXT)")
+                       "password_hash TEXT, status TEXT, auth_source TEXT)")
+    # The account's role is written in the set, not in a mirror column
+    # (keepup-157); this stands in for a database that has both tables.
+    connection.execute("CREATE TABLE user_roles (user_id INTEGER, role_name TEXT)")
     console, announced = io.StringIO(), {}
     original = seed_accounts.announce_generated_admin_password
 

@@ -74,7 +74,7 @@ from keepup_metrics.tables import SYSTEM_METRICS  # noqa: E402
 # heartbeat; `state` is kept here rather than in memory so that a
 # replica stopped by an administrator stays stopped across a restart.
 # The roles one account holds. The set is the truth about who this is;
-# ``users.role`` is a mirror of it for one release (keepup/auth/user_roles.py).
+# ``users.role`` is gone; the set is written by keepup/auth/user_roles.py.
 
 
 # The pair is unique on both dialects, but not by the same means: PostgreSQL
@@ -162,18 +162,13 @@ def init_db(app_tables=None, extra_setup=None, plugins_dir=None, plugins_config_
         # One place creates the first-start accounts: three implementations in a
         # row had drifted apart in password, role and status -- see
         # keepup/auth/seed_accounts.py.
-        from keepup_auth import seed_accounts, user_roles
+        from keepup_auth import seed_accounts
 
         auth_source = AuthProviderFactory.get_provider().type
         seed_accounts.ensure_admin(cursor, role=ROLE_ADMIN, auth_source=auth_source,
                                    is_postgres=db_config.is_postgres())
         seed_accounts.ensure_system_user(cursor, role=ROLE_ADMIN, auth_source=auth_source,
                                          is_postgres=db_config.is_postgres())
-
-        # An account whose role set has never been filled in gets the one its
-        # ``role`` column names -- including the two just created. Idempotent,
-        # so every later start writes nothing (keepup-51).
-        user_roles.fill_from_mirror(cursor, is_postgres=db_config.is_postgres())
 
         conn.commit()
     finally:

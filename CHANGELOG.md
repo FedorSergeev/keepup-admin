@@ -67,11 +67,28 @@ A deployment upgrades by installing the distributions it uses
 - **The shims inside capabilities are gone (keepup-155).** `keepup_auth.routes`
   no longer answers for the user routes, `keepup_audit.events` for the event API,
   `keepup_metrics` and its collector for the metrics API, and `keepup.locks` for
-  the panel's lock routes: each name lives in the module that owns it.
+  the panel's lock routes: each name lives in the module that owns it. The same
+  goes for the names `keepup_audit` answered from its own modules -- the
+  recording, the redaction, the events' retention, the incoming-request table --
+  and the plugin that used to reach them through the package reads
+  `keepup_audit.audit` and `keepup_audit.events` now, which is the module, not a
+  name that happened to be a function.
 - **The panel shell travels with the transport (keepup-154).** `keepup-http`
   carries the pages, the styles and the framework's own sections, and reads them
   from its own package; the base ships no front end, so a deployment that serves
   no HTTP installs none.
+- **`users.role` is gone (keepup-157).** The column was the deprecated mirror of
+  the role set: written beside the set in one transaction and read by every
+  application that compared it with `ADMIN`. It is no longer declared, written or
+  selected. The answers that carried it still do, computed from the set -- `/api/auth/me`
+  and the user list build `role` with `primary_role(roles)` -- so a panel that
+  reads one role keeps working and a panel that reads `roles` decides. A
+  deployment upgrading from 0.4.0 keeps the column on disk, and the accounts that
+  predate the set are given the role it named **once**, at start-up
+  (`backfill_from_legacy_column`, run by the sign-in plugin); after that nothing
+  looks at it, an account with no roles reads as `CLIENT`, and a user an
+  application assembles by hand and describes with one role is still answered by
+  `held_by()` -- a bridge in memory, never a decision the framework takes.
 - **The last code leaves the base (keepup-151).** `schema.py` and `retention.py`
   are `keepup-db`'s, `audit.py` and `admin_trail.py` are `keepup-audit`'s,
   `integrations.py` is `keepup-integration-log`'s, and the table declarations are
@@ -98,9 +115,9 @@ A deployment upgrades by installing the distributions it uses
 
 ### Known, and left for 0.6.0
 
-- The `users.role` mirror the guide names, and the 0.3.0 table declarations that
-  `keepup_db.schema.init_db` still creates for applications that predate the
-  catalogue.
+- The 0.3.0 table declarations that `keepup_db.schema.init_db` still creates for
+  applications that predate the catalogue, and the settings (`app_tables`,
+  `extra_setup`) that path is the only caller of.
 
 ## 0.4.0 — 2026-10-10
 

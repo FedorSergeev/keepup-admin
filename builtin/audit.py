@@ -92,8 +92,8 @@ class AuditPlugin(BasePlugin):
         deployment that never installed the audit still flushed and swept
         (keepup-109).
         """
-        from keepup_audit import audit as audit_retention_background, background_buffer_flusher
-        from keepup_audit import events as events_retention_background
+        from keepup_audit.audit import audit_retention_background, background_buffer_flusher
+        from keepup_audit.events import events_retention_background
 
         self._tasks = [
             asyncio.create_task(background_buffer_flusher()),

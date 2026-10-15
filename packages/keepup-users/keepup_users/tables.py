@@ -19,7 +19,6 @@ USERS = tables.table(
     Column("username", Text, unique=True, nullable=False),
     Column("password_hash", Text, nullable=False),
     Column("status", Text, server_default="blocked"),
-    Column("role", Text, server_default="CLIENT"),
     Column("created_at", DateTime, server_default=tables.NOW),
     Column("external_id", Text),
     Column("auth_source", Text, server_default="local"),

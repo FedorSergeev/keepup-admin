@@ -41,7 +41,7 @@ NOT_A_HASH = "!external"
 
 #: The columns an account is read with -- everything a route may want from
 #: ``current_user``, and not the password column.
-_COLUMNS = ("id, username, email, phone, full_name, agree_terms, status, role, "
+_COLUMNS = ("id, username, email, phone, full_name, agree_terms, status, "
             "created_at, updated_at, auth_source, external_id")
 
 #: How many free names are tried when another request takes each one first.
@@ -108,15 +108,14 @@ def create_account(source: str, subject: str, proposed_username: str,
         username = free_username(proposed_username)
         try:
             DatabaseManagerV2.execute_commit(
-                "INSERT INTO users (username, password_hash, status, role, email, "
+                "INSERT INTO users (username, password_hash, status, email, "
                 "full_name, auth_source, external_id, agree_terms) "
-                "VALUES (:username, :password_hash, :status, :role, :email, "
+                "VALUES (:username, :password_hash, :status, :email, "
                 ":full_name, :source, :subject, :agree_terms)",
                 {
                     "username": username,
                     "password_hash": NOT_A_HASH,
                     "status": status,
-                    "role": user_roles.primary_role(roles),
                     "email": email,
                     "full_name": full_name,
                     "source": source,

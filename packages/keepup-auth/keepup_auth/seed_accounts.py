@@ -240,10 +240,21 @@ def _exists(cursor, username: str, is_postgres: bool) -> bool:
 
 def _insert(cursor, *, username: str, password_hash: str, status: str, role: str,
             auth_source: str, is_postgres: bool) -> None:
+    """Create the account, and give it its role in the set -- the only place a
+    role is written (keepup/auth/user_roles.py)."""
     cursor.execute(
-        _sql("INSERT INTO users (username, password_hash, status, role, auth_source) "
-             "VALUES (?, ?, ?, ?, ?)", is_postgres),
-        (username, password_hash, status, role, auth_source),
+        _sql("INSERT INTO users (username, password_hash, status, auth_source) "
+             "VALUES (?, ?, ?, ?)", is_postgres),
+        (username, password_hash, status, auth_source),
+    )
+    cursor.execute(_sql("SELECT id FROM users WHERE username = ?", is_postgres), (username,))
+    row = cursor.fetchone()
+    user_id = row.get("id") if hasattr(row, "get") else (row[0] if row else None)
+    if user_id is None:
+        return
+    cursor.execute(
+        _sql("INSERT INTO user_roles (user_id, role_name) VALUES (?, ?)", is_postgres),
+        (user_id, role),
     )
 
 

@@ -34,7 +34,7 @@ logger = logging.getLogger()
 def get_user_by_username(username: str):
     """Return a user by name, including the extra fields."""
     return DatabaseManagerV2.execute_one('''
-    SELECT id, username, email, phone, full_name, agree_terms, password_hash, status, role, created_at, updated_at 
+    SELECT id, username, email, phone, full_name, agree_terms, password_hash, status, created_at, updated_at 
     FROM users WHERE username = :username
     ''', {"username": username})
 
@@ -186,15 +186,15 @@ class LocalAuthProvider(AuthProvider):
         password_hash = bcrypt.hashpw(password.encode('utf-8'), bcrypt.gensalt()).decode('utf-8')
 
         query = """
-        INSERT INTO users (username, password_hash, email, phone, full_name, agree_terms, status, role) 
-        VALUES (:username, :password_hash, :email, :phone, :full_name, :agree_terms, :status, :role)
+        INSERT INTO users (username, password_hash, email, phone, full_name, agree_terms, status) 
+        VALUES (:username, :password_hash, :email, :phone, :full_name, :agree_terms, :status)
         """
 
         try:
             row = DatabaseManagerV2.execute_commit_returning(query, {
                 "username": username, "password_hash": password_hash, "email": email,
                 "phone": phone, "full_name": full_name, "agree_terms": agree_terms,
-                "status": "blocked", "role": ROLE_CLIENT,
+                "status": "blocked",
             })
             user_id = row["id"] if row else None
             if user_id is not None:

@@ -1,9 +1,9 @@
 """Several roles per user, and what they add up to (keepup-51).
 
-The set is the truth about who this is; `users.role` is a mirror of it for one
-release. Panel sections and plugins are glued from every role held, the
-administrative right is ADMIN being in the set, and an account that predates the
-set reads as the one role its mirror names.
+The set is the truth about who this is. Panel sections and plugins are glued from
+every role held, the administrative right is ADMIN being in the set, and an
+account that predates the set reads as CLIENT -- or as the role its legacy
+`users.role` column named, once, when the deployment upgrades (keepup-157).
 
 Against the session's throwaway SQLite database, plus one region of the panel
 shell executed by a real `node`:
@@ -142,26 +142,21 @@ def test_the_known_roles_include_the_frameworks_own_and_the_catalogues():
     assert known == sorted(known)
 
 
-# --- the mirror --------------------------------------------------------------------
+# --- the one role that answers for the set ---------------------------------
 
-def mirror_of(uid):
-    return DatabaseManagerV2.execute_one(
-        "SELECT role FROM users WHERE id = :id", {"id": uid})["role"]
-
-
-def test_the_mirror_answers_admin_whenever_the_role_is_held():
+def test_the_one_role_is_admin_whenever_admin_is_held():
     uid = make_user("mirror-admin")
     user_roles.set_roles(uid, [ROLE_CLIENT, ROLE_ADMIN])
-    # Every reader of the old field compares it with ROLE_ADMIN; the mirror keeps
-    # that answer true whichever role was granted first.
-    assert mirror_of(uid) == ROLE_ADMIN
+    # Every caller that asks for one role compares it with ROLE_ADMIN; the answer
+    # is computed from the set, whichever role was granted first.
+    assert user_roles.primary_role(user_roles.roles_of(uid)) == ROLE_ADMIN
 
 
-def test_the_mirror_is_the_first_role_when_admin_is_not_held():
+def test_the_one_role_is_the_first_role_when_admin_is_not_held():
     uid = make_user("mirror-client")
     grant("MANAGER", "roles-managers-section")
     user_roles.set_roles(uid, ["MANAGER", ROLE_CLIENT])
-    assert mirror_of(uid) == ROLE_CLIENT
+    assert user_roles.primary_role(user_roles.roles_of(uid)) == ROLE_CLIENT
 
 
 def test_setting_the_single_role_replaces_the_whole_set():
@@ -171,38 +166,45 @@ def test_setting_the_single_role_replaces_the_whole_set():
     # a right the administrator had just taken away.
     dependencies.update_user(uid, role=ROLE_CLIENT)
     assert user_roles.roles_of(uid) == [ROLE_CLIENT]
-    assert mirror_of(uid) == ROLE_CLIENT
 
 
-def test_an_account_with_no_roles_reads_as_the_one_its_mirror_names():
-    uid = make_user("mirror-only", role=ROLE_ADMIN)
+def test_an_account_with_no_roles_reads_as_client():
+    """An empty set is "not filled in yet", never "no rights"."""
+    uid = make_user("mirror-only")
     DatabaseManagerV2.execute_commit(
         "DELETE FROM user_roles WHERE user_id = :id", {"id": uid})
-    assert user_roles.roles_of(uid) == [ROLE_ADMIN]
-    assert user_roles.attach_roles({"id": uid, "role": ROLE_ADMIN})["roles"] == [ROLE_ADMIN]
+    assert user_roles.roles_of(uid) == [ROLE_CLIENT]
+    assert user_roles.attach_roles({"id": uid})["roles"] == [ROLE_CLIENT]
 
 
-def test_the_start_gives_every_roleless_account_the_role_its_mirror_names():
-    uid = make_user("fill-from-mirror", role=ROLE_ADMIN)
+def test_the_start_gives_a_legacy_account_the_role_its_column_named():
+    """The one-time read of a column a 0.4.0 deployment still has (keepup-157).
+
+    The column is gone from the declaration, so this database does not have it:
+    the backfill has to be silent here, which is what a new deployment sees. The
+    column is then added back -- a database that predates the change -- and the
+    account gets the role it was created with.
+    """
+    uid = make_user("legacy-admin")
     DatabaseManagerV2.execute_commit(
         "DELETE FROM user_roles WHERE user_id = :id", {"id": uid})
+
+    assert user_roles.backfill_from_legacy_column() == 0
 
     conn = DatabaseManagerV2.raw_connection()
     cursor = conn.cursor()
     try:
-        filled = user_roles.fill_from_mirror(cursor, is_postgres=False)
+        cursor.execute("ALTER TABLE users ADD COLUMN role TEXT")
+        cursor.execute("UPDATE users SET role = ? WHERE id = ?", (ROLE_ADMIN, uid))
         conn.commit()
-        assert filled >= 1
-        # Idempotent: the second start writes nothing.
-        assert user_roles.fill_from_mirror(cursor, is_postgres=False) == 0
-        conn.commit()
+
+        assert user_roles.backfill_from_legacy_column() >= 1
+        assert user_roles.roles_of(uid) == [ROLE_ADMIN]
+        # Idempotent: a second start writes nothing.
+        assert user_roles.backfill_from_legacy_column() == 0
     finally:
         cursor.close()
         conn.close()
-
-    rows = DatabaseManagerV2.execute(
-        "SELECT role_name FROM user_roles WHERE user_id = :id", {"id": uid})
-    assert [row["role_name"] for row in rows] == [ROLE_ADMIN]
 
 
 # --- the right ---------------------------------------------------------------------
@@ -434,7 +436,8 @@ def test_the_current_user_is_told_its_whole_set(client):
                         headers={"Authorization": f"Bearer {signed_in(uid, 'routes-me')}"})
     assert answer.status_code == 200
     assert answer.json()["roles"] == [ROLE_ADMIN, ROLE_CLIENT]
-    # The mirror is still there for the applications that read it.
+    # The one role is still answered for the applications that read it, and it is
+    # computed from the set (keepup-157).
     assert answer.json()["role"] == ROLE_ADMIN
 
 

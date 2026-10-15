@@ -39,19 +39,18 @@ class UsersService:
     def __init__(self, datasource: Any):
         self.datasource = datasource
 
-    def roles_of(self, user_id: int, mirror: Optional[str] = None) -> List[str]:
+    def roles_of(self, user_id: int) -> List[str]:
         """The roles this account holds, as a set.
 
         Args:
             user_id: the account.
-            mirror: the deprecated single-role mirror to fall back on.
 
         Returns:
-            The roles, never empty: an account without one is refused on write.
+            The roles, never empty: an account without one reads as CLIENT.
         """
         from keepup_auth.user_roles import roles_of
 
-        return roles_of(user_id, mirror)
+        return roles_of(user_id)
 
     def has_role(self, user: Optional[Mapping[str, Any]], role: str) -> bool:
         """Whether this person holds this role.

@@ -212,11 +212,12 @@ A role comes into being as a grant in the section catalogue; the framework's own
 two are `ADMIN` and `CLIENT`.
 
 - **Ask with `has_role(user, ROLE_ADMIN)`**, never `user["role"] == ROLE_ADMIN`:
-  `users.role` is a deprecated mirror of the set (`ADMIN` when held, otherwise
-  the first role granted) and goes away in 0.3.0. In the panel it is
+  `users.role` was a mirror of the set and is gone from the table (0.5.0). A
+  route that needs one role computes it -- `primary_role(roles)`, which the
+  answer of `/api/auth/me` still carries. In the panel it is
   `window.AppRoles.has(user, role)`.
-- **Nobody holds no role.** An empty set is refused on write and read as the one
-  role the mirror names; access is closed by blocking the account.
+- **Nobody holds no role.** An empty set is refused on write and reads as
+  CLIENT; access is closed by blocking the account, not by emptying it.
 - `keepup.modules.get_modules_for_roles()` is the read for a user;
   `get_modules_for_role()` is still there for one role.
 
@@ -290,8 +291,7 @@ against a stand-in document -- see `tests/header_badge_tests.py`.
 
 ## Glossary
 
-- **Application** -- a package built on keepup: its plugins, sections and config.
-- **Plugin** -- a `BasePlugin` subclass loaded from the plugins directory.
+- **Application** -- a package built on keepup: its plugins, sections and config. **Plugin** -- a `BasePlugin` subclass loaded from the plugins directory.
 - **Route** -- a dictionary a plugin returns; the framework turns it into an endpoint.
 - **Request mask** -- a route's `params`: what it accepts, checked before the handler.
 - **Section** -- a panel page: a JS module, its catalogue entry and role grants.
