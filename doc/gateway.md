@@ -106,7 +106,8 @@ service is a keepup application with `keepup-gateway` and an `announce` section:
 ```json
 {"id": "gateway", "enabled": true, "config": {
   "identity_secret": "${GATEWAY_IDENTITY_SECRET}",
-  "announce": {"gateway": "http://front:8000", "name": "orders", "prefix": "/api/orders",
+  "announce": {"gateway": "http://front:8000", "name": "orders",
+               "prefixes": ["/api/orders", "/api/invoices", "/v1"],
                "address": "http://orders-1:8000", "ttl": 30, "interval": 10,
                "auth": "session"}
 }}
@@ -121,6 +122,14 @@ announcement may carry the route's own keys -- `methods`, `strip_prefix`,
 always an application, so the panel shows its card. Several replicas of a
 service register one name with different addresses, and the gateway takes them
 in turn like the addresses of a config route.
+
+**One service, several prefixes.** An application answers several areas --
+`prefixes` lists them (up to 32; `prefix` for one). A registration takes all of
+them or none: one prefix somebody else holds refuses the whole of it, so a
+service never comes up half-routed. A prefix the previous registration named and
+this one does not is given up. Each prefix is its own route --
+`service:<name>:<prefix>` -- and the panel shows the service once, with all its
+prefixes and a card per address.
 
 `POST /api/gateway/services` registers, `DELETE` takes an address back. Both are
 **signed**: HMAC-SHA256 with `identity_secret` over the action, the moment and a

@@ -75,6 +75,8 @@ class GatewayRoute:
         application: whether a keepup application stands behind the route, so
             the panel shows a card of it (`applications.py`).
         source: ``config``, ``registered`` or ``local``.
+        group: the service a registered route belongs to -- one service holds
+            several prefixes, and the panel shows it once.
         handler: for a local route, the callable of this runtime that answers it.
     """
 
@@ -92,6 +94,7 @@ class GatewayRoute:
     headers: Mapping[str, str] = field(default_factory=dict)
     application: bool = False
     source: str = SOURCE_CONFIG
+    group: str = ""
     handler: Optional[Callable[..., Any]] = field(default=None, compare=False, repr=False)
 
     @property
@@ -123,6 +126,7 @@ class GatewayRoute:
             "max_body_bytes": self.max_body_bytes,
             "application": self.application,
             "source": self.source,
+            "service": self.group or None,
         }
 
 

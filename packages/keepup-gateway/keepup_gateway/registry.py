@@ -61,9 +61,12 @@ TIMESTAMP_HEADER = "X-Gateway-Registration-Timestamp"
 ACTION_REGISTER = "register"
 ACTION_DEREGISTER = "deregister"
 
-#: What a registration may say about its route; the rest is the gateway's.
-_ROUTE_KEYS = ("prefix", "methods", "strip_prefix", "auth", "permission", "timeout",
+#: What a registration may say about its routes; the rest is the gateway's.
+_ROUTE_KEYS = ("methods", "strip_prefix", "auth", "permission", "timeout",
                "connect_timeout", "max_body_bytes")
+#: How many prefixes one service may hold: an application answers a handful of
+#: areas, not a route per endpoint.
+MAX_PREFIXES = 32
 
 
 class RegistrationError(ValueError):
@@ -125,14 +128,35 @@ def _signature(secret: str, action: str, moment: str, body: bytes) -> str:
 
 # --- the records --------------------------------------------------------------------------
 
-def route_of(name: str, address: str, settings: Mapping[str, Any]) -> GatewayRoute:
-    """The route a record stands for: one service, possibly several addresses."""
+def route_of(name: str, address: str, prefix: str,
+             settings: Mapping[str, Any]) -> GatewayRoute:
+    """The route one prefix of a service stands for, at one of its addresses."""
     entry = {key: settings[key] for key in _ROUTE_KEYS if key in settings}
-    entry.update({"id": f"service:{name}", "upstreams": [address]})
+    entry.update({"id": f"service:{name}:{prefix}", "prefix": prefix,
+                  "upstreams": [address]})
     route = parse_route(entry)
     from dataclasses import replace
 
-    return replace(route, application=True, source=SOURCE_REGISTERED)
+    return replace(route, application=True, source=SOURCE_REGISTERED, group=name)
+
+
+def prefixes_of(record: Mapping[str, Any]) -> List[str]:
+    """The prefixes a registration names: ``prefixes``, or the one ``prefix``.
+
+    Raises:
+        RegistrationError: for none, too many, or one named twice.
+    """
+    given = record.get("prefixes", record.get("prefix"))
+    if isinstance(given, str):
+        given = [given]
+    if not isinstance(given, list) or not given or not all(isinstance(item, str) for item in given):
+        raise RegistrationError("'prefixes' must be a non-empty list of paths")
+    if len(given) > MAX_PREFIXES:
+        raise RegistrationError(f"at most {MAX_PREFIXES} prefixes per service")
+    cleaned = [item.strip().rstrip("/") or "/" for item in given]
+    if len(set(cleaned)) != len(cleaned):
+        raise RegistrationError("a prefix is named twice")
+    return cleaned
 
 
 class Registry:
@@ -154,11 +178,11 @@ class Registry:
         self._read_at: Optional[float] = None
 
     async def register(self, record: Mapping[str, Any], instance: str = "") -> Dict[str, Any]:
-        """Accept one service's registration, or say why not.
+        """Accept one address of a service with all its prefixes, or none of them.
 
         Args:
-            record: ``name``, ``address``, ``prefix`` and the route's own keys,
-                ``ttl`` in seconds.
+            record: ``name``, ``address``, ``prefixes`` (or one ``prefix``), the
+                routes' own keys and ``ttl`` in seconds.
             instance: the replica that accepted it, for the report.
 
         Raises:
@@ -166,38 +190,56 @@ class Registry:
                 prefix that belongs to somebody else.
         """
         name, address = _text(record, "name", 100), _text(record, "address", 500)
-        try:
-            route = route_of(name, address, record)
-        except TableError as error:
-            raise RegistrationError(str(error))
-        owner = self.reserved(route.prefix)
-        if owner is not None:
-            raise RegistrationError(f"the prefix {route.prefix} is taken by {owner}", 409)
+        routes = []
+        for prefix in prefixes_of(record):
+            try:
+                routes.append(route_of(name, address, prefix, record))
+            except TableError as error:
+                raise RegistrationError(str(error))
         ttl = record.get("ttl", DEFAULT_TTL_SECONDS)
         if isinstance(ttl, bool) or not isinstance(ttl, (int, float)) or not 0 < ttl <= MAX_TTL_SECONDS:
             raise RegistrationError(f"ttl must be a number of seconds up to {MAX_TTL_SECONDS}")
         now = clock.utcnow()
-        taken = await self.datasource.execute(
-            f"SELECT name FROM {TABLE} WHERE prefix = :prefix AND name <> :name "
-            f"AND expires_at > :now", {"prefix": route.prefix, "name": name, "now": now})
-        if taken:
-            raise RegistrationError(f"the prefix {route.prefix} is taken by service "
-                                    f"'{dict(taken[0])['name']}'", 409)
-        settings = {key: record[key] for key in _ROUTE_KEYS if key in record}
-        await self.datasource.execute_commit(
-            f"INSERT INTO {TABLE} (name, address, prefix, route, instance, ttl, registered_at,"
-            f" expires_at) VALUES (:name, :address, :prefix, :route, :instance, :ttl, :now,"
-            f" :expires) ON CONFLICT (name, address) DO UPDATE SET prefix = excluded.prefix,"
-            f" route = excluded.route, instance = excluded.instance, ttl = excluded.ttl,"
-            f" expires_at = excluded.expires_at",
-            {"name": name, "address": address, "prefix": route.prefix,
-             "route": json.dumps(settings, sort_keys=True), "instance": instance,
-             "ttl": float(ttl), "now": now, "expires": now + timedelta(seconds=float(ttl))})
+        for route in routes:
+            owner = self.reserved(route.prefix)
+            if owner is not None:
+                raise RegistrationError(f"the prefix {route.prefix} is taken by {owner}", 409)
+            taken = await self.datasource.execute(
+                f"SELECT name FROM {TABLE} WHERE prefix = :prefix AND name <> :name "
+                f"AND expires_at > :now", {"prefix": route.prefix, "name": name, "now": now})
+            if taken:
+                raise RegistrationError(f"the prefix {route.prefix} is taken by service "
+                                        f"'{dict(taken[0])['name']}'", 409)
+        settings = json.dumps({key: record[key] for key in _ROUTE_KEYS if key in record},
+                              sort_keys=True)
+        held = [route.prefix for route in routes]
+        # The address's prefixes are what this registration names: one it named
+        # before and does not name now is no longer its.
+        current = await self.datasource.execute(
+            f"SELECT prefix FROM {TABLE} WHERE name = :name AND address = :address",
+            {"name": name, "address": address})
+        for row in current or []:
+            if dict(row)["prefix"] not in held:
+                await self.datasource.execute_commit(
+                    f"DELETE FROM {TABLE} WHERE name = :name AND address = :address"
+                    f" AND prefix = :prefix",
+                    {"name": name, "address": address, "prefix": dict(row)["prefix"]})
+        for prefix in held:
+            await self.datasource.execute_commit(
+                f"INSERT INTO {TABLE} (name, address, prefix, route, instance, ttl,"
+                f" registered_at, expires_at) VALUES (:name, :address, :prefix, :route,"
+                f" :instance, :ttl, :now, :expires) ON CONFLICT (name, address, prefix)"
+                f" DO UPDATE SET route = excluded.route, instance = excluded.instance,"
+                f" ttl = excluded.ttl, expires_at = excluded.expires_at",
+                {"name": name, "address": address, "prefix": prefix, "route": settings,
+                 "instance": instance, "ttl": float(ttl), "now": now,
+                 "expires": now + timedelta(seconds=float(ttl))})
         self._read_at = None
-        return {"name": name, "address": address, "prefix": route.prefix, "ttl": ttl}
+        return {"name": name, "address": address, "prefixes": held, "ttl": ttl}
 
     async def deregister(self, record: Mapping[str, Any]) -> bool:
-        """Forget one address of a service; forgetting what is not there is not an error."""
+        """Forget one address of a service, all its prefixes; forgetting what is not
+        there is not an error."""
         name, address = _text(record, "name", 100), _text(record, "address", 500)
         removed = await self.datasource.execute_commit(
             f"DELETE FROM {TABLE} WHERE name = :name AND address = :address",
@@ -206,33 +248,34 @@ class Registry:
         return bool(removed)
 
     async def routes(self) -> List[GatewayRoute]:
-        """The live services, one route per name with all its addresses."""
+        """The live services: one route per name and prefix, with all its addresses."""
         now = self._clock()
         if self._read_at is not None and now - self._read_at < REFRESH_SECONDS:
             return self._copy
         try:
             rows = await self.datasource.execute(
-                f"SELECT name, address, route FROM {TABLE} WHERE expires_at > :now"
-                f" ORDER BY name, address", {"now": clock.utcnow()})
+                f"SELECT name, address, prefix, route FROM {TABLE} WHERE expires_at > :now"
+                f" ORDER BY name, prefix, address", {"now": clock.utcnow()})
         except Exception as error:  # noqa: BLE001 - the config's routes must keep working
             logger.warning("Gateway registry not read: %s", error)
             return self._copy
-        by_name: Dict[str, GatewayRoute] = {}
+        by_route: Dict[str, GatewayRoute] = {}
         for row in rows or []:
             row = dict(row)
             try:
-                route = route_of(row["name"], row["address"], json.loads(row["route"]))
+                route = route_of(row["name"], row["address"], row["prefix"],
+                                 json.loads(row["route"]))
             except (TableError, ValueError) as error:
                 logger.warning("Gateway registry: record %s skipped: %s", row["name"], error)
                 continue
-            known = by_name.get(row["name"])
+            known = by_route.get(route.id)
             if known is None:
-                by_name[row["name"]] = route
+                by_route[route.id] = route
             else:
                 from dataclasses import replace
 
-                by_name[row["name"]] = replace(known, upstreams=known.upstreams + route.upstreams)
-        self._copy = list(by_name.values())
+                by_route[route.id] = replace(known, upstreams=known.upstreams + route.upstreams)
+        self._copy = list(by_route.values())
         self._read_at = now
         return self._copy
 

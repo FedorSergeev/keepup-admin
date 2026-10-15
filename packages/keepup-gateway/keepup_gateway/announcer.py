@@ -1,7 +1,7 @@
 """A service telling the gateway it is here, and repeating it while it is.
 
 The application behind the gateway installs `keepup-gateway` too, and its
-`announce` section says which gateway, under what name and prefix, and at which
+`announce` section says which gateway, under what name and prefixes, and at which
 address it is reached. It registers at the start and again every `interval`
 seconds, well inside the record's time to live; on a normal stop it takes its
 address back, and on a crash the record runs out by itself.
@@ -45,9 +45,16 @@ def parse_announce(section: Optional[Mapping[str, Any]]) -> Optional[Dict[str, A
         return None
     if not isinstance(section, Mapping):
         raise TableError("gateway: announce must be an object")
-    for key in ("gateway", "name", "prefix", "address"):
+    for key in ("gateway", "name", "address"):
         if not isinstance(section.get(key), str) or not section[key].strip():
             raise TableError(f"gateway: announce.{key} is required")
+    prefixes = section.get("prefixes", section.get("prefix"))
+    if isinstance(prefixes, str):
+        prefixes = [prefixes]
+    if not isinstance(prefixes, list) or not prefixes \
+            or not all(isinstance(item, str) and item.strip() for item in prefixes):
+        raise TableError("gateway: announce.prefixes is required -- a list of paths, "
+                         "or announce.prefix for one")
     ttl = section.get("ttl", DEFAULT_TTL_SECONDS)
     interval = section.get("interval", ttl / 3)
     for key, value in (("ttl", ttl), ("interval", interval)):
@@ -56,7 +63,8 @@ def parse_announce(section: Optional[Mapping[str, Any]]) -> Optional[Dict[str, A
     if interval >= ttl:
         raise TableError("gateway: announce.interval must be shorter than announce.ttl, "
                          "or the record runs out between two announcements")
-    record = {"name": section["name"].strip(), "prefix": section["prefix"].strip(),
+    record = {"name": section["name"].strip(),
+              "prefixes": [item.strip() for item in prefixes],
               "address": section["address"].strip().rstrip("/"), "ttl": ttl}
     record.update({key: section[key] for key in _ROUTE_KEYS if key in section})
     return {"gateway": section["gateway"].strip().rstrip("/"), "interval": float(interval),

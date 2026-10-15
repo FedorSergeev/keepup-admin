@@ -81,7 +81,8 @@ function gatewayRenderApplications(data) {
         var cards = (application.addresses || []).map(gatewayRenderCard).join('');
         return '<div class="mb-6"><h3 class="text-lg font-semibold mb-2">'
             + gatewayEscape(application.route) + ' <span class="font-mono text-sm text-gray-500">'
-            + gatewayEscape(application.prefix) + '</span></h3>'
+            + gatewayEscape((application.prefixes || [application.prefix]).join(', '))
+            + '</span></h3>'
             + '<div class="grid grid-cols-1 md:grid-cols-2 gap-4">' + cards + '</div></div>';
     }).join('');
 }

@@ -42,6 +42,7 @@ from keepup_gateway.registry import (
     Registry,
     RegistrationError,
     declared_table,
+    prefixes_of,
     verify_registration,
 )
 from keepup_gateway.table import (
@@ -351,11 +352,11 @@ class GatewayPlugin(BasePlugin):
             if action == ACTION_DEREGISTER:
                 removed = await self.service.registry.deregister(record)
                 return JSONResponse({"removed": removed})
-            prefix = record.get("prefix")
-            if isinstance(prefix, str) and _answered_here(request, prefix):
-                raise RegistrationError(
-                    f"the application itself answers {prefix}: a service registered there "
-                    "would never be reached", 409)
+            for prefix in prefixes_of(record):
+                if _answered_here(request, prefix):
+                    raise RegistrationError(
+                        f"the application itself answers {prefix}: a service registered "
+                        "there would never be reached", 409)
             accepted = await self.service.registry.register(record, get_instance_id())
             return JSONResponse(accepted)
         except RegistrationError as error:

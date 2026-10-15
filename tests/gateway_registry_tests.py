@@ -211,7 +211,7 @@ def test_a_registered_service_is_an_application_card(registry_gateway):
     register(client, ORDERS)
     report = asyncio.run(plugin.service.report())["routes"]
     assert [(route["id"], route["source"]) for route in report] == \
-        [("service:orders", "registered"), ("shop", "config")]
+        [("service:orders:/api/orders", "registered"), ("shop", "config")]
     cards = asyncio.run(plugin.applications_report({"id": 1, "username": "root",
                                                     "roles": ["ADMIN"]}))
     assert [item["route"] for item in cards["applications"]] == ["service:orders"]
@@ -341,13 +341,15 @@ def test_an_announcement_must_outpace_its_own_record():
     assert parse_announce(None) is None
     with pytest.raises(TableError, match="announce.address"):
         parse_announce({"gateway": "http://g", "name": "o", "prefix": "/o"})
+    with pytest.raises(TableError, match="announce.prefixes"):
+        parse_announce({"gateway": "http://g", "name": "o", "address": "http://o"})
     with pytest.raises(TableError, match="shorter"):
         parse_announce({"gateway": "http://g", "name": "o", "prefix": "/o",
                         "address": "http://o", "ttl": 10, "interval": 10})
     settings = parse_announce({"gateway": "http://g/", "name": "o", "prefix": "/o",
                                "address": "http://o/", "ttl": 30, "auth": "session"})
     assert settings["interval"] == 10 and settings["gateway"] == "http://g"
-    assert settings["record"] == {"name": "o", "prefix": "/o", "address": "http://o",
+    assert settings["record"] == {"name": "o", "prefixes": ["/o"], "address": "http://o",
                                   "ttl": 30, "auth": "session"}
 
 
@@ -376,8 +378,8 @@ def test_an_application_registers_itself_and_takes_its_address_back(registry_gat
         return registered, routes, after
 
     registered, routes, after = asyncio.run(life())
-    assert registered and "service:orders" in routes
-    assert "service:orders" not in after
+    assert registered and "service:orders:/api/orders" in routes
+    assert "service:orders:/api/orders" not in after
 
 
 def test_a_gateway_that_does_not_answer_is_retried_not_fatal():
@@ -463,3 +465,56 @@ def test_a_whole_application_serves_its_plugin_in_process_and_keeps_its_own_rout
         assert client.get("/no/such/thing").status_code == 404
         paths = [getattr(route, "path", "") for route in app.router.routes]
         assert paths.index(FALLBACK_PATH) > paths.index("/api/product")
+
+
+# --- several prefixes of one service ------------------------------------------------------
+
+MACHINES = {"name": "machines", "address": "http://vm-1:8000",
+               "prefixes": ["/api/machines", "/api/vm", "/v1"]}
+
+
+def test_one_service_holds_several_prefixes(registry_gateway):
+    plugin, client, seen = registry_gateway
+    accepted = register(client, MACHINES)
+    assert accepted.status_code == 200
+    assert accepted.json()["prefixes"] == ["/api/machines", "/api/vm", "/v1"]
+    for path in ("/api/machines/nodes", "/api/vm/7", "/v1/models"):
+        assert client.get(path).json() == {"host": "vm-1", "path": path}
+
+
+def test_a_service_is_one_card_however_many_prefixes_it_holds(registry_gateway):
+    plugin, client, _ = registry_gateway
+    register(client, MACHINES)
+    register(client, {**MACHINES, "address": "http://vm-2:8000"})
+    cards = asyncio.run(plugin.applications_report({"id": 1, "username": "root",
+                                                    "roles": ["ADMIN"]}))["applications"]
+    assert len(cards) == 1
+    assert cards[0]["route"] == "service:machines"
+    assert cards[0]["prefixes"] == ["/api/machines", "/api/vm", "/v1"]
+    assert [card["address"] for card in cards[0]["addresses"]] == \
+        ["http://vm-1:8000", "http://vm-2:8000"]
+
+
+def test_one_prefix_somebody_holds_refuses_the_whole_registration(registry_gateway):
+    plugin, client, _ = registry_gateway
+    refused = register(client, {**MACHINES, "prefixes": ["/api/vm", "/api/shop"]})
+    assert refused.status_code == 409
+    assert client.get("/api/vm/7").status_code == 404
+    assert register(client, {**MACHINES, "prefixes": ["/a", "/a/"]}).status_code == 400
+    assert register(client, {**MACHINES, "prefixes": []}).status_code == 400
+    assert register(client, {**MACHINES,
+                             "prefixes": [f"/p{index}" for index in range(33)]}
+                    ).status_code == 400
+
+
+def test_a_prefix_left_out_of_the_next_registration_is_given_up(registry_gateway):
+    plugin, client, _ = registry_gateway
+    register(client, MACHINES)
+    register(client, {**MACHINES, "prefixes": ["/api/machines"]})
+    plugin.service.registry._read_at = None
+    assert client.get("/api/machines").status_code == 200
+    assert client.get("/v1/models").status_code == 404
+    body, headers = signed("deregister", {"name": "machines",
+                                          "address": MACHINES["address"]})
+    client.request("DELETE", REGISTER_PATH, content=body, headers=headers)
+    assert client.get("/api/machines").status_code == 404

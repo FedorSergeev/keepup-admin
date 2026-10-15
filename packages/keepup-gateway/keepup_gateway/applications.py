@@ -98,27 +98,38 @@ class Prober:
         self.timeout = timeout
 
     async def cards(self, routes, balancer, caller: Caller) -> List[Dict[str, Any]]:
-        """One card per application route, each with its addresses.
+        """One entry per application, each with a card per address.
+
+        A registered service holds several prefixes and is one application: its
+        routes are shown once, with all their prefixes, and each address is
+        asked once.
 
         Args:
             routes: the table.
             balancer: whose view of the addresses the card shows beside the answers.
             caller: the administrator who asked, signed into each question.
         """
-        applications = sorted((route for route in routes if route.application),
-                              key=lambda item: item.prefix)
-        asked = [self.card(address, caller) for route in applications
-                 for address in route.upstreams]
-        answers = iter(await asyncio.gather(*asked))
-        out = []
-        for route in applications:
-            out.append({
-                "route": route.id,
-                "prefix": route.prefix,
-                "addresses": [{**next(answers), **balancer.state(route.id, address)}
-                              for address in route.upstreams],
-            })
-        return out
+        groups: Dict[str, Dict[str, Any]] = {}
+        for route in sorted((route for route in routes if route.application),
+                            key=lambda item: (item.group or item.id, item.prefix)):
+            key = route.group or route.id
+            entry = groups.setdefault(key, {"route": f"service:{route.group}" if route.group
+                                            else route.id,
+                                            "prefixes": [], "addresses": {}, "ids": []})
+            entry["prefixes"].append(route.prefix)
+            entry["ids"].append(route.id)
+            for address in route.upstreams:
+                entry["addresses"].setdefault(address, route.id)
+        asked = [(entry, address, route_id) for entry in groups.values()
+                 for address, route_id in entry["addresses"].items()]
+        answers = await asyncio.gather(*(self.card(address, caller)
+                                         for _, address, _ in asked))
+        out = {id(entry): {"route": entry["route"], "prefix": entry["prefixes"][0],
+                           "prefixes": entry["prefixes"], "addresses": []}
+               for entry in groups.values()}
+        for (entry, address, route_id), answer in zip(asked, answers):
+            out[id(entry)]["addresses"].append({**answer, **balancer.state(route_id, address)})
+        return [out[id(entry)] for entry in groups.values()]
 
     async def card(self, address: str, caller: Caller) -> Dict[str, Any]:
         """What one address answers to the three questions."""
