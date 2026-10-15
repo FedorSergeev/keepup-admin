@@ -1,7 +1,8 @@
 """The route table: what the gateway passes on, and where to.
 
 A route is data -- the plugin's `config` names it -- and the table is checked
-once, at the start, so a mistake in it stops the application instead of turning
+once, at the start, so a mistake in it leaves the gateway down and named in the
+plugins' report instead of turning
 into a 404 that somebody reports a week later. Pure: no network, no FastAPI.
 """
 
@@ -60,6 +61,8 @@ class GatewayRoute:
         cooldown: seconds an address that failed is left out of the turn.
         max_body_bytes: the largest request body passed on.
         headers: headers added to every request of this route.
+        application: whether a keepup application stands behind the route, so
+            the panel shows a card of it (`applications.py`).
     """
 
     id: str
@@ -74,6 +77,7 @@ class GatewayRoute:
     cooldown: float = DEFAULT_COOLDOWN_SECONDS
     max_body_bytes: int = DEFAULT_MAX_BODY_BYTES
     headers: Mapping[str, str] = field(default_factory=dict)
+    application: bool = False
 
     @property
     def signed_in(self) -> bool:
@@ -102,6 +106,7 @@ class GatewayRoute:
             "permission": self.permission,
             "timeout": self.timeout,
             "max_body_bytes": self.max_body_bytes,
+            "application": self.application,
         }
 
 
@@ -198,7 +203,7 @@ def _route(entry: Mapping[str, Any], index: int) -> GatewayRoute:
         prefix=prefix,
         upstreams=checked,
         methods=methods,
-        strip_prefix=bool(entry.get("strip_prefix", False)),
+        strip_prefix=_flag(name, entry, "strip_prefix"),
         auth=auth,
         permission=permission,
         timeout=_positive(name, entry, "timeout", DEFAULT_TIMEOUT_SECONDS),
@@ -207,6 +212,7 @@ def _route(entry: Mapping[str, Any], index: int) -> GatewayRoute:
         cooldown=_positive(name, entry, "cooldown", DEFAULT_COOLDOWN_SECONDS),
         max_body_bytes=int(_positive(name, entry, "max_body_bytes", DEFAULT_MAX_BODY_BYTES)),
         headers={str(key): str(value) for key, value in headers.items()},
+        application=_flag(name, entry, "application"),
     )
 
 
@@ -220,6 +226,14 @@ def _upstream(name: str, value: Any) -> str:
     if parts.query or parts.fragment:
         raise TableError(f"gateway route '{name}': upstream {value!r} carries a query")
     return value.rstrip("/")
+
+
+def _flag(name: str, entry: Mapping[str, Any], key: str) -> bool:
+    """A yes-or-no setting: a string "false" is a mistake, not a yes."""
+    value = entry.get(key, False)
+    if not isinstance(value, bool):
+        raise TableError(f"gateway route '{name}': {key} must be true or false")
+    return value
 
 
 def _positive(name: str, entry: Mapping[str, Any], key: str, default: float) -> float:

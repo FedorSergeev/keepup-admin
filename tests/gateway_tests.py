@@ -9,6 +9,11 @@ calling from signed headers it can check, and never from a header a client wrote
     python -m pytest tests/gateway_tests.py -v
 """
 
+import json
+import re
+import shutil
+import subprocess
+
 import httpx
 import pytest
 from fastapi import FastAPI, HTTPException
@@ -18,7 +23,7 @@ from keepup.kernel import security
 from keepup_gateway import IdentityError, verify_identity
 from keepup_gateway.balancer import Balancer
 from keepup_gateway.identity import Caller, caller_of, sign_identity
-from keepup_gateway.plugin import GatewayPlugin
+from keepup_gateway.plugin import SCRIPT_FILE, SECTION_SCRIPT, GatewayPlugin
 from keepup_gateway.table import TableError, match, parse_table
 from keepup_http.routes import register_declared_routes
 
@@ -123,8 +128,8 @@ def test_two_routes_with_one_prefix_are_refused():
 def test_a_route_that_asks_for_sign_in_needs_the_secret():
     plugin = GatewayPlugin({"routes": [{"prefix": "/x", "upstreams": ["http://a"],
                                         "auth": "session"}]})
-    assert [route["path"] for route in plugin.get_api_routes()] == \
-        ["/api/admin/gateway/routes"]
+    paths = [route["path"] for route in plugin.get_api_routes()]
+    assert not [path for path in paths if path.startswith("/x")]
     with pytest.raises(TableError, match="identity_secret"):
         import asyncio
         asyncio.run(plugin.initialize())
@@ -367,3 +372,153 @@ def test_the_report_asks_for_its_right_and_shows_the_table():
     assert [route["id"] for route in report] == ["shop"]
     assert [item["address"] for item in report[0]["upstreams"]] == \
         ["http://one", "http://two"]
+
+
+# --- the applications behind the gateway ---------------------------------------------------
+
+ADMIN = {"id": 1, "username": "root", "roles": ["ADMIN"]}
+
+
+class Runtime:
+    """What a subsystem's runtime answers about its plugins."""
+
+    settings = type("Settings", (), {"project_name": "orders", "title": "Orders"})()
+
+    def report(self):
+        return [
+            {"id": "orders", "name": "Orders", "kind": "optional", "distribution": None,
+             "enabled": True, "initialized": True, "outcome": "running", "reason": ""},
+            {"id": "mailer", "name": "Mailer", "kind": "optional", "distribution": None,
+             "enabled": True, "initialized": False, "outcome": "failed",
+             "reason": "<b>no SMTP</b>"},
+        ]
+
+
+def subsystem(secret=SECRET, metrics=None):
+    """A headless application behind the gateway: keepup-gateway with a secret, no routes."""
+    plugin = GatewayPlugin({"identity_secret": secret} if secret else {})
+    plugin.set_plugin_manager(Runtime())
+    app = FastAPI()
+    register_declared_routes(app, plugin.get_api_routes())
+
+    @app.get("/api/health")
+    def health():
+        return {"status": "healthy"}
+
+    if metrics is not None:
+        from fastapi.responses import PlainTextResponse
+
+        @app.get("/metrics")
+        def scrape():
+            return PlainTextResponse(metrics)
+
+    return TestClient(app)
+
+
+def wired(client):
+    """An httpx transport that hands each request to an application in this process."""
+    def answer(request):
+        reply = client.request(request.method, request.url.path, headers=dict(request.headers))
+        return httpx.Response(reply.status_code, content=reply.content,
+                              headers={"content-type": reply.headers.get("content-type", "")})
+    return answer
+
+
+def front(routes, transport):
+    return GatewayPlugin({"identity_secret": SECRET, "routes": routes},
+                         transport=httpx.MockTransport(transport))
+
+
+def test_an_application_answers_its_card_only_to_an_administrator_the_gateway_signed():
+    client = subsystem()
+    assert client.get("/api/gateway/self").status_code == 401
+    forged = sign_identity(Caller("1", "root", ("ADMIN",), ""), "another", "r")
+    assert client.get("/api/gateway/self", headers={**forged, "X-Request-Id": "r"}
+                      ).status_code == 401
+    clerk = sign_identity(Caller("2", "ann", ("CLIENT",), ""), SECRET, "r")
+    assert client.get("/api/gateway/self", headers={**clerk, "X-Request-Id": "r"}
+                      ).status_code == 403
+    admin = sign_identity(Caller("1", "root", ("ADMIN",), ""), SECRET, "r")
+    card = client.get("/api/gateway/self", headers={**admin, "X-Request-Id": "r"}).json()
+    assert card["application"] == "orders"
+    assert [(plugin["id"], plugin["outcome"]) for plugin in card["plugins"]] == \
+        [("orders", "running"), ("mailer", "failed")]
+
+
+def test_without_a_secret_an_application_has_no_card_to_give():
+    paths = [route["path"] for route in GatewayPlugin({}).get_api_routes()]
+    assert "/api/gateway/self" not in paths
+
+
+def test_the_panel_sees_the_plugins_health_and_metrics_of_an_application():
+    gateway_plugin = front([{"id": "orders", "prefix": "/api/orders",
+                             "upstreams": ["http://orders"], "application": True},
+                            {"id": "static", "prefix": "/files", "upstreams": ["http://cdn"]}],
+                           wired(subsystem(metrics="# HELP x\nx 1\ny 2\n")))
+    import asyncio
+    report = asyncio.run(gateway_plugin.applications_report(ADMIN))["applications"]
+    assert [item["route"] for item in report] == ["orders"]
+    card = report[0]["addresses"][0]
+    assert card["reachable"] and card["state"] == "live"
+    assert card["self"]["application"] == "orders"
+    assert card["self"]["plugins"][1]["reason"] == "<b>no SMTP</b>"
+    assert card["health"] == {"status": 200, "error": None, "state": "healthy"}
+    assert card["metrics"]["series"] == 2
+
+
+def test_a_card_says_why_it_is_empty():
+    import asyncio
+    # An application without keepup-gateway: the gateway's identity means nothing there.
+    gateway_plugin = front([{"prefix": "/api/orders", "upstreams": ["http://orders"],
+                             "application": True}], wired(subsystem(secret=None)))
+    card = asyncio.run(gateway_plugin.applications_report(ADMIN))["applications"][0][
+        "addresses"][0]
+    assert card["self"]["status"] == 404 and "keepup-gateway" in card["self"]["error"]
+    # An address that does not answer at all.
+    gateway_plugin = front([{"prefix": "/api/orders", "upstreams": ["http://orders"],
+                             "application": True}], Upstreams({"orders": httpx.ConnectError("x")}))
+    card = asyncio.run(gateway_plugin.applications_report(ADMIN))["applications"][0][
+        "addresses"][0]
+    assert card["reachable"] is False and card["health"]["status"] is None
+
+
+def test_an_application_route_needs_the_secret_and_a_real_flag():
+    plugin = GatewayPlugin({"routes": [{"prefix": "/x", "upstreams": ["http://a"],
+                                        "application": True}]})
+    assert plugin._error and "identity_secret" in plugin._error
+    with pytest.raises(TableError, match="true or false"):
+        parse_table([{"prefix": "/x", "upstreams": ["http://a"], "application": "yes"}])
+
+
+def test_the_section_is_declared_and_its_script_is_served():
+    plugin = GatewayPlugin({})
+    section = plugin.get_panel_sections()[0]
+    assert section["js"] == SECTION_SCRIPT and section["initFunction"] == "initGatewayModule"
+    app = FastAPI()
+    register_declared_routes(app, plugin.get_api_routes())
+    answer = TestClient(app).get(SECTION_SCRIPT)
+    assert answer.status_code == 200
+    assert "function initGatewayModule" in answer.text
+    assert answer.headers["content-type"].startswith("application/javascript")
+
+
+def test_the_sections_script_puts_no_handler_into_its_markup():
+    """The panel's policy refuses inline handlers; buttons name an action instead."""
+    text = SCRIPT_FILE.read_text(encoding="utf-8")
+    assert not re.search(r"\son[a-z]+\s*=", text)
+    assert "KeepupActions.register" in text
+
+
+@pytest.mark.skipif(shutil.which("node") is None, reason="needs node")
+def test_what_an_application_says_is_escaped_in_the_card():
+    data = {"applications": [{"route": "<i>r</i>", "prefix": "/x", "addresses": [{
+        "address": "http://a", "reachable": True, "state": "live",
+        "self": {"application": "<script>x</script>", "plugins": [
+            {"id": "p", "initialized": False, "outcome": "failed", "reason": "<img src=x>"}]},
+        "health": {"status": 200, "state": "ok"}, "metrics": {"status": 200, "series": 1}}]}]}
+    script = (f"const g = require({json.dumps(str(SCRIPT_FILE))});"
+              f"process.stdout.write(g.gatewayRenderApplications({json.dumps(data)}));")
+    html = subprocess.run([shutil.which("node"), "-e", script], capture_output=True,
+                          text=True, timeout=30, check=True).stdout
+    assert "<script>" not in html and "<img" not in html and "<i>r" not in html
+    assert "&lt;script&gt;" in html and "&lt;img src=x&gt;" in html

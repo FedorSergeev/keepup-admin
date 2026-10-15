@@ -59,11 +59,11 @@ class Proxy:
         self.routes = list(routes)
         self.balancer = balancer
         self.identity_secret = identity_secret
-        self._client = httpx.AsyncClient(transport=transport, follow_redirects=False)
+        self.client = httpx.AsyncClient(transport=transport, follow_redirects=False)
 
     async def aclose(self) -> None:
         """Close the connections to the services."""
-        await self._client.aclose()
+        await self.client.aclose()
 
     async def handle(self, request) -> Any:
         """Answer one request that reached a route of the gateway."""
@@ -108,10 +108,10 @@ class Proxy:
         for position, address in enumerate(addresses):
             more = position + 1 < len(addresses)
             url = address + target_path + (f"?{query}" if query else "")
-            outbound = self._client.build_request(method, url, headers=outgoing,
+            outbound = self.client.build_request(method, url, headers=outgoing,
                                                   content=body, timeout=timeout)
             try:
-                answer = await self._client.send(outbound, stream=True)
+                answer = await self.client.send(outbound, stream=True)
             except (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout) as error:
                 self.balancer.failed(route.id, address, route.cooldown, _reason(error))
                 logger.warning("Gateway route %s: %s took no connection (%s)",

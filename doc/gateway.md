@@ -50,10 +50,11 @@ The routes are the plugin's `config`:
 | `cooldown` | seconds an address that failed is left out of the turn | 30 |
 | `max_body_bytes` | the largest request body passed on; above it, 413 | 10 MB |
 | `headers` | headers added to every request of the route | none |
+| `application` | a keepup application stands behind it: the panel shows its card | `false` |
 
 `identity_secret` is what the caller's headers are signed with; a whole value
-`${NAME}` is read from the environment. A route that asks for sign-in without it
-is refused.
+`${NAME}` is read from the environment. A route that asks for sign-in or stands
+for an application is refused without it.
 
 **The table is checked at the start.** A route with the prefix `/` (it would
 cover the panel and the framework's own routes), `..` in the prefix, no address,
@@ -151,9 +152,53 @@ must not be able to forge a panel session.
 table and the state of every address in the replica that answered: `live`, or
 `cooling` with the seconds left and the last failure.
 
+### The panel section
+
+The plugin declares a section, **Gateway**, with two parts: the table with the
+state of each address, and a card for every address of every route marked
+`"application": true`. The catalogue imports a declared section without a grant;
+an application gives it to its administrators in its own `config/modules.json`
+(`"ADMIN"` role, module `gateway`) or an administrator does in the panel. The
+section's script is served by the distribution itself, at `/keepup-gateway/gateway.js`
+-- the panel's static directory belongs to `keepup-http` -- from the panel's own
+origin, which is what its Content-Security-Policy allows. Every value a card shows
+came from another service and is escaped; the markup carries no handler.
+
+### The applications behind it
+
+A headless subsystem -- the kernel, the HTTP transport and a product plugin, no
+panel -- is shown the way the panel shows its own runtime: which plugins it runs,
+which failed and why, whether it is up. It may have no `keepup-auth` and no
+`keepup-modules`, so the panel's `/api/admin/plugins`, guarded by the panel's
+sign-in, is not something to count on. Instead the subsystem installs
+`keepup-gateway` too, with the same `identity_secret` and no routes:
+
+```json
+{"id": "gateway", "enabled": true, "config": {"identity_secret": "${GATEWAY_IDENTITY_SECRET}"}}
+```
+
+and answers `GET /api/gateway/self` -- its name, this replica, the framework's
+version and its runtime's report of every plugin -- to the gateway's signed
+identity of an administrator, and to nothing else: 401 for headers that are
+missing, altered or old, 403 for an identity without the `ADMIN` role.
+
+`GET /api/admin/gateway/applications`, under `gateway.admin`, asks every address
+of every application route three questions at once, signed as the administrator
+who opened the section, with a three-second timeout:
+
+| Question | What the card shows |
+| --- | --- |
+| `/api/gateway/self` | the application, the replica, the plugins with their outcome and reason -- or why it could not be read (no `keepup-gateway` there, another secret, not an administrator) |
+| `/api/health` | the status and the state the application reports |
+| `/metrics` | the number of samples; a 401 here means the application's metrics are behind its own sign-in (`metrics_public`) |
+
+An address that does not answer is a card that says so, not a page that waits.
+
 ## Not here yet
 
 - WebSocket through the gateway.
+- Applications that register themselves, and plugins of the same runtime served
+  without a proxy -- the next change.
 - Cooldowns shared between replicas.
 - Rate limits at the edge.
 - Routes another plugin declares rather than the file: the kernel's

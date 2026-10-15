@@ -22,3 +22,7 @@ gateway = "keepup_gateway:GatewayPlugin"
 
 [tool.setuptools]
 packages = ["keepup_gateway"]
+
+[tool.setuptools.package-data]
+# The panel section's script travels with the capability that serves it.
+keepup_gateway = ["static/*.js"]
