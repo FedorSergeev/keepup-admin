@@ -44,7 +44,7 @@ specification, not a private agreement between two plugins.
 | `integration_log` | 1 | `keepup-integration-log` | `record(host, endpoint, method, outcome, duration, request, response)` | applications calling outside, and plugins that do it for them |
 | `ui` | 1 | `keepup-ui` | `sections()`, `shell()`, `theme()` | `keepup-modules` (the catalogue knows what the panel can render), the kernel's `/` |
 | `cluster` | 1 | `keepup-cluster` | `members()`, `stop(replica)`, `start(replica)`, `restart(replica)` | the metrics panel (the replica list), the cluster section |
-| `gateway` | 1 | `keepup-gateway` | `routes`, `report()` -- the table and the state of each address in this replica | the administrator's report; an application that shows its own way in |
+| `gateway` | 1 | `keepup-gateway` | `register_local(name, prefix, handler, ...)`, `table()`, `report()` -- the routes from the config, the registry and this runtime, and the state of each address in this replica | a plugin that serves its prefix in process behind the gateway; the administrator's report |
 
 ## Kernel, not a service
 

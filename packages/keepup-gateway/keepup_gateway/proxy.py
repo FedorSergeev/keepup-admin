@@ -12,23 +12,33 @@ on only for an idempotent method: a POST may have been carried out before the
 service failed to say so.
 """
 
+import inspect
 import logging
-from typing import Any, List, Optional, Sequence
+from typing import Any, Awaitable, Callable, List, Optional, Sequence, Union
 
 import httpx
 from fastapi import HTTPException
-from fastapi.responses import JSONResponse, StreamingResponse
+from fastapi.responses import JSONResponse, Response, StreamingResponse
 from starlette.background import BackgroundTask
+from starlette.routing import Match
 
 from keepup.kernel import security
 from keepup_gateway import headers as edge
 from keepup_gateway.balancer import Balancer
 from keepup_gateway.identity import caller_of, sign_identity
+from keepup_gateway.local import LocalCall, answer_of
 from keepup_gateway.table import IDEMPOTENT_METHODS, GatewayRoute, match
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["Proxy", "RETRY_STATUSES"]
+__all__ = ["Proxy", "RETRY_STATUSES", "FALLBACK_PATH"]
+
+#: The route that receives what nobody else answers: the services that registered
+#: themselves and the plugins that serve in process, whose prefixes are not known
+#: when the transport mounts the routes.
+FALLBACK_PATH = "/{gateway_path:path}"
+
+Table = Union[Sequence[GatewayRoute], Callable[[], Awaitable[List[GatewayRoute]]]]
 
 #: Answers that say "this address, not this request".
 RETRY_STATUSES = frozenset({502, 503, 504})
@@ -48,15 +58,17 @@ class Proxy:
     """The gateway's work for one table.
 
     Args:
-        routes: the checked table.
+        routes: the checked table, or what reads it anew -- the registry changes
+            while the application runs.
         balancer: the turn and the cooldowns.
         identity_secret: what the caller's headers are signed with.
         transport: an httpx transport, for a test; the network otherwise.
     """
 
-    def __init__(self, routes: Sequence[GatewayRoute], balancer: Balancer,
+    def __init__(self, routes: Table, balancer: Balancer,
                  identity_secret: str = "", transport: Optional[httpx.AsyncBaseTransport] = None):
-        self.routes = list(routes)
+        self._table = routes if callable(routes) else None
+        self.routes = [] if callable(routes) else list(routes)
         self.balancer = balancer
         self.identity_secret = identity_secret
         self.client = httpx.AsyncClient(transport=transport, follow_redirects=False)
@@ -74,22 +86,32 @@ class Proxy:
             return JSONResponse({"detail": refused.detail}, status_code=refused.status,
                                 headers={**refused.headers, edge.REQUEST_ID: request_id})
 
+    async def table(self) -> List[GatewayRoute]:
+        """The routes as they stand now."""
+        if self._table is None:
+            return self.routes
+        return await self._table()
+
     async def _handle(self, request, request_id: str) -> Any:
         path = request.url.path
-        route = match(self.routes, path)
+        route = match(await self.table(), path)
         if route is None:
-            raise _Refused(404, "no gateway route for this path")
+            return _elsewhere(request)
         method = request.method.upper()
         if method not in route.methods:
             raise _Refused(405, f"route '{route.id}' does not open {method}",
                            {"Allow": ", ".join(route.methods)})
 
         added = dict(route.headers)
+        caller = None
         if route.signed_in:
             subject = await self._signed_in(request, route, method)
-            added.update(sign_identity(caller_of(subject), self.identity_secret, request_id))
+            caller = caller_of(subject)
+            added.update(sign_identity(caller, self.identity_secret, request_id))
 
         body = await _body(request, route.max_body_bytes)
+        if route.handler is not None:
+            return await _call_local(route, request, body, caller, request_id)
         outgoing = edge.to_upstream(
             request.headers.items(),
             client_host=request.client.host if request.client else "",
@@ -169,6 +191,72 @@ class Proxy:
         if not allowed:
             raise _Refused(403, "not allowed")
         return subject
+
+
+async def _call_local(route: GatewayRoute, request, body: bytes, caller, request_id: str):
+    """Answer a request by calling the handler a plugin of this runtime registered."""
+    from dataclasses import replace
+
+    call = LocalCall(
+        method=request.method.upper(),
+        path=route.upstream_path(request.url.path),
+        query=dict(request.query_params),
+        headers={name: value for name, value in edge.to_upstream(
+            request.headers.items(), client_host="", scheme=request.url.scheme,
+            host=request.headers.get("host", ""), prefix=route.prefix,
+            request_id=request_id)},
+        body=body,
+        caller=replace(caller, request_id=request_id) if caller is not None else None,
+        request_id=request_id,
+        route=route.id,
+    )
+    try:
+        value = route.handler(call)
+        if inspect.isawaitable(value):
+            value = await value
+    except HTTPException as error:
+        raise _Refused(error.status_code, str(error.detail or ""), dict(error.headers or {}))
+    except Exception:  # noqa: BLE001 - a service's failure is a 502, not the gateway's crash
+        logger.exception("Gateway route %s: the local service failed", route.id)
+        raise _Refused(502, f"route '{route.id}': the service failed")
+    return answer_of(value, request_id)
+
+
+def _elsewhere(request):
+    """What a path no gateway route covers is: another route's, or nobody's.
+
+    The fallback route is mounted after everything the application answers, so it
+    sees only what the routes before it did not take. A route that was mounted
+    after it -- a plugin started later -- still gets its request: it is handed on.
+    A path some route answers for another method is a 405, as it was before the
+    gateway was installed; anything else is the 404 FastAPI would have answered.
+    """
+    app = request.scope.get("app")
+    allowed: List[str] = []
+    for candidate in getattr(getattr(app, "router", None), "routes", []) or []:
+        if getattr(candidate, "path", None) == FALLBACK_PATH:
+            continue
+        found, child = candidate.matches(request.scope)
+        if found == Match.FULL:
+            return _HandedOn(candidate, child)
+        if found == Match.PARTIAL:
+            allowed.extend(sorted(getattr(candidate, "methods", None) or ()))
+    if allowed:
+        raise _Refused(405, "Method Not Allowed", {"Allow": ", ".join(dict.fromkeys(allowed))})
+    raise _Refused(404, "Not Found")
+
+
+class _HandedOn(Response):
+    """A request handed to the route that answers it, as the router would have."""
+
+    def __init__(self, route, child_scope):
+        super().__init__()
+        self._route = route
+        self._child = child_scope
+
+    async def __call__(self, scope, receive, send):
+        scope.update(self._child)
+        await self._route.handle(scope, receive, send)
 
 
 async def _body(request, limit: int) -> bytes:

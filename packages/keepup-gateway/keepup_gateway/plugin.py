@@ -1,45 +1,72 @@
 """The gateway as a capability: one way in for the application's services.
 
-The table is the plugin's `config`. Each route is mounted as two declarations of
-the HTTP transport's ``raw_request`` kind -- the prefix itself and everything
-below it -- rather than as one catch-all: a catch-all mounted before the
-framework's own routes would cover them, and one mounted after would never be
-reached. The handler then chooses the longest matching prefix again from the full
-path, so the answer does not depend on the order the transport mounted them in.
+A route comes from one of three places. The plugin's `config` names the fixed
+ones; each is mounted as two declarations of the HTTP transport's ``raw_request``
+kind -- the prefix and everything below it. A service that registers itself
+(`registry.py`) and a plugin of this runtime that serves in process (`local.py`)
+are not known when the transport mounts the routes, so they are reached through
+one fallback route that receives only what nobody else answers: the plugin starts
+last (its priority) and the fallback is the last route it declares. The handler
+chooses the longest matching prefix from all three, so the answer does not depend
+on the order anything was mounted in.
 
 A table the gateway cannot serve leaves the plugin failed, with the reason in the
 plugins' report, and mounts none of its routes: a half-served table would answer
 some prefixes and drop others without saying so.
 
 The same plugin is what an application *behind* a gateway installs. With an
-`identity_secret` and no routes of its own it answers `GET /api/gateway/self` --
-its runtime's report -- to the gateway's signed identity of an administrator, and
-that is what the gateway's panel section shows as the application's card
-(`applications.py`).
+`identity_secret` it answers `GET /api/gateway/self` -- its runtime's report -- to
+the gateway's signed identity of an administrator (`applications.py`); with an
+`announce` section it registers itself with that gateway (`announcer.py`).
 """
 
 import logging
 import os
 import re
+from dataclasses import replace
 from pathlib import Path
-from typing import Any, Dict, List, Optional
+from typing import Any, Callable, Dict, List, Optional
 
+from keepup.instance import get_instance_id
+from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.descriptor import KIND_OPTIONAL, PluginDescriptor
 from keepup.plugins.base import BasePlugin
+from keepup_gateway.announcer import REGISTER_PATH, Announcer, parse_announce
 from keepup_gateway.applications import ADMIN_ROLE, SELF_PATH, Prober, describe_self
 from keepup_gateway.balancer import Balancer
 from keepup_gateway.identity import IdentityError, caller_of, verify_identity
-from keepup_gateway.proxy import Proxy
-from keepup_gateway.table import ADMIN_PREFIX, ALL_METHODS, TableError, parse_table
+from keepup_gateway.proxy import FALLBACK_PATH, Proxy
+from keepup_gateway.registry import (
+    ACTION_DEREGISTER,
+    ACTION_REGISTER,
+    Registry,
+    RegistrationError,
+    declared_table,
+    verify_registration,
+)
+from keepup_gateway.table import (
+    ADMIN_PREFIX,
+    ALL_METHODS,
+    DEFAULT_MAX_BODY_BYTES,
+    SOURCE_LOCAL,
+    GatewayRoute,
+    TableError,
+    parse_route,
+    parse_table,
+)
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["GatewayPlugin", "GatewayService", "SERVICE_GATEWAY", "ADMIN_PERMISSION"]
+__all__ = ["GatewayPlugin", "GatewayService", "SERVICE_GATEWAY", "ADMIN_PERMISSION",
+           "PRIORITY"]
 
-#: What another plugin asks for to read the table or its state.
+#: What another plugin asks for to register a local service or read the table.
 SERVICE_GATEWAY = "gateway"
-#: The right the administrator's report asks for.
+#: The right the administrator's reports ask for.
 ADMIN_PERMISSION = "gateway.admin"
+#: Last of the plugins, so the fallback is the last route the transport mounts and
+#: every local service has registered by the time the routes are collected.
+PRIORITY = 10_000
 #: Where the panel section's script is served from: this distribution's own
 #: route, since the panel's static directory belongs to keepup-http.
 SECTION_SCRIPT = "/keepup-gateway/gateway.js"
@@ -56,29 +83,79 @@ SECTION = {
     "adminOnly": True,
     "version": "1.0.0",
 }
+#: The largest registration body: a name, a prefix, an address and a few keys.
+REGISTRATION_MAX_BYTES = 16 * 1024
 #: A whole value of the form ${NAME} is read from the environment.
 _ENV_REFERENCE = re.compile(r"^\$\{([A-Za-z_][A-Za-z0-9_]*)\}$")
 
 
 class GatewayService:
-    """The table and what this replica knows about its addresses."""
+    """The table from all three sources, and what this replica knows of its addresses.
+
+    Args:
+        routes: the config's routes.
+        balancer: the turn and the cooldowns.
+    """
 
     def __init__(self, routes, balancer: Balancer):
         self.routes = list(routes)
+        self.local: List[GatewayRoute] = []
         self.balancer = balancer
+        self.registry: Optional[Registry] = None
 
-    def report(self) -> Dict[str, Any]:
+    def register_local(self, name: str, prefix: str, handler: Callable[..., Any], *,
+                       methods=None, auth: str = "none", permission: Optional[str] = None,
+                       strip_prefix: bool = False,
+                       max_body_bytes: int = DEFAULT_MAX_BODY_BYTES) -> GatewayRoute:
+        """Serve a prefix by calling a handler of this runtime, without a proxy.
+
+        A plugin calls this from its ``initialize``; the handler receives a
+        :class:`keepup_gateway.local.LocalCall`.
+
+        Raises:
+            TableError: for a route that cannot be served, or a prefix that
+                another route already holds.
+        """
+        if not callable(handler):
+            raise TableError(f"gateway route 'local:{name}': the handler is not callable")
+        entry = {"id": f"local:{name}", "prefix": prefix, "upstreams": ["http://in-process"],
+                 "auth": auth, "permission": permission, "strip_prefix": strip_prefix,
+                 "max_body_bytes": max_body_bytes}
+        if methods is not None:
+            entry["methods"] = methods
+        route = parse_route(entry)
+        owner = self.reserved(route.prefix)
+        if owner is not None:
+            raise TableError(f"gateway route 'local:{name}': the prefix {route.prefix} is "
+                             f"taken by {owner}")
+        route = replace(route, upstreams=(), source=SOURCE_LOCAL, handler=handler)
+        self.local.append(route)
+        return route
+
+    def reserved(self, prefix: str) -> Optional[str]:
+        """Who already holds a prefix in the config or in process, or None."""
+        for route in self.routes + self.local:
+            if route.prefix == prefix:
+                return f"route '{route.id}'"
+        return None
+
+    async def table(self) -> List[GatewayRoute]:
+        """Every route the gateway answers right now."""
+        registered = await self.registry.routes() if self.registry is not None else []
+        return self.routes + self.local + list(registered)
+
+    async def report(self) -> Dict[str, Any]:
         """Every route and the state of each of its addresses, in this replica."""
         return {"routes": [
             {**route.describe(),
              "upstreams": [self.balancer.state(route.id, address)
                            for address in route.upstreams]}
-            for route in sorted(self.routes, key=lambda item: item.prefix)
+            for route in sorted(await self.table(), key=lambda item: item.prefix)
         ]}
 
 
 class GatewayPlugin(BasePlugin):
-    """The capability: a route table, a proxy, a balancer and the edge's sign-in."""
+    """The capability: a route table, a proxy, a balancer, a registry and the edge."""
 
     descriptor = PluginDescriptor(
         id="gateway",
@@ -86,10 +163,10 @@ class GatewayPlugin(BasePlugin):
         version="0.5.0",
         distribution="keepup-gateway",
         kind=KIND_OPTIONAL,
-        priority=80,
+        priority=PRIORITY,
         provides=("gateway>=1",),
-        wants=("auth>=1", "permissions>=1"),
-        contributions=("routes", "sections"),
+        wants=("auth>=1", "permissions>=1", "datasource>=1"),
+        contributions=("routes", "sections", "tables"),
     )
 
     def __init__(self, config=None, transport=None):
@@ -97,33 +174,42 @@ class GatewayPlugin(BasePlugin):
         self._transport = transport
         self.service: Optional[GatewayService] = None
         self.proxy: Optional[Proxy] = None
-        self._error: Optional[str] = None
-        self.identity_secret = ""
         self.prober: Optional[Prober] = None
+        self.announcer: Optional[Announcer] = None
+        self.identity_secret = ""
+        self.registry_enabled = False
+        self._announce: Optional[Dict[str, Any]] = None
+        self._error: Optional[str] = None
         try:
             self._build()
         except TableError as error:
             self._error = str(error)
 
     def _build(self) -> None:
-        """The table, the balancer and the proxy, from the config."""
+        """The table, the balancer, the proxy and the announcement, from the config."""
         routes = parse_table(self.config.get("routes"))
         secret = _resolved(self.config.get("identity_secret"))
-        if any(route.signed_in for route in routes) and not secret:
-            raise TableError("gateway: a route asks for sign-in, and identity_secret is not "
-                             "set -- the services behind it could not check who is calling")
-        if any(route.application for route in routes) and not secret:
-            raise TableError("gateway: a route stands for an application, and identity_secret "
-                             "is not set -- the application would not tell its state to anybody")
+        registry = self.config.get("registry") or {}
+        if not isinstance(registry, dict):
+            raise TableError("gateway: registry must be an object")
+        self.registry_enabled = bool(registry.get("enabled", False))
+        self._announce = parse_announce(self.config.get("announce"))
+        for needs, what in ((any(route.signed_in for route in routes), "a route asks for sign-in"),
+                            (any(route.application for route in routes),
+                             "a route stands for an application"),
+                            (self.registry_enabled, "the registry is enabled"),
+                            (self._announce is not None, "the application announces itself")):
+            if needs and not secret:
+                raise TableError(f"gateway: {what}, and identity_secret is not set")
         self.identity_secret = secret or ""
         balancer = Balancer()
         self.service = GatewayService(routes, balancer)
-        self.proxy = Proxy(routes, balancer, identity_secret=self.identity_secret,
+        self.proxy = Proxy(self.service.table, balancer, identity_secret=self.identity_secret,
                            transport=self._transport)
         self.prober = Prober(self.proxy.client, self.identity_secret)
 
     def register(self, services):
-        """Publish the table when it could be built.
+        """Publish the gateway when it could be built, so plugins register local services.
 
         Args:
             services: the runtime's registry.
@@ -132,24 +218,43 @@ class GatewayPlugin(BasePlugin):
             services.provide(SERVICE_GATEWAY, self.service, version=1, plugin_id="gateway")
 
     async def initialize(self) -> bool:
-        """Refuse to run a table that cannot be served, naming the route."""
+        """Refuse a table that cannot be served; open the registry; start announcing."""
         if self._error is not None:
             raise TableError(self._error)
-        logger.info("Gateway: %d routes", len(self.service.routes))
+        if self.registry_enabled:
+            services = getattr(self, "services", None)
+            if services is None or not services.has(SERVICE_DATASOURCE):
+                raise TableError("gateway: the registry keeps its records in the database, "
+                                 "and this deployment has no datasource")
+            self.service.registry = Registry(services.require(SERVICE_DATASOURCE),
+                                             self.service.reserved)
+        if self._announce is not None:
+            self.announcer = Announcer(self._announce, self.identity_secret,
+                                       transport=self._transport)
+            self.announcer.start()
+        logger.info("Gateway: %d routes from the config, %d local, registry %s",
+                    len(self.service.routes), len(self.service.local),
+                    "on" if self.registry_enabled else "off")
         return True
 
     async def cleanup(self):
-        """Close the connections to the services."""
+        """Take this application's address back and close the connections."""
+        if self.announcer is not None:
+            await self.announcer.stop()
         if self.proxy is not None:
             await self.proxy.aclose()
+
+    def get_declared_tables(self) -> List[Any]:
+        """The registry's table, when the registry is on."""
+        return [declared_table()] if self.registry_enabled and self._error is None else []
 
     def get_panel_sections(self) -> List[Dict[str, Any]]:
         """The section that shows the routes and the applications behind them."""
         return [dict(SECTION)]
 
     def get_api_routes(self) -> List[Dict[str, Any]]:
-        """The reports, the section's script, this application's own card, and
-        two declarations per route."""
+        """The reports, the script, the card, the registry, the config's routes and,
+        last, the fallback."""
         declared: List[Dict[str, Any]] = [
             {"path": f"{ADMIN_PREFIX}/routes", "methods": ["GET"],
              "handler": self.routes_report, "permission": ADMIN_PERMISSION},
@@ -166,19 +271,26 @@ class GatewayPlugin(BasePlugin):
         if self.identity_secret:
             declared.append({"path": SELF_PATH, "methods": ["GET"], "handler": self.self_card,
                              "raw_request": True, "include_in_schema": False})
+        if self.registry_enabled:
+            declared.append({"path": REGISTER_PATH, "methods": ["POST", "DELETE"],
+                             "handler": self.registration, "raw_request": True,
+                             "include_in_schema": False,
+                             "max_body_bytes": REGISTRATION_MAX_BYTES})
         for route in self.service.routes:
             for path in (route.prefix, route.prefix + "/{path:path}"):
-                declared.append({
-                    "path": path,
-                    "methods": list(ALL_METHODS),
-                    "handler": self.handle,
-                    "raw_request": True,
-                    "include_in_schema": False,
-                    # The gateway reads the body itself, up to the route's own
-                    # limit; the application's general limit does not apply.
-                    "max_body_bytes": route.max_body_bytes,
-                })
+                declared.append(self._passing(path, route.max_body_bytes))
+        if self.registry_enabled or self.service.local:
+            largest = max([DEFAULT_MAX_BODY_BYTES]
+                          + [route.max_body_bytes for route in self.service.local])
+            declared.append(self._passing(FALLBACK_PATH, largest))
         return declared
+
+    def _passing(self, path: str, limit: int) -> Dict[str, Any]:
+        """A declaration the gateway answers by passing the request on."""
+        return {"path": path, "methods": list(ALL_METHODS), "handler": self.handle,
+                "raw_request": True, "include_in_schema": False,
+                # The gateway reads the body itself, up to the route's own limit.
+                "max_body_bytes": limit}
 
     def get_handlers(self) -> Dict[str, Any]:
         """What another plugin may reach instead of importing this one."""
@@ -190,7 +302,7 @@ class GatewayPlugin(BasePlugin):
 
     async def routes_report(self, current_user=None):
         """The table and the state of every address."""
-        return self.service.report() if self.service is not None else {"routes": []}
+        return await self.service.report() if self.service is not None else {"routes": []}
 
     async def applications_report(self, current_user=None):
         """A card for every address of every application route, asked as the
@@ -198,7 +310,7 @@ class GatewayPlugin(BasePlugin):
         if self.service is None:
             return {"applications": []}
         caller = caller_of(current_user or {})
-        return {"applications": await self.prober.cards(self.service.routes,
+        return {"applications": await self.prober.cards(await self.service.table(),
                                                         self.service.balancer, caller)}
 
     async def section_script(self):
@@ -217,6 +329,53 @@ class GatewayPlugin(BasePlugin):
             return JSONResponse({"detail": "an administrator's identity is required"},
                                 status_code=403)
         return JSONResponse(describe_self(self.plugin_manager))
+
+    async def registration(self, request):
+        """A service registers an address (POST) or takes it back (DELETE)."""
+        import json
+
+        from fastapi.responses import JSONResponse
+
+        action = ACTION_REGISTER if request.method.upper() == "POST" else ACTION_DEREGISTER
+        body = await request.body()
+        try:
+            if len(body) > REGISTRATION_MAX_BYTES:
+                raise RegistrationError("the registration is too large", 413)
+            verify_registration(self.identity_secret, action, request.headers, body)
+            try:
+                record = json.loads(body or b"{}")
+            except ValueError:
+                raise RegistrationError("the registration is not JSON")
+            if not isinstance(record, dict):
+                raise RegistrationError("the registration must be an object")
+            if action == ACTION_DEREGISTER:
+                removed = await self.service.registry.deregister(record)
+                return JSONResponse({"removed": removed})
+            prefix = record.get("prefix")
+            if isinstance(prefix, str) and _answered_here(request, prefix):
+                raise RegistrationError(
+                    f"the application itself answers {prefix}: a service registered there "
+                    "would never be reached", 409)
+            accepted = await self.service.registry.register(record, get_instance_id())
+            return JSONResponse(accepted)
+        except RegistrationError as error:
+            return JSONResponse({"detail": str(error)}, status_code=error.status)
+
+
+def _answered_here(request, prefix: str) -> bool:
+    """Whether a route of the application, not the gateway's, answers a prefix."""
+    from starlette.routing import Match
+
+    app = request.scope.get("app")
+    scope = {"type": "http", "path": prefix.rstrip("/") or "/", "method": "GET",
+             "root_path": "", "path_params": {}}
+    for candidate in getattr(getattr(app, "router", None), "routes", []) or []:
+        if getattr(candidate, "path", None) == FALLBACK_PATH:
+            continue
+        found, _ = candidate.matches(scope)
+        if found != Match.NONE:
+            return True
+    return False
 
 
 def _resolved(value: Any) -> Optional[str]:

@@ -7,7 +7,7 @@ into a 404 that somebody reports a week later. Pure: no network, no FastAPI.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Iterable, List, Mapping, Optional, Sequence, Tuple
+from typing import Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple
 from urllib.parse import urlsplit
 
 __all__ = [
@@ -16,11 +16,21 @@ __all__ = [
     "ADMIN_PREFIX",
     "ALL_METHODS",
     "IDEMPOTENT_METHODS",
+    "SOURCE_CONFIG",
+    "SOURCE_REGISTERED",
+    "SOURCE_LOCAL",
     "GatewayRoute",
     "TableError",
     "parse_table",
+    "parse_route",
     "match",
 ]
+
+#: Where a route came from: the plugin's config, a service that registered
+#: itself over HTTP, or a plugin of this runtime that handles it in process.
+SOURCE_CONFIG = "config"
+SOURCE_REGISTERED = "registered"
+SOURCE_LOCAL = "local"
 
 AUTH_NONE = "none"
 AUTH_SESSION = "session"
@@ -33,6 +43,7 @@ IDEMPOTENT_METHODS = frozenset({"GET", "HEAD", "OPTIONS", "PUT", "DELETE"})
 
 #: The gateway's own addresses; a route may not cover them.
 ADMIN_PREFIX = "/api/admin/gateway"
+OWN_PREFIXES = (ADMIN_PREFIX, "/api/gateway", "/keepup-gateway")
 
 DEFAULT_TIMEOUT_SECONDS = 30.0
 DEFAULT_CONNECT_TIMEOUT_SECONDS = 5.0
@@ -63,6 +74,8 @@ class GatewayRoute:
         headers: headers added to every request of this route.
         application: whether a keepup application stands behind the route, so
             the panel shows a card of it (`applications.py`).
+        source: ``config``, ``registered`` or ``local``.
+        handler: for a local route, the callable of this runtime that answers it.
     """
 
     id: str
@@ -78,6 +91,8 @@ class GatewayRoute:
     max_body_bytes: int = DEFAULT_MAX_BODY_BYTES
     headers: Mapping[str, str] = field(default_factory=dict)
     application: bool = False
+    source: str = SOURCE_CONFIG
+    handler: Optional[Callable[..., Any]] = field(default=None, compare=False, repr=False)
 
     @property
     def signed_in(self) -> bool:
@@ -107,6 +122,7 @@ class GatewayRoute:
             "timeout": self.timeout,
             "max_body_bytes": self.max_body_bytes,
             "application": self.application,
+            "source": self.source,
         }
 
 
@@ -139,6 +155,17 @@ def parse_table(entries: Optional[Iterable[Mapping[str, Any]]]) -> List[GatewayR
     return sorted(routes, key=lambda route: len(route.prefix), reverse=True)
 
 
+def parse_route(entry: Mapping[str, Any], index: int = 0) -> GatewayRoute:
+    """One entry, checked the way the table checks each of its own.
+
+    Raises:
+        TableError: naming the route.
+    """
+    if not isinstance(entry, Mapping):
+        raise TableError(f"gateway route #{index + 1} is not an object")
+    return _route(entry, index)
+
+
 def match(routes: Sequence[GatewayRoute], path: str) -> Optional[GatewayRoute]:
     """The route with the longest prefix covering the path, or None.
 
@@ -165,10 +192,10 @@ def _route(entry: Mapping[str, Any], index: int) -> GatewayRoute:
                          "and the framework's own routes")
     if ".." in prefix.split("/") or "{" in prefix or "}" in prefix:
         raise TableError(f"gateway route '{name}': the prefix {prefix} is not a plain path")
-    if prefix == ADMIN_PREFIX or prefix.startswith(ADMIN_PREFIX + "/") \
-            or ADMIN_PREFIX.startswith(prefix + "/"):
-        raise TableError(f"gateway route '{name}': the prefix {prefix} covers the "
-                         f"gateway's own {ADMIN_PREFIX}")
+    for own in OWN_PREFIXES:
+        if prefix == own or prefix.startswith(own + "/") or own.startswith(prefix + "/"):
+            raise TableError(f"gateway route '{name}': the prefix {prefix} covers the "
+                             f"gateway's own {own}")
 
     upstreams = entry.get("upstreams", entry.get("upstream"))
     if isinstance(upstreams, str):

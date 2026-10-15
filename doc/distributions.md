@@ -17,7 +17,7 @@ distribution of its own, and each declares the plugin it brings in the
 | `keepup-audit` | `audit, events` | nothing beyond the abstraction |
 | `keepup-metrics` | `metrics` | prometheus-client>=0.24, psutil>=7.0 |
 | `keepup-integration-log` | `integration_log` | nothing beyond the abstraction |
-| `keepup-gateway` | `gateway` | fastapi, starlette>=1.3.1,<2, httpx>=0.28,<1 -- and not the abstraction: it stores nothing |
+| `keepup-gateway` | `gateway` | fastapi, starlette>=1.3.1,<2, httpx>=0.28,<1, and the abstraction for the registry's records |
 
 ## The graph points one way
 

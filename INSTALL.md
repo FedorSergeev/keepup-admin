@@ -57,7 +57,7 @@ distribution, and the distribution declares the libraries it needs in turn:
 | `log_shipping` | `keepup-log-shipping` | the queue, the retries and the remote log | requests, urllib3 |
 | `http` | `keepup-http` | the application, the routes, the panel shell | FastAPI, Starlette, pydantic |
 | `integration_log` | `keepup-integration-log` | the log of what other systems asked | FastAPI, SQLAlchemy |
-| `gateway` | `keepup-gateway` | one way in for the application's services: routes, proxy, balancer, sign-in at the edge | FastAPI, Starlette, httpx |
+| `gateway` | `keepup-gateway` | one way in for the application's services: routes, a registry of services, proxy, balancer, sign-in at the edge | FastAPI, Starlette, httpx, SQLAlchemy |
 | `panel` | -- | every capability the panel profile enables | the twelve capabilities above, not the two drivers and not the gateway |
 
 `panel` names distributions, not libraries: pip resolves each of them and each

@@ -52,9 +52,13 @@ The routes are the plugin's `config`:
 | `headers` | headers added to every request of the route | none |
 | `application` | a keepup application stands behind it: the panel shows its card | `false` |
 
+Beside `routes` the config takes `identity_secret`, `registry` (`{"enabled":
+true}` keeps a registry of services) and `announce` (this application registers
+itself with a gateway) -- both below.
+
 `identity_secret` is what the caller's headers are signed with; a whole value
 `${NAME}` is read from the environment. A route that asks for sign-in or stands
-for an application is refused without it.
+for an application, the registry and an announcement are refused without it.
 
 **The table is checked at the start.** A route with the prefix `/` (it would
 cover the panel and the framework's own routes), `..` in the prefix, no address,
@@ -68,9 +72,104 @@ prefixes and drop others without saying so.
 and `/orders/7`, not `/orders-archive`. Each route is mounted as two declarations
 of the HTTP transport's `raw_request` kind -- the prefix and everything below it
 -- and the handler chooses the route again from the full path, so a nested route
-wins whichever of the two the transport mounted first. There is no catch-all: one
-mounted before the framework's routes would cover them, one mounted after would
-never be reached.
+wins whichever of the two the transport mounted first.
+
+## Three sources of routes
+
+| Source | Where it comes from | How it is answered |
+| --- | --- | --- |
+| `config` | the plugin's `routes` | proxied |
+| `registered` | a service that registered itself with the registry | proxied |
+| `local` | a plugin of this runtime that called `register_local` | its handler is called |
+
+The config's routes are known when the transport mounts the routes; the other two
+are not -- a service registers while the application runs, and a plugin registers
+from its own `initialize`. They are reached through one **fallback** route,
+`/{gateway_path:path}`, declared only when the registry is on or a local service
+exists. It receives only what nobody else answers: the plugin's priority is
+10000, so it starts last, every local service has registered by then, and the
+fallback is the last route the transport mounts. Matching then runs over all
+three sources at once, longest prefix first.
+
+What the fallback receives and no gateway route covers is answered as it was
+before the gateway was installed: a path another route answers for a different
+method is a 405 with `Allow`, anything else FastAPI's 404 `{"detail": "Not
+Found"}`. A route some plugin mounted after the fallback -- one with a still
+higher priority -- is not lost either: the fallback finds it and hands the
+request on.
+
+## Services that register themselves
+
+The gateway with `"registry": {"enabled": true}` keeps a registry of services. A
+service is a keepup application with `keepup-gateway` and an `announce` section:
+
+```json
+{"id": "gateway", "enabled": true, "config": {
+  "identity_secret": "${GATEWAY_IDENTITY_SECRET}",
+  "announce": {"gateway": "http://front:8000", "name": "orders", "prefix": "/api/orders",
+               "address": "http://orders-1:8000", "ttl": 30, "interval": 10,
+               "auth": "session"}
+}}
+```
+
+It registers at the start and again every `interval` seconds (a third of `ttl`
+by default; it must be shorter, or the record would run out between two
+announcements), and takes its address back on a normal stop. A record lives for
+its `ttl` (at most 300 s): a service that crashed leaves the table by itself. The
+announcement may carry the route's own keys -- `methods`, `strip_prefix`,
+`auth`, `permission`, `timeout`, `connect_timeout`, `max_body_bytes` -- and is
+always an application, so the panel shows its card. Several replicas of a
+service register one name with different addresses, and the gateway takes them
+in turn like the addresses of a config route.
+
+`POST /api/gateway/services` registers, `DELETE` takes an address back. Both are
+**signed**: HMAC-SHA256 with `identity_secret` over the action, the moment and a
+digest of the body, in `X-Gateway-Registration-Timestamp` and
+`X-Gateway-Registration-Signature`; an unsigned, altered or minute-old
+registration is a 401. Without the secret anybody could put an address into the
+table and receive somebody else's traffic.
+
+A registration is refused with 409 when its prefix is held by a config route, a
+local service or another live service, or when the application itself answers it
+-- a service registered there would never be reached -- and with 400 when it
+could not be served (the same checks as the config's routes).
+
+The records are in the database, table `gateway_service`: the gateway runs in
+several replicas and a registration reaches one of them. Each replica reads the
+live records again at most every two seconds. The registry therefore needs the
+`datasource` service; a gateway with the registry on and no database stays down
+with that reason in the plugins' report.
+
+## Plugins served in process
+
+A subsystem does not have to be a process of its own. A plugin of the same
+runtime asks for the `gateway` service and registers a handler:
+
+```python
+class OrdersPlugin(BasePlugin):
+    descriptor = PluginDescriptor(id="orders", wants=("gateway>=1",), ...)
+
+    async def initialize(self):
+        if self.services.has("gateway"):
+            self.services.require("gateway").register_local(
+                "orders", "/api/orders", self.serve, strip_prefix=True, auth="session")
+        return True
+
+    async def serve(self, call):          # keepup_gateway.LocalCall
+        if call.method == "GET":
+            return {"order": call.path, "for": call.caller.username}
+        raise HTTPException(405)
+```
+
+The request goes through the same table, the same sign-in and right at the edge,
+the same body limit and the same request id -- and no network: the handler is
+called. It receives `method`, `path` (without the prefix when it strips it),
+`query`, `headers` (without the connection's and the gateway's own), `body`,
+`json()`, `caller` (the identity the edge recognised, or None on an open route)
+and `request_id`. It answers with something JSON can carry (200), None (204) or
+a response of its own; `HTTPException` is passed to the client, anything else it
+raises is a 502 and a line in the log. A local prefix that a config route or
+another local service holds is refused when it is registered.
 
 ## Passing on
 
@@ -197,9 +296,5 @@ An address that does not answer is a card that says so, not a page that waits.
 ## Not here yet
 
 - WebSocket through the gateway.
-- Applications that register themselves, and plugins of the same runtime served
-  without a proxy -- the next change.
 - Cooldowns shared between replicas.
 - Rate limits at the edge.
-- Routes another plugin declares rather than the file: the kernel's
-  contribution points are a closed list, and a new one is a change of its own.

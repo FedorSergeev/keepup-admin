@@ -42,7 +42,9 @@ function gatewayRenderRoutes(data) {
             + 'the gateway plugin\'s config.</p>';
     }
     var rows = routes.map(function (route) {
-        var addresses = (route.upstreams || []).map(function (item) {
+        var addresses = route.source === 'local'
+            ? '<div class="text-gray-500">in process</div>'
+            : (route.upstreams || []).map(function (item) {
             var tone = item.state === 'live' ? 'good' : 'warn';
             var note = item.state === 'cooling'
                 ? ' ' + gatewayEscape(item.cooling_seconds) + ' s' : '';
@@ -54,6 +56,7 @@ function gatewayRenderRoutes(data) {
         return '<tr>'
             + '<td class="px-3 py-2 font-mono">' + gatewayEscape(route.prefix) + '</td>'
             + '<td class="px-3 py-2">' + gatewayEscape(route.id) + '</td>'
+            + '<td class="px-3 py-2">' + gatewayEscape(route.source || 'config') + '</td>'
             + '<td class="px-3 py-2">' + addresses + '</td>'
             + '<td class="px-3 py-2">' + gatewayEscape(access) + '</td>'
             + '<td class="px-3 py-2">' + gatewayEscape((route.methods || []).join(', ')) + '</td>'
@@ -61,6 +64,7 @@ function gatewayRenderRoutes(data) {
     }).join('');
     return '<table class="responsive-table min-w-full text-sm"><thead><tr>'
         + '<th class="px-3 py-2 text-left">Prefix</th><th class="px-3 py-2 text-left">Route</th>'
+        + '<th class="px-3 py-2 text-left">Source</th>'
         + '<th class="px-3 py-2 text-left">Addresses</th><th class="px-3 py-2 text-left">Access</th>'
         + '<th class="px-3 py-2 text-left">Methods</th></tr></thead><tbody>' + rows
         + '</tbody></table>';
@@ -70,7 +74,8 @@ function gatewayRenderRoutes(data) {
 function gatewayRenderApplications(data) {
     var applications = (data && data.applications) || [];
     if (!applications.length) {
-        return '<p class="text-gray-500">No route is marked "application": true.</p>';
+        return '<p class="text-gray-500">No application stands behind the gateway: no route is '
+            + 'marked "application": true and no service has registered itself.</p>';
     }
     return applications.map(function (application) {
         var cards = (application.addresses || []).map(gatewayRenderCard).join('');

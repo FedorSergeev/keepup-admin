@@ -256,7 +256,8 @@ def test_an_address_that_takes_no_connection_is_left_out_and_reported():
     assert client.post("/api/shop", content=b"order").json()["host"] == "two"
     assert client.get("/api/shop").json()["host"] == "two"
     assert services.hosts() == ["one", "two", "two"]
-    report = plugin.service.report()["routes"][0]["upstreams"]
+    import asyncio
+    report = asyncio.run(plugin.service.report())["routes"][0]["upstreams"]
     assert report[0]["state"] == "cooling" and report[0]["last_failure"]
     assert report[1]["state"] == "live"
 
@@ -368,7 +369,8 @@ def test_the_report_asks_for_its_right_and_shows_the_table():
     report_route = plugin.get_api_routes()[0]
     assert report_route["path"] == "/api/admin/gateway/routes"
     assert report_route["permission"] == "gateway.admin"
-    report = plugin.service.report()["routes"]
+    import asyncio
+    report = asyncio.run(plugin.service.report())["routes"]
     assert [route["id"] for route in report] == ["shop"]
     assert [item["address"] for item in report[0]["upstreams"]] == \
         ["http://one", "http://two"]

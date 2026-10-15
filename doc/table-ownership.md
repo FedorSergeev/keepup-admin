@@ -20,6 +20,7 @@ it, and the distribution named here is where it goes.
 | `frontend_modules` | `keepup-ui` | the section catalogue the panel keeps |
 | `role_modules` | `keepup-ui` | which role may see which section |
 | `plugin_overrides` | `keepup-modules` | an administrator's decision about a plugin |
+| `gateway_service` | `keepup-gateway` | the services that registered themselves with the gateway, and until when |
 | `integration_logs` | `keepup-integration-log` | moved in keepup-124 |
 | `users` | `keepup-users` | moved in keepup-124 |
 | `user_roles` | `keepup-users` | moved in keepup-124 |
