@@ -103,6 +103,9 @@ cluster = ["keepup-cluster>=0.4.0"]
 log_shipping = ["keepup-log-shipping>=0.4.0"]
 http = ["keepup-http>=0.4.0"]
 integration_log = ["keepup-integration-log>=0.4.0"]
+# The gateway is not part of the panel: it is the way in for services beside the
+# application, installed and enabled by a deployment that has them.
+gateway = ["keepup-gateway>=0.5.0"]
 
 # `pip install keepup-admin[panel,postgres]` is the full admin panel: the
 # capabilities the `panel` profile enables, plus one driver -- one, because two
@@ -189,6 +192,7 @@ source = [
     "keepup_audit",
     "keepup_metrics",
     "keepup_integration_log",
+    "keepup_gateway",
 ]
 # The tests live inside the package, and without this they would count as
 # their own coverage: a test file that has just run is covered almost
@@ -237,7 +241,7 @@ asyncio_default_fixture_loop_scope = "function"
 python_files = ["*_tests.py", "test_*.py"]
 # The directory above the package, so that `import keepup` resolves whether
 # the package sits in its own repository or inside an application's.
-pythonpath = ["..", "packages/keepup-db", "packages/keepup-postgres", "packages/keepup-sqlite", "packages/keepup-auth", "packages/keepup-users", "packages/keepup-ui", "packages/keepup-audit", "packages/keepup-metrics", "packages/keepup-integration-log"]
+pythonpath = ["..", "packages/keepup-db", "packages/keepup-postgres", "packages/keepup-sqlite", "packages/keepup-auth", "packages/keepup-users", "packages/keepup-ui", "packages/keepup-audit", "packages/keepup-metrics", "packages/keepup-integration-log", "packages/keepup-gateway"]
 markers = [
     "slow: a check that takes seconds rather than milliseconds",
 ]

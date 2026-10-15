@@ -161,6 +161,23 @@
       "distribution": "keepup-integration-log"
     },
     {
+      "id": "gateway",
+      "name": "Gateway",
+      "kind": "optional",
+      "priority": 80,
+      "provides": [
+        "gateway>=1"
+      ],
+      "wants": [
+        "auth>=1",
+        "permissions>=1"
+      ],
+      "contributions": [
+        "routes"
+      ],
+      "distribution": "keepup-gateway"
+    },
+    {
       "id": "audit",
       "name": "Event audit",
       "kind": "optional",

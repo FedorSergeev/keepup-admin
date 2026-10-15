@@ -158,7 +158,7 @@ capability against another capability's requirement in the same command:
 
     $PYTHON -m pip uninstall -y keepup-db keepup-auth keepup-users keepup-ui keepup-audit \\
         keepup-metrics keepup-tasks keepup-modules keepup-cluster keepup-log-shipping \\
-        keepup-http keepup-sqlite keepup-postgres keepup-integration-log
+        keepup-http keepup-sqlite keepup-postgres keepup-integration-log keepup-gateway
     for package in packages/keepup-*; do
         $PYTHON -m pip install --no-deps -e "$package"
     done
