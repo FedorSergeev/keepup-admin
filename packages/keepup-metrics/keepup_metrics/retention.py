@@ -22,6 +22,7 @@ from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Any, Dict, List, Optional, Sequence, Tuple
 
+from keepup import clock
 from keepup_metrics.collector import SNAPSHOT_METRIC_NAMES
 from keepup_metrics.api import PANEL_HISTORY_HOURS
 
@@ -126,7 +127,7 @@ class RetentionPolicy:
         Returns:
             A pair (detailed_from, expired_before).
         """
-        now = now or datetime.utcnow()
+        now = now or clock.utcnow()
         return (now - timedelta(hours=self.detailed_hours),
                 now - timedelta(days=self.retention_days))
 

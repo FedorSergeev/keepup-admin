@@ -25,11 +25,11 @@ import asyncio
 import json
 import logging
 import os
-from datetime import datetime
 from typing import Any, Dict
 
 from fastapi import Depends, HTTPException
 
+from keepup import clock
 from keepup_auth import user_roles
 from keepup_auth.dependencies import get_current_admin, get_current_user
 from keepup_audit import trail as admin_trail
@@ -92,12 +92,12 @@ def write_plugin_override(plugin_id: str, enabled: bool, changed_by=None) -> Non
     updated = DatabaseManagerV2.execute_commit(
         "UPDATE plugin_overrides SET enabled = :enabled, changed_by = :who, "
         "changed_at = :now WHERE plugin_id = :pid",
-        {"enabled": enabled, "who": changed_by, "now": datetime.utcnow(), "pid": plugin_id})
+        {"enabled": enabled, "who": changed_by, "now": clock.utcnow(), "pid": plugin_id})
     if not updated:
         DatabaseManagerV2.execute_commit(
             "INSERT INTO plugin_overrides (plugin_id, enabled, changed_by, changed_at) "
             "VALUES (:pid, :enabled, :who, :now)",
-            {"pid": plugin_id, "enabled": enabled, "who": changed_by, "now": datetime.utcnow()})
+            {"pid": plugin_id, "enabled": enabled, "who": changed_by, "now": clock.utcnow()})
 
 
 def clear_plugin_override(plugin_id: str) -> None:

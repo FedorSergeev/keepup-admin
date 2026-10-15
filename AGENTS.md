@@ -175,7 +175,7 @@ def ensure_schema():
   owns: `tables.ensure_columns(...)` -- never a second declaration of the table.
 - Queries: `keepup_db.DatabaseManagerV2` with **named** parameters (`:id`) and
   `get_session()` for transactions; `raw_connection()` when code needs a driver
-  cursor. There is no other way in: the legacy `DatabaseManager` went in 0.2.0.
+  cursor. Times come from `keepup.clock.utcnow()`: UTC, without a timezone.
 
 ## Panel sections and themes
 

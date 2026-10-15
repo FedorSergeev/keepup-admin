@@ -22,6 +22,7 @@ from datetime import datetime, timedelta
 from typing import Optional, List, Dict, Any
 from sqlalchemy import Index
 
+from keepup import clock
 from keepup_db import retention
 from keepup_db import tables
 from keepup_db import DatabaseManagerV2
@@ -266,7 +267,7 @@ class EventManager:
             # reach: a string argument would have left the literal. Nothing
             # exploited it only because the one caller passes an int from a
             # bounded query parameter, and this is a public method (keepup-15).
-            cutoff = datetime.utcnow() - timedelta(days=int(days))
+            cutoff = clock.utcnow() - timedelta(days=int(days))
             deleted_count = await DatabaseManagerV2.execute_commit_async(
                 "DELETE FROM app_events WHERE created_at < :cutoff", {"cutoff": cutoff})
             if deleted_count > 0:

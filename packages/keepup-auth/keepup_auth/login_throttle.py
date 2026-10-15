@@ -17,6 +17,7 @@ from typing import Optional
 
 from sqlalchemy import text
 
+from keepup import clock
 from keepup_db import tables as tables
 from keepup_db import DatabaseManagerV2
 
@@ -84,7 +85,7 @@ def locked_until(username: str, now: Optional[datetime] = None) -> Optional[date
     if not username:
         return None
 
-    now = now or datetime.utcnow()
+    now = now or clock.utcnow()
     try:
         row = _row(username)
     except Exception as error:
@@ -128,7 +129,7 @@ def record_failure(username: str, now: Optional[datetime] = None) -> None:
     if not username:
         return
 
-    now = now or datetime.utcnow()
+    now = now or clock.utcnow()
     try:
         DatabaseManagerV2.execute_commit(
             _RECORD_FAILURE,
@@ -153,7 +154,7 @@ def reserve_attempt(username: str, now: Optional[datetime] = None) -> int:
     """
     if not username:
         return 0
-    now = now or datetime.utcnow()
+    now = now or clock.utcnow()
     try:
         with DatabaseManagerV2.get_session() as session:
             row = session.execute(

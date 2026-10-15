@@ -18,6 +18,7 @@ writing a second one.
 import logging
 from typing import Any, Dict, Optional
 
+from keepup import clock
 from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.descriptor import KIND_OPTIONAL, PluginDescriptor
 from keepup.plugins.base import BasePlugin
@@ -284,9 +285,9 @@ def _filters(host, username, since, until):
 
 def _days_ago(days: int) -> str:
     """A moment this many days ago, as the log stores moments."""
-    from datetime import datetime, timedelta
+    from datetime import timedelta
 
-    return (datetime.utcnow() - timedelta(days=int(days))).strftime("%Y-%m-%d %H:%M:%S")
+    return (clock.utcnow() - timedelta(days=int(days))).strftime("%Y-%m-%d %H:%M:%S")
 
 
 def _total(rows) -> int:

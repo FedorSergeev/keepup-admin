@@ -9,12 +9,13 @@ has run so long that nobody will finish it, and everything goes at shutdown.
     python3 -m pytest keepup/tests/audit_flush_tests.py -v
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
 
 from framework_schema import create_framework_tables
 
+from keepup import clock
 from keepup_audit import audit
 from keepup_db import DatabaseManagerV2, db_config
 
@@ -62,7 +63,7 @@ async def test_a_running_request_survives_a_timed_flush_and_keeps_its_outcome(bu
 
 
 async def test_a_request_nobody_will_finish_is_written_without_an_outcome(buffer):
-    long_ago = datetime.utcnow() - timedelta(seconds=audit.IN_FLIGHT_STALE_SECONDS + 5)
+    long_ago = clock.utcnow() - timedelta(seconds=audit.IN_FLIGHT_STALE_SECONDS + 5)
     await start("/abandoned", started=long_ago)
     await start("/fresh")
 

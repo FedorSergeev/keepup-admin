@@ -21,6 +21,7 @@ import logging
 import os
 from datetime import datetime, timedelta
 from typing import Optional
+from keepup import clock
 
 
 #: What an application may import from this module. Everything else is
@@ -68,7 +69,7 @@ def purge_older_than(table: str, column: str, days: int, chunk_rows: int,
     # framework must not load a database (keepup-127).
     from keepup_db import DatabaseManagerV2
 
-    cutoff = (now or datetime.utcnow()) - timedelta(days=days)
+    cutoff = (now or clock.utcnow()) - timedelta(days=days)
     removed = 0
     for _ in range(max_chunks):
         rows = DatabaseManagerV2.execute(

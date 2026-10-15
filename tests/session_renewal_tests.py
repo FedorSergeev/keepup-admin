@@ -9,7 +9,7 @@ belonging to that account.
     python3 -m pytest keepup/tests/session_renewal_tests.py -v
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from types import SimpleNamespace
 
 import jwt
@@ -17,6 +17,7 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from keepup import clock
 from keepup_auth import dependencies, panel_session
 from keepup_auth.providers.base import ALGORITHM
 from keepup_auth.signing_key import resolve_signing_key
@@ -53,14 +54,14 @@ def bearer(token):
 
 def test_an_old_session_is_renewed_by_neither_door(client):
     user = account("renewal-old")
-    token = token_started(user, datetime.utcnow() - timedelta(days=365))
+    token = token_started(user, clock.utcnow() - timedelta(days=365))
     assert client.post("/api/auth/refresh", headers=bearer(token)).status_code == 401
     assert client.post("/api/auth/session", headers=bearer(token)).status_code == 401
 
 
 def test_a_fresh_session_is_renewed_by_both(client):
     user = account("renewal-fresh")
-    token = token_started(user, datetime.utcnow())
+    token = token_started(user, clock.utcnow())
     assert client.post("/api/auth/refresh", headers=bearer(token)).status_code == 200
     assert client.post("/api/auth/session", headers=bearer(token)).status_code == 200
 
@@ -74,7 +75,7 @@ def test_a_token_without_an_expiry_a_subject_or_a_session_is_refused(client, dro
     user = account("renewal-claims")
     sid = panel_session.open_session(user["id"], timedelta(hours=1))
     claims = {"sub": user["username"], "sid": sid,
-              "exp": datetime.utcnow() + timedelta(hours=1)}
+              "exp": clock.utcnow() + timedelta(hours=1)}
     claims.pop(drop)
     assert client.get("/api/auth/me", headers=bearer(signed(claims))).status_code == 401
 
@@ -83,5 +84,5 @@ def test_a_session_of_another_account_is_refused(client):
     owner, other = account("renewal-owner"), account("renewal-other")
     sid = panel_session.open_session(owner["id"], timedelta(hours=1))
     token = signed({"sub": other["username"], "sid": sid,
-                    "exp": datetime.utcnow() + timedelta(hours=1)})
+                    "exp": clock.utcnow() + timedelta(hours=1)})
     assert client.get("/api/auth/me", headers=bearer(token)).status_code == 401

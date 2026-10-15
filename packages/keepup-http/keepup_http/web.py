@@ -9,12 +9,12 @@ answered -- the detailed one is administrative.
 
 import logging
 import os
-from datetime import datetime
 from pathlib import Path
 
 from fastapi import Depends, HTTPException
 from fastapi.responses import FileResponse, JSONResponse
 
+from keepup import clock
 from keepup.api_versions import describe
 from keepup_audit.audit import incoming_requests_buffer
 from keepup_auth.dependencies import get_current_admin
@@ -167,7 +167,7 @@ def register_web_routes(app):
             return JSONResponse(status_code=503, content={
                 "status": state,
                 "instance_id": get_instance_id(),
-                "timestamp": datetime.utcnow().isoformat(),
+                "timestamp": clock.utcnow().isoformat(),
             })
         try:
             # Taken here, not at the top of the module: importing the framework
@@ -188,7 +188,7 @@ def register_web_routes(app):
             # Which instance answered: how one tells the public address and the stand
             # are the same deployment (doc/stand_update.md). A container name, not an address.
             "instance_id": get_instance_id(),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": clock.utcnow().isoformat(),
         }
     @app.get("/api/versions")
     async def api_versions():
@@ -209,6 +209,6 @@ def register_web_routes(app):
             "status": "healthy" if db_status.get("success") else "unhealthy",
             "database": db_status,
             "instance_id": get_instance_id(),
-            "timestamp": datetime.utcnow().isoformat(),
+            "timestamp": clock.utcnow().isoformat(),
             "incoming_requests_buffer_size": len(incoming_requests_buffer),
         }

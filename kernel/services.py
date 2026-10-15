@@ -11,9 +11,10 @@ provider built that object is its own business
 (``doc/plugin_constructor.md`` sections 4.4 and 14).
 """
 
+import inspect
 import logging
 from dataclasses import dataclass
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Callable, Dict, Iterator, List, Optional, Tuple
 
 logger = logging.getLogger(__name__)
 
@@ -220,8 +221,8 @@ class ServiceRegistry:
         self.check_duplicates()
         self._frozen = True
 
-    def close(self) -> None:
-        """Stop what providers built for themselves, newest first.
+    def _shutdowns(self) -> Iterator[Tuple[str, Callable[[], Any]]]:
+        """What has to be stopped, newest first, with the name to blame.
 
         A provider that published an object with ``stop``, ``close`` or
         ``dispose`` -- the data source's own word for it -- owns its shutdown; a
@@ -230,21 +231,43 @@ class ServiceRegistry:
         for name, instance in reversed(list(self._built.items())):
             stop = (getattr(instance, "stop", None) or getattr(instance, "close", None)
                     or getattr(instance, "dispose", None))
-            if not callable(stop):
-                continue
-            try:
-                stop()
-            except Exception as error:  # noqa: BLE001 - one provider must not stop the rest
-                logger.error("%s: stopping the service failed: %s", name, error)
+            if callable(stop):
+                yield name, stop
         for providers in self._providers.values():
             for provider in providers:
                 stop = (getattr(provider.instance, "stop", None)
                         or getattr(provider.instance, "dispose", None))
                 if callable(stop):
-                    try:
-                        stop()
-                    except Exception as error:  # noqa: BLE001
-                        logger.error("%s: stopping the service failed: %s", provider.name, error)
+                    yield provider.name, stop
+
+    def close(self) -> None:
+        """Stop what providers built, on a process with no loop to await on.
+
+        A shutdown that is a coroutine cannot be awaited here, and it must not be
+        dropped either: that is what left seventy-odd "coroutine 'Transport.stop'
+        was never awaited" warnings in the suite (keepup-161). `aclose()` is the
+        way to close a registry on a loop, and a coroutine met here says so.
+        """
+        for name, stop in self._shutdowns():
+            try:
+                answer = stop()
+                if inspect.isawaitable(answer):
+                    answer.close()
+                    logger.error("%s: stopping it is a coroutine; close the registry "
+                                 "with aclose() instead", name)
+            except Exception as error:  # noqa: BLE001 - one provider must not stop the rest
+                logger.error("%s: stopping the service failed: %s", name, error)
+        self._built.clear()
+
+    async def aclose(self) -> None:
+        """Stop what providers built, newest first, awaiting what is a coroutine."""
+        for name, stop in self._shutdowns():
+            try:
+                answer = stop()
+                if inspect.isawaitable(answer):
+                    await answer
+            except Exception as error:  # noqa: BLE001
+                logger.error("%s: stopping the service failed: %s", name, error)
         self._built.clear()
 
     # --- reporting ----------------------------------------------------------

@@ -6,11 +6,12 @@ plugin to run post_construct on one replica of a set that starts together.
     python3 -m pytest keepup/tests/scheduler_replicas_tests.py -v
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
 
+from keepup import clock
 from keepup_tasks import scheduler as scheduling
 from keepup_db import DatabaseManagerV2
 from keepup.plugins.base import BasePlugin
@@ -117,6 +118,6 @@ async def test_after_the_quiet_window_a_new_rollout_runs_it_again():
     await _post_construct("checking", first)
     DatabaseManagerV2.execute_commit(
         "UPDATE distributed_locks SET acquired_at = :then WHERE lock_name = :name",
-        {"then": datetime.utcnow() - timedelta(seconds=120), "name": "post_construct_checking"})
+        {"then": clock.utcnow() - timedelta(seconds=120), "name": "post_construct_checking"})
     await _post_construct("checking", later)
     assert later.ran == 1

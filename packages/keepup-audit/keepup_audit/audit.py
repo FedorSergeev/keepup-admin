@@ -23,6 +23,7 @@ from datetime import datetime
 from typing import Any, Dict, Optional
 
 
+from keepup import clock
 from keepup_db import retention, tables
 from keepup_db import DatabaseManagerV2, db_config
 from keepup.instance import get_instance_id
@@ -171,7 +172,7 @@ class IncomingRequestLogger:
         from uuid import uuid4
 
         request_id = str(uuid4())
-        request_start = request_start_at or datetime.utcnow()
+        request_start = request_start_at or clock.utcnow()
 
         async with incoming_requests_lock:
             incoming_requests_buffer[request_id] = {
@@ -181,7 +182,7 @@ class IncomingRequestLogger:
                 'host': host,
                 'request_data': redact(request_data),
                 'request_start_at': request_start,
-                'created_at': datetime.utcnow()
+                'created_at': clock.utcnow()
             }
             global dropped_requests
             while len(incoming_requests_buffer) > BUFFER_HARD_LIMIT:
@@ -209,13 +210,13 @@ class IncomingRequestLogger:
                 return False
 
             request = incoming_requests_buffer[request_id]
-            request['request_end_at'] = datetime.utcnow()
+            request['request_end_at'] = clock.utcnow()
 
             if duration_ms is None:
                 start_time = request['request_start_at']
                 if isinstance(start_time, str):
                     start_time = datetime.fromisoformat(start_time.replace('Z', ''))
-                duration_ms = int((datetime.utcnow() - start_time).total_seconds() * 1000)
+                duration_ms = int((clock.utcnow() - start_time).total_seconds() * 1000)
 
             # Only what this call was told, and never over an outcome already
             # recorded. log_api_request() calls this twice -- once with the
@@ -257,7 +258,7 @@ class IncomingRequestLogger:
     @staticmethod
     async def _flush_buffer(include_in_flight: bool, now: Optional[datetime]) -> int:
         global _flush_paused_until, dropped_requests
-        now = now or datetime.utcnow()
+        now = now or clock.utcnow()
         # The buffer lock is taken by the start and the end of every request, so
         # it is held only to pick the rows and take them out -- never across the
         # write, which runs in a worker thread and may take as long as the
@@ -442,7 +443,7 @@ async def log_api_request(
             endpoint=endpoint,
             host=host,
             request_data=request_data,
-            request_start_at=datetime.utcnow()
+            request_start_at=clock.utcnow()
         )
 
         yield request_id

@@ -113,6 +113,17 @@ A deployment upgrades by installing the distributions it uses
 
 ### Fixed
 
+- **The suite runs without warnings (keepup-161).** It carried 7,800 of them:
+  every `datetime.utcnow()` and `utcfromtimestamp()` in the framework -- deprecated
+  as of Python 3.12 -- and the sqlite3 default datetime adapter that every bind
+  went through. Times come from `keepup.clock` now, which keeps the naive UTC
+  shape the tables store; `keepup-db` registers its own adapter in the format the
+  deprecated one wrote, so the text already in a database and the text written now
+  are the same; a provider whose shutdown is a coroutine is awaited
+  (`ServiceRegistry.aclose`, which the lifecycle calls) instead of being dropped
+  with "coroutine was never awaited"; and `pyproject.toml` turns the framework's
+  own deprecations into errors while naming, with a reason, the three upstream
+  ones it ignores.
 - `IN :names`-style statements reached the driver as one bind and failed on a real
   database -- the metrics history query was written against a stub data source
   (keepup-113); both places write one named parameter per name now.

@@ -110,7 +110,10 @@ def _framework_files():
     for path in sorted(PACKAGE.rglob("*.py")):
         parts = path.relative_to(PACKAGE).parts
         if any(part.startswith(".") or part in
-               ("tests", "ci", "openspec", "doc", "packages", "build", "__pycache__")
+               ("tests", "ci", "openspec", "doc", "packages", "build", "__pycache__",
+                # Not the package: the generator that writes projects and the
+                # site that documents them (keepup-161).
+                "initializr", "keepupproject.ru")
                for part in parts):
             continue
         yield path, "/".join(parts)

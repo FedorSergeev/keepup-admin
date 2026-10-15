@@ -17,11 +17,11 @@ second task on the same loop keeps running.
 import ast
 import asyncio
 import time
-from datetime import datetime
 from pathlib import Path
 
 import pytest
 
+from keepup import clock
 from keepup_audit import audit
 from keepup_cluster import cluster
 from keepup import locks
@@ -128,7 +128,7 @@ async def test_a_lock_is_taken_and_released_without_holding_the_loop(slow_databa
 
 async def test_the_audit_flush_writes_without_holding_the_buffer(monkeypatch):
     """The buffer lock is taken by every request; the write is done without it."""
-    now = datetime.utcnow()
+    now = clock.utcnow()
     audit.incoming_requests_buffer.clear()
     audit.incoming_requests_buffer["done"] = {
         "instance_id": "i", "method": "GET", "endpoint": "/x", "host": "h",
@@ -157,7 +157,7 @@ async def test_the_audit_flush_writes_without_holding_the_buffer(monkeypatch):
 
 
 async def test_a_failed_flush_puts_the_rows_back(monkeypatch):
-    now = datetime.utcnow()
+    now = clock.utcnow()
     audit.incoming_requests_buffer.clear()
     audit.incoming_requests_buffer["kept"] = {
         "instance_id": "i", "method": "GET", "endpoint": "/y", "host": "h",
@@ -183,7 +183,7 @@ async def test_the_cluster_heartbeat_does_not_hold_the_loop(monkeypatch):
     async def plugins():
         return cluster.PluginPicture(running=[], pending=[])
     controller._plugins = plugins
-    controller._clock = datetime.utcnow
+    controller._clock = clock.utcnow
     controller.as_member = lambda picture, now: {}
     assert await runs_beside(controller.tick()) < SLOW / 3
 

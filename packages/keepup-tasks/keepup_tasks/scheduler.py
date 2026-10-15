@@ -23,12 +23,12 @@ leave open (keepup-46):
 
 import asyncio
 import logging
-from datetime import datetime
 from typing import Any, Dict, Optional
 
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from fastapi import Depends, HTTPException
 
+from keepup import clock
 from keepup_auth.dependencies import get_current_admin
 
 #: What an application may import from this module. Everything else is
@@ -148,7 +148,7 @@ def trigger_job(job_id: str) -> Dict[str, Any]:
     job = scheduler.get_job(job_id)
     if not job:
         raise HTTPException(status_code=404, detail=f"Job {job_id} not found")
-    job.modify(next_run_time=datetime.utcnow())
+    job.modify(next_run_time=clock.utcnow())
     return {"success": True, "message": f"Job {job_id} triggered manually"}
 
 

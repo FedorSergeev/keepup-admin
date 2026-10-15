@@ -1,7 +1,7 @@
 """A lock's time is written and judged by one clock (keepup-70).
 
 The holder's time was written by the database's CURRENT_TIMESTAMP and compared
-with the application's datetime.utcnow(). With a database zone other than UTC
+with the application's clock.utcnow(). With a database zone other than UTC
 a crashed holder's lock hung for hours longer, or a live one looked stale at
 once and was taken over. The time is now the application's, like the
 comparison.
@@ -17,7 +17,7 @@ import pytest
 
 from framework_schema import create_framework_tables
 
-from keepup import locks
+from keepup import clock, locks
 from keepup_db import DatabaseManagerV2, db_config
 
 
@@ -33,11 +33,8 @@ def fresh_database(tmp_path, monkeypatch):
 
 
 def frozen_at(moment):
-    class Frozen(datetime):
-        @classmethod
-        def utcnow(cls):
-            return moment
-    return Frozen
+    """The application's clock, stopped at a moment (keepup-161)."""
+    return lambda: moment
 
 
 def held_since(name):
@@ -51,20 +48,20 @@ def test_the_holder_s_time_is_the_application_s(fresh_database, monkeypatch):
     """Whatever the database's clock says, the row carries the time the
     application will compare against."""
     moment = datetime(2031, 1, 1, 3, 0, 0)
-    monkeypatch.setattr(locks, "datetime", frozen_at(moment))
+    monkeypatch.setattr(clock, "utcnow", frozen_at(moment))
     assert asyncio.run(locks.DatabaseLock("clock", timeout=5).acquire()) is True
     assert held_since("clock") == moment
 
 
 def test_a_live_lock_is_not_taken_over_and_a_dead_one_is(fresh_database, monkeypatch):
     start = datetime(2031, 1, 1, 3, 0, 0)
-    monkeypatch.setattr(locks, "datetime", frozen_at(start))
+    monkeypatch.setattr(clock, "utcnow", frozen_at(start))
     assert asyncio.run(locks.DatabaseLock("job", timeout=5, max_lock_time=60).acquire())
 
-    monkeypatch.setattr(locks, "datetime", frozen_at(start + timedelta(seconds=30)))
+    monkeypatch.setattr(clock, "utcnow", frozen_at(start + timedelta(seconds=30)))
     assert asyncio.run(locks.DatabaseLock("job", timeout=5, max_lock_time=60).acquire()) is False
 
-    monkeypatch.setattr(locks, "datetime", frozen_at(start + timedelta(seconds=61)))
+    monkeypatch.setattr(clock, "utcnow", frozen_at(start + timedelta(seconds=61)))
     assert asyncio.run(locks.DatabaseLock("job", timeout=5, max_lock_time=60).acquire()) is True
 
 

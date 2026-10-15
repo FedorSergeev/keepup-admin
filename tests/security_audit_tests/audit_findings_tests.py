@@ -21,12 +21,13 @@ import sqlite3
 import statistics
 import sys
 import time
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import httpx
 import pytest
 
+from keepup import clock
 from keepup_auth import dependencies, login_throttle, panel_session, user_roles
 from keepup_db import DatabaseManagerV2
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
@@ -141,7 +142,7 @@ def test_5_an_old_session_is_renewed_by_neither_door(start):
     old = dependencies.create_access_token(
         {"sub": actor.username, panel_session.SESSION_CLAIM: sid},
         expires_delta=timedelta(hours=1),
-        session_started_at=datetime.utcnow() - timedelta(days=365))
+        session_started_at=clock.utcnow() - timedelta(days=365))
     for door in ("/api/auth/refresh", "/api/auth/session"):
         assert running.client.post(door, headers={"Authorization": f"Bearer {old}"}
                                    ).status_code == 401, door

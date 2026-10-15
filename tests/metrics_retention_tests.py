@@ -18,6 +18,7 @@ import pytest
 
 from framework_schema import create_framework_tables
 
+from keepup import clock
 import keepup_metrics as metrics
 from keepup_metrics import api as metrics_api
 from keepup_metrics import retention
@@ -264,7 +265,7 @@ def test_the_history_the_panel_shows_survives_the_sweep(fresh_database, policy):
     out from a fixed date falls out of its window the very next day: the test
     passed on the day it was written and failed from the day after.
     """
-    moment = datetime.utcnow()
+    moment = clock.utcnow()
     series(CPU, moment - timedelta(hours=20), 240)
     series(CPU, moment - timedelta(days=3), 240)
 

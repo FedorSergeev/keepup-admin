@@ -44,17 +44,16 @@ no bcrypt.
 ## Which modules keep a library in the base
 
 A library leaves the base package when the last module that imports it has moved
-into its distribution. Three have left: `psycopg2-binary`, `bcrypt` and
-`pyjwt[crypto]` -- no module of the base imports them any more, and the
-distributions that need them (`keepup-postgres`, `keepup-auth`) declare them in
-their own metadata. What the base still declares is `sqlalchemy`, kept by the
-kernel's schema, which holds the four declarations whose capabilities are 0.5.0
-work -- together with `cryptography` and `urllib3`, the floors for advisories of
-what the remaining dependencies pull in.
+into its distribution. All of them have. `psycopg2-binary`, `bcrypt` and
+`pyjwt[crypto]` left with the driver and the sign-in (keepup-124); `sqlalchemy`
+left with the kernel's schema, which became `keepup-db`'s declarations
+(keepup-151, keepup-158). The base declares no third-party library at all, not
+even FastAPI (keepup-121): every library the framework uses travels with the
+distribution that needs it, and that distribution declares its own floors.
 
 | Library | Its distribution | The base modules that still import it |
 | --- | --- | --- |
-| `sqlalchemy` | `keepup-db` | `schema.py` |
+| -- | -- | none: no module of the base imports a third-party library |
 
 Two checks read the same question out of the code: a library the base declares and
 no module imports fails, and so does a library that has left while a module still

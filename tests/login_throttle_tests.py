@@ -10,10 +10,11 @@ session's throwaway SQLite database, with threads standing in for replicas.
 """
 
 import threading
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
 
+from keepup import clock
 from keepup_auth import login_throttle
 from keepup_db import DatabaseManagerV2
 
@@ -67,7 +68,7 @@ def test_the_lockout_comes_exactly_at_the_limit(monkeypatch):
 
 
 def test_a_failure_after_the_window_starts_the_count_again():
-    long_ago = datetime.utcnow() - login_throttle.lockout_window() - timedelta(minutes=1)
+    long_ago = clock.utcnow() - login_throttle.lockout_window() - timedelta(minutes=1)
     fail_at_once("returning", 5, now=long_ago)
     login_throttle.record_failure("returning")
     assert failures("returning") == 1

@@ -29,9 +29,10 @@ exist yet (keepup-121); the declarations themselves are already here.
 import asyncio
 import logging
 import warnings
-from datetime import datetime, timedelta
+from datetime import timedelta
 from typing import Any, Dict, List, Optional
 
+from keepup import clock
 from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.descriptor import KIND_OPTIONAL, PluginDescriptor
 from keepup.plugins.base import BasePlugin
@@ -316,7 +317,7 @@ class MetricsPlugin(BasePlugin):
 
 def _ago(minutes: int = 0, hours: int = 0) -> str:
     """A moment this far back, as the table stores moments."""
-    moment = datetime.utcnow() - timedelta(minutes=int(minutes), hours=int(hours))
+    moment = clock.utcnow() - timedelta(minutes=int(minutes), hours=int(hours))
     return moment.strftime("%Y-%m-%d %H:%M:%S")
 
 

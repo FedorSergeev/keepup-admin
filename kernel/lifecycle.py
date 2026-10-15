@@ -333,7 +333,7 @@ class Runtime:
                 await maybe_await(cleanup())
             except Exception as error:  # noqa: BLE001 - one plugin must not stop the rest
                 logger.error("Plugin %s did not clean up: %s", plugin_id, error)
-        self.services.close()
+        await self.services.aclose()
         self._init_order.clear()
         self._started = False
 

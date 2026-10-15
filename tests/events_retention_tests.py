@@ -7,11 +7,12 @@ deployment ran. Against the session's throwaway SQLite database.
 """
 
 import asyncio
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import pytest
 
+from keepup import clock
 from keepup_audit import events
 from keepup_db import retention
 from keepup_db import DatabaseManagerV2
@@ -35,7 +36,7 @@ def event_aged(days: int, text: str):
     DatabaseManagerV2.execute_commit(
         "INSERT INTO app_events (event_type, event_text, instance_id, created_at) "
         "VALUES ('check', :text, 'i', :at)",
-        {"text": text, "at": datetime.utcnow() - timedelta(days=days)})
+        {"text": text, "at": clock.utcnow() - timedelta(days=days)})
 
 
 def texts():

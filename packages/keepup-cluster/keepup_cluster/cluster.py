@@ -37,6 +37,7 @@ from typing import Any, Awaitable, Callable, Dict, List, Optional
 from fastapi import Depends, HTTPException
 from fastapi.responses import JSONResponse
 
+from keepup import clock
 from keepup_auth.dependencies import get_current_admin
 from keepup.instance import get_instance_id, get_instance_name
 
@@ -100,7 +101,8 @@ WS_CLOSE_TRY_AGAIN = 1013
 # ================================== rules ==================================
 
 def utcnow() -> datetime:
-    return datetime.utcnow()
+    """Now, in UTC, without a timezone -- see `keepup.clock`."""
+    return clock.utcnow()
 
 
 def _as_datetime(value: Any) -> Optional[datetime]:

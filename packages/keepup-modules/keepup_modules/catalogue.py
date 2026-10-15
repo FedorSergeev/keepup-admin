@@ -639,7 +639,8 @@ def register_module_routes(app):
         """Create a module."""
         try:
             await asyncio.to_thread(create_or_update_module,
-                                    _catalogue_entry(module_data.module_id, module_data.dict()))
+                                    _catalogue_entry(module_data.module_id,
+                                                     module_data.model_dump()))
             await admin_trail.record(admin_trail.SECTIONS_CHANGED, admin,
                                      f"Section {module_data.module_id} created",
                                      action="create", module_id=module_data.module_id)
@@ -660,7 +661,7 @@ def register_module_routes(app):
             raise HTTPException(status_code=404, detail="Module not found")
 
         try:
-            update_data = module_data.dict(exclude_unset=True)
+            update_data = module_data.model_dump(exclude_unset=True)
             # Switching a section off is taking it away: the catalogue keeps the
             # row and reads only active ones, which is what delete does.
             if update_data.pop("is_active", None) is False:

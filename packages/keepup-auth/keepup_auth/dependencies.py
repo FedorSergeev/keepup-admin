@@ -21,6 +21,7 @@ import jwt
 from jwt import PyJWTError as JWTError
 from starlette import status
 
+from keepup import clock
 from keepup_auth.usernames import is_valid_username
 from keepup_auth import panel_session
 from keepup_auth.dto.token import TokenData
@@ -227,15 +228,15 @@ def create_access_token(
 ):
     to_encode = data.copy()
     if expires_delta:
-        expire = datetime.utcnow() + expires_delta
+        expire = clock.utcnow() + expires_delta
     else:
-        expire = datetime.utcnow() + timedelta(minutes=15)
+        expire = clock.utcnow() + timedelta(minutes=15)
     to_encode.update({"exp": expire})
 
     # A renewal carries the beginning of the session forward unchanged. Stamping
     # "now" on every renewal is what made a session endless: each exchange would
     # reset the clock that is supposed to be running out.
-    started = session_started_at or datetime.utcnow()
+    started = session_started_at or clock.utcnow()
     to_encode.setdefault(SESSION_START_CLAIM, int(started.timestamp()))
 
     encoded_jwt = jwt.encode(to_encode, resolve_signing_key(), algorithm=ALGORITHM)
@@ -276,7 +277,7 @@ def _session_start(payload: dict) -> Optional[datetime]:
     if started is None:
         return None
     try:
-        return datetime.utcfromtimestamp(int(started))
+        return clock.utcfromtimestamp(int(started))
     except (TypeError, ValueError, OSError):
         return None
 
@@ -356,7 +357,7 @@ def _token_expiry(payload: dict) -> Optional[datetime]:
     if expires_at is None:
         return None
     try:
-        return datetime.utcfromtimestamp(int(expires_at))
+        return clock.utcfromtimestamp(int(expires_at))
     except (TypeError, ValueError, OSError):
         return None
 

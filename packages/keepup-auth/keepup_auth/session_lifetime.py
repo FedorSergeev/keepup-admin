@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from datetime import datetime, timedelta
 from typing import Optional
+from keepup import clock
 
 #: How long before the end a holder is told to renew. An hour is far longer
 #: than any pause in the agent's work -- it reconnects in seconds and reports
@@ -63,7 +64,7 @@ def is_renewable(
     """
     if session_started_at is None:
         return True
-    now = now or datetime.utcnow()
+    now = now or clock.utcnow()
     return now - session_started_at <= renewal_window(environ)
 
 
@@ -75,7 +76,7 @@ def seconds_left(expires_at: Optional[datetime], now: Optional[datetime] = None)
     """
     if expires_at is None:
         return 0
-    now = now or datetime.utcnow()
+    now = now or clock.utcnow()
     remaining = (expires_at - now).total_seconds()
     return max(0, int(remaining))
 

@@ -10,10 +10,11 @@ Run by path, like the other *_tests.py files:
     python3 -m pytest keepup/tests/audit_outcome_tests.py -v
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 
 import pytest
 
+from keepup import clock
 from keepup_audit import audit
 from keepup_db import DatabaseManagerV2
 
@@ -102,8 +103,8 @@ async def test_the_wrapper_itself_records_the_outcome(empty_buffer):
 
 def test_rows_past_the_retention_period_are_deleted():
     DatabaseManagerV2.execute_commit("DELETE FROM incoming_requests")
-    old = datetime.utcnow() - timedelta(days=90)
-    fresh = datetime.utcnow()
+    old = clock.utcnow() - timedelta(days=90)
+    fresh = clock.utcnow()
 
     for created_at in (old, fresh):
         DatabaseManagerV2.execute_commit(

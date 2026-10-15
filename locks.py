@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 from datetime import datetime, timedelta
 from typing import Any, Dict, List
 
+from keepup import clock
 from keepup.instance import get_instance_id
 
 #: What an application may import from this module. Everything else is
@@ -44,14 +45,14 @@ class DatabaseLock:
         try:
             await self._cleanup_stale_locks()
             # The application's UTC, not the database's CURRENT_TIMESTAMP: the
-            # age of a lock is judged against datetime.utcnow() -- here, in the
+            # age of a lock is judged against clock.utcnow() -- here, in the
             # stale-lock sweep and in the panel -- and a database whose zone is
             # not UTC made a crashed holder's lock hang for hours, or a live one
             # look stale at once (keepup-70).
             result = await DatabaseManagerV2.execute_commit_async('''
             INSERT INTO distributed_locks (lock_name, acquired_at, instance_id)
             VALUES (:lock_name, :acquired_at, :instance_id)
-            ''', {"lock_name": self.lock_name, "acquired_at": datetime.utcnow(),
+            ''', {"lock_name": self.lock_name, "acquired_at": clock.utcnow(),
                   "instance_id": self.instance_id})
 
             if result:
@@ -70,7 +71,7 @@ class DatabaseLock:
         """Clear locks held longer than max_lock_time."""
         from keepup_db import DatabaseManagerV2
         try:
-            cutoff_time = datetime.utcnow() - timedelta(seconds=self.max_lock_time)
+            cutoff_time = clock.utcnow() - timedelta(seconds=self.max_lock_time)
             cleanup_query = '''
             DELETE FROM distributed_locks 
             WHERE lock_name = :lock_name 
@@ -108,7 +109,7 @@ class DatabaseLock:
                 lock_time = lock_time.replace('Z', '')
                 lock_time = datetime.fromisoformat(lock_time)
 
-            time_diff = (datetime.utcnow() - lock_time).total_seconds()
+            time_diff = (clock.utcnow() - lock_time).total_seconds()
 
             if time_diff > self.max_lock_time:
                 logger.warning(f"Lock '{self.lock_name}' expired (held for {time_diff:.1f}s, "
@@ -145,7 +146,7 @@ class DatabaseLock:
             moved = await DatabaseManagerV2.execute_commit_async(
                 "UPDATE distributed_locks SET acquired_at = :now "
                 "WHERE lock_name = :name AND instance_id = :instance",
-                {"now": datetime.utcnow(), "name": self.lock_name,
+                {"now": clock.utcnow(), "name": self.lock_name,
                  "instance": self.instance_id})
             if not moved:
                 # Somebody took it over already: saying so is the point, because
@@ -300,7 +301,7 @@ def lock_stats(now: datetime = None) -> dict:
     the route failed (keepup-40).
     """
     from keepup_db import DatabaseManagerV2
-    now = now or datetime.utcnow()
+    now = now or clock.utcnow()
     total = DatabaseManagerV2.execute_one("SELECT COUNT(*) AS count FROM distributed_locks")
     by_instance = DatabaseManagerV2.execute(
         "SELECT instance_id, COUNT(*) AS lock_count FROM distributed_locks "

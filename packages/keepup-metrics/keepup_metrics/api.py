@@ -20,6 +20,7 @@ from fastapi.responses import Response as FastAPIResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel
 
+from keepup import clock
 from keepup_auth.dependencies import get_current_admin
 
 #: What an application may import from this module. Everything else is
@@ -75,7 +76,7 @@ def fresh_since(now: Optional[datetime] = None) -> datetime:
     Returns:
         The moment before which an instance counts as stale.
     """
-    return (now or datetime.utcnow()) - timedelta(minutes=FRESH_WINDOW_MINUTES)
+    return (now or clock.utcnow()) - timedelta(minutes=FRESH_WINDOW_MINUTES)
 
 
 class SystemMetricsResponse(BaseModel):
@@ -129,7 +130,7 @@ def get_historical_metrics(metric_name: str, hours: int):
     """
     from keepup_db import DatabaseManagerV2
     try:
-        since = datetime.utcnow() - timedelta(hours=int(hours))
+        since = clock.utcnow() - timedelta(hours=int(hours))
         rows = DatabaseManagerV2.execute(
             "SELECT app_instance, metric_value, timestamp FROM system_metrics "
             "WHERE metric_name = :name AND timestamp > :since ORDER BY timestamp ASC",

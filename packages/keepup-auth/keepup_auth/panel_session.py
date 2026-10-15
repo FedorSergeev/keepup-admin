@@ -33,6 +33,7 @@ from urllib.parse import urlparse
 from fastapi import HTTPException, Request
 from starlette import status
 
+from keepup import clock
 from keepup_db import tables as tables
 from keepup_db import DatabaseManagerV2
 
@@ -121,7 +122,7 @@ def init_table() -> None:
 # --- the record ------------------------------------------------------------------------------
 
 def open_session(user_id: int, lifetime: timedelta, now: Optional[datetime] = None) -> str:
-    now = now or datetime.utcnow()
+    now = now or clock.utcnow()
     sid = secrets.token_urlsafe(32)
     DatabaseManagerV2.execute_commit(
         f"INSERT INTO {TABLE} (sid, user_id, created_at, expires_at) "
@@ -132,7 +133,7 @@ def open_session(user_id: int, lifetime: timedelta, now: Optional[datetime] = No
 
 def extend(sid: str, lifetime: timedelta, now: Optional[datetime] = None) -> None:
     """A renewal keeps the session and moves its end, like the token it renews."""
-    now = now or datetime.utcnow()
+    now = now or clock.utcnow()
     DatabaseManagerV2.execute_commit(
         f"UPDATE {TABLE} SET expires_at = :expires_at WHERE sid = :sid AND revoked_at IS NULL",
         {"sid": sid, "expires_at": now + lifetime})
@@ -161,14 +162,14 @@ def revoke(sid: str, reason: str = REASON_LOGOUT) -> int:
     return _closing_sockets(DatabaseManagerV2.execute_commit(
         f"UPDATE {TABLE} SET revoked_at = :now, revoked_reason = :reason "
         f"WHERE sid = :sid AND revoked_at IS NULL",
-        {"sid": sid, "now": datetime.utcnow(), "reason": reason}))
+        {"sid": sid, "now": clock.utcnow(), "reason": reason}))
 
 
 def revoke_all(user_id: int, reason: str) -> int:
     return _closing_sockets(DatabaseManagerV2.execute_commit(
         f"UPDATE {TABLE} SET revoked_at = :now, revoked_reason = :reason "
         f"WHERE user_id = :u AND revoked_at IS NULL",
-        {"u": user_id, "now": datetime.utcnow(), "reason": reason}))
+        {"u": user_id, "now": clock.utcnow(), "reason": reason}))
 
 
 def _closing_sockets(revoked: int) -> int:
@@ -183,7 +184,7 @@ def purge_expired(now: Optional[datetime] = None, keep: timedelta = timedelta(da
     """Rows past their end serve nothing; a week is kept for whoever investigates."""
     return DatabaseManagerV2.execute_commit(
         f"DELETE FROM {TABLE} WHERE expires_at < :cutoff",
-        {"cutoff": (now or datetime.utcnow()) - keep})
+        {"cutoff": (now or clock.utcnow()) - keep})
 
 
 # --- where the token comes from --------------------------------------------------------------

@@ -9,6 +9,7 @@ signed in through the framework's door are held, and a revocation closes them.
 """
 
 import asyncio
+from contextlib import asynccontextmanager
 from datetime import timedelta
 
 import pytest
@@ -104,12 +105,15 @@ def test_a_real_socket_is_closed_after_logout(monkeypatch):
         except (WebSocketDisconnect, RuntimeError):
             pass
 
-    app = FastAPI()
-    app.router.add_websocket_route("/ws/echo", signed_in_websocket(echo))
-
-    @app.on_event("startup")
-    async def sweeper():
+    @asynccontextmanager
+    async def lifespan(application):
+        # A lifespan, not `@app.on_event`: FastAPI deprecated the decorator, and
+        # the suite may not add warnings of its own (keepup-161).
         asyncio.get_running_loop().create_task(socket_sessions.run_forever())
+        yield
+
+    app = FastAPI(lifespan=lifespan)
+    app.router.add_websocket_route("/ws/echo", signed_in_websocket(echo))
 
     with TestClient(app) as client:
         with client.websocket_connect(f"/ws/echo?token={token}") as ws:

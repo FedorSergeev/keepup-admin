@@ -20,11 +20,11 @@ history period.
 import asyncio
 import logging
 import os
-from datetime import datetime
 from typing import Dict, List, Optional, Set, Tuple
 
 import psutil
 from prometheus_client import Counter, Gauge, Histogram, REGISTRY
+from keepup import clock
 
 
 #: What an application may import from this module. Everything else is
@@ -389,7 +389,7 @@ class SystemMetricsCollector:
         """
         from keepup_db import DatabaseManagerV2
         try:
-            timestamp = datetime.utcnow()
+            timestamp = clock.utcnow()
             params_list = [{
                 "metric_name": name,
                 "metric_value": value,

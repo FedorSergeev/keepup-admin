@@ -23,6 +23,26 @@ from typing import Optional, List, Dict, Any
 
 from sqlalchemy import create_engine, event, exc, text
 from sqlalchemy.engine import Engine
+
+
+def _teach_sqlite_about_datetimes() -> None:
+    """Bind a datetime the way Python 3.12 asks, not with the default adapter.
+
+    The sqlite3 module deprecated its default datetime adapters in 3.12, and
+    SQLAlchemy warns on every bind while they are what runs. The format below is
+    the one those adapters wrote -- `YYYY-MM-DD HH:MM:SS[.ffffff]` -- so the
+    values already in a database and the values written now are the same text,
+    and `PostgreSQL` is untouched (it has real timestamp types).
+    """
+    import sqlite3
+    from datetime import date, datetime, time
+
+    sqlite3.register_adapter(datetime, lambda value: value.isoformat(" "))
+    sqlite3.register_adapter(date, lambda value: value.isoformat())
+    sqlite3.register_adapter(time, lambda value: value.isoformat())
+
+
+_teach_sqlite_about_datetimes()
 from sqlalchemy.orm import sessionmaker, Session
 
 _RETURNED_AT = "keepup_returned_at"

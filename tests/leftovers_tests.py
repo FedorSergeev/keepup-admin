@@ -9,13 +9,14 @@ Run by path, like the other *_tests.py files:
     python3 -m pytest keepup/tests/leftovers_tests.py -v
 """
 
-from datetime import datetime, timedelta
+from datetime import timedelta
 from pathlib import Path
 
 import importlib
 
 import pytest
 
+from keepup import clock
 from keepup_db import tables
 from keepup_db import DatabaseManagerV2
 
@@ -109,7 +110,7 @@ async def test_a_held_lock_can_say_it_is_still_here():
 
         DatabaseManagerV2.execute_commit(
             "UPDATE distributed_locks SET acquired_at = :old WHERE lock_name = :name",
-            {"old": datetime.utcnow() - timedelta(seconds=30), "name": "renewal_probe"})
+            {"old": clock.utcnow() - timedelta(seconds=30), "name": "renewal_probe"})
 
         assert await lock.renew() is True
 
