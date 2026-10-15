@@ -58,10 +58,9 @@ not resolved. They are contracts without an implementation to replace:
   between processes is the `notify_transport` service of section 4.9. A
   deployment whose database cannot carry a message keeps a bus that only talks
   to itself, and says so.
-- **`keepup.tables`** -- the declaration DSL. It is published by the kernel
-  (`from keepup import tables`), implemented in `keepup-db`, requires SQLAlchemy,
-  and raises an error naming `keepup-db` when that is not installed. One import
-  path for applications and plugins alike; a plugin that declares tables writes
+- **`keepup_db.tables`** -- the declaration DSL, implemented in `keepup-db`
+  (`from keepup_db import tables`); it requires SQLAlchemy. One import path for
+  applications and plugins alike; a plugin that declares tables writes
   the same line an application writes and declares
   `requires=("datasource>=1",)`, because the tables are created by the data
   source in foreign-key order (phase 4 of section 4.8).

@@ -304,7 +304,7 @@ convention:
 | `routes` | `get_api_routes()` | the HTTP transport | `plugins/routes.py` |
 | `sockets` | `get_websocket_routes()` | the HTTP transport | `plugins/routes.py` |
 | `sections` | `get_panel_sections()` -- catalogue entries, with `icon` | the UI plugin's catalogue | section 9 |
-| `tables` | `ensure_schema()` (a declared table set) | the data source service | `keepup/tables.py` |
+| `tables` | `ensure_schema()` (a declared table set) | the data source service | `keepup_db/tables.py` |
 | `jobs` | `get_scheduled_jobs()` -- `(job_id, callable, trigger)` | the tasks plugin's scheduler | `scheduler.py` |
 | `events` | `get_event_sinks()` -- callables for audit and event records | the audit plugin | `events.py` |
 | `metrics` | `get_metric_collectors()` -- callables returning samples | the metrics plugin | `metrics.py` |
@@ -630,7 +630,7 @@ keepup-admin          the standard library, and nothing else
 
 An arrow means "may be reached at run time through a service", never "is
 imported by the base". A capability declares its own tables with the DSL
-(`from keepup import tables`, the kernel's shim into `keepup-db`) and the data
+(`from keepup_db import tables`) and the data
 source creates them in phase 4 of section 4.8; nothing else knows them. **No
 staging arrangement is needed**: an earlier draft had the framework's tables
 living in `keepup-db` for one release, and with these six modules leaving the
@@ -1273,7 +1273,7 @@ Every one of these is a test, not a convention, and 0.4.0 adds or extends them:
 3. **The catalogue is the truth about what runs**, and the panel's report, the
    cluster picture and the log line all read it, so they cannot disagree
    (`plugins/enablement.py:149`).
-4. **Tables are declared, never DDL** (`keepup/tables.py`), including inside a
+4. **Tables are declared, never DDL** (`keepup_db/tables.py`), including inside a
    plugin package.
 5. **A capability package ships no application-specific name** -- no product
    name, no address, no default secret; `tests/distribution_tests.py` extends to

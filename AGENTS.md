@@ -66,7 +66,7 @@ Settings worth knowing: `cors_origins`, `security_headers`,
 `oidc`, `identity_provider`, `openapi_url`, `openapi_public`, `public_config`, `notification_channel`, `on_startup`, `on_shutdown`,
 `remote_log_url`, `profile`, and `performance` -- the database pool, the audit
 buffer and the metrics interval in one object. Each is documented in
-`keepup/settings.py`; a value you would have to edit inside keepup belongs in a
+`settings.py` in the package; a value you would have to edit inside keepup belongs in a
 setting instead.
 
 ## Plugins
@@ -112,10 +112,10 @@ class ReportsPlugin(BasePlugin):          # plugin_id "reports"
   largest body the route accepts, or None for none; a route that reads its own
   body -- `is_upload`, `raw_request` -- should say, since the application's
   general limit does not reach it), and `params` -- the request
-  mask (`keepup/plugins/route_mask.py`: per parameter a type, `required`,
+  mask (`plugins/route_mask.py`: per parameter a type, `required`,
   `in`, `choices`, `min`, `max`, `max_length`, `pattern`), and `permission` --
   the right a caller must hold, checked before the handler
-  (`keepup/auth/identity/access.py`; see "Somebody else's identity system"),
+  (`keepup_auth/identity/access.py`; see "Somebody else's identity system"),
   `audit` (default true; a route that says false is not written to the
   incoming-request audit -- a scrape every fifteen seconds is not an audit), and
   `response_media_type` (what a non-JSON answer is; a handler may also return a
@@ -146,11 +146,11 @@ off at all. `keepup.kernel.create_runtime(settings)` builds one. The contract is
 
 ## Tables
 
-One declaration serves SQLite and PostgreSQL (`keepup/tables.py`):
+One declaration serves SQLite and PostgreSQL (`keepup_db/tables.py`):
 
 ```python
 from sqlalchemy import Column, DateTime, Integer, String, Index
-from keepup import tables
+from keepup_db import tables
 
 reports = tables.table(
     "report",
@@ -183,13 +183,13 @@ A section is a JavaScript file plus an entry in `config/modules.json`
 `modules[]`: `id`, `name`, `js`, `css`, `initFunction`, `handlerFunction`,
 `routePath`, `sectionId`, `config`, `adminOnly`; and the roles that may see it.
 At start-up the framework copies sections and grants that the database lacks
-(`keepup/modules.py`), and never overwrites what an administrator changed.
+(`keepup_modules/catalogue.py`), and never overwrites what an administrator changed.
 
 - **The theme owns the chrome**: sidebar, navigation, header. A section styles
   only what is inside its own section element. Never style `#sidebar`,
   `.nav-item`, `.main-content` from a section.
 - **A section puts no JavaScript in its markup.** The panel is served with a
-  Content-Security-Policy (`keepup/security.py`) that refuses an inline handler,
+  Content-Security-Policy (`security.py` in the package) that refuses an inline handler,
   so a section registers what its buttons do with
   `KeepupActions.register({'users.edit': (element, event) => ...})` and names
   the action in the markup -- `data-action="users.edit"`, with the values the
@@ -207,7 +207,7 @@ At start-up the framework copies sections and grants that the database lacks
 
 ## Roles
 
-A user holds a **set** of roles (`user_roles`, `keepup/auth/user_roles.py`), and
+A user holds a **set** of roles (`user_roles`, `keepup_auth/user_roles.py`), and
 the sections and plugins of every role in it are glued together — each one once.
 A role comes into being as a grant in the section catalogue; the framework's own
 two are `ADMIN` and `CLIENT`.
@@ -219,17 +219,17 @@ two are `ADMIN` and `CLIENT`.
   `window.AppRoles.has(user, role)`.
 - **Nobody holds no role.** An empty set is refused on write and reads as
   CLIENT; access is closed by blocking the account, not by emptying it.
-- `keepup.modules.get_modules_for_roles()` is the read for a user;
+- `keepup_modules.catalogue.get_modules_for_roles()` is the read for a user;
   `get_modules_for_role()` is still there for one role.
 
 ## Somebody else's identity system
 
 When the application is installed inside a larger system that already knows who
 everybody is and what they may do, a **provider plugin** puts it behind keepup.
-Subclass `keepup.auth.identity.IdentityProvider` and override what it answers:
+Subclass `keepup_auth.identity.IdentityProvider` and override what it answers:
 
 ```python
-from keepup.auth.identity import ExternalIdentity, IdentityProvider, IdentityRejected
+from keepup_auth.identity import ExternalIdentity, IdentityProvider, IdentityRejected
 
 class CorpProvider(IdentityProvider):
     async def verify_token(self, token):              # the system's tokens
@@ -255,8 +255,8 @@ class CorpProvider(IdentityProvider):
   and `identity` added.
 - **A right** is a route's `permission` key or `Depends(require_permission("x"))`.
   Who decides is the deployment's `authorization`: `local` (ADMIN, a
-  `user_permissions` row, or the identity's own permissions) or `provider`. See
-  `doc/external_identity_provider.md` in the repository this package comes from.
+  `user_permissions` row, or the identity's own permissions) or `provider`. The
+  interface is `keepup_auth.identity`; the auth file names the provider.
 
 ## Several replicas
 
@@ -276,7 +276,7 @@ pip install -e ".[test]" -e packages/keepup-*   # the tree, its capabilities and
 python -m pytest path/to/your_tests.py -v       # an application's test, by path
 ```
 
-`check.sh` runs the workflows' steps in their order -- the lint, the suite with
+`.github/scripts/check.sh` runs the workflows' steps in their order -- the lint, the suite with
 coverage, the release metadata and `.github/scripts/dependency_graph.py` (who
 depends on whom, and what installs what), the security audit, and every wheel
 built, checked and stood up from an empty environment -- printing a summary and
@@ -296,5 +296,5 @@ against a stand-in document -- see `tests/header_badge_tests.py`.
 - **Route** -- a dictionary a plugin returns; the framework turns it into an endpoint.
 - **Section** -- a panel page: a JS module, its catalogue entry and role grants.
 - **Shell** -- the panel page and `main_new.js` the framework ships. **Theme** -- a shell page and its stylesheet.
-- **Catalogue** -- the database's copy of sections and grants, seeded from `modules.json`.
+- **Catalogue** -- the database's copy of sections and grants, seeded from `config/modules.json`.
   **Replica** -- one process of the application; a **stand** is one deployment of one.
