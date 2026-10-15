@@ -29,6 +29,9 @@
 
 set -u
 
+#: Whether the caller named an interpreter, remembered before the default below:
+#: a name that does not work is worth trying the others for, and worth saying so.
+GIVEN_PYTHON="${PYTHON:-}"
 PYTHON="${PYTHON:-python3}"
 FAST=0
 while [ $# -gt 0 ]; do
@@ -48,14 +51,117 @@ PACKAGE="$(cd "$HERE/../.." && pwd)"
 WORK="$(mktemp -d "${TMPDIR:-/tmp}/keepup-check.XXXXXX")"
 trap 'rm -rf "$WORK"' EXIT
 
+# --- the interpreter -----------------------------------------------------------
+
+# $PYTHON wins, then the repository's own environment, then python3: the first
+# one that imports keepup is the one used. Without this, a bare `check.sh` in a
+# shell whose python3 is the system one stops at "keepup is not importable" while
+# a working environment sat in .venv beside it.
+if [ -n "$GIVEN_PYTHON" ]; then
+    CANDIDATES="$GIVEN_PYTHON $PACKAGE/.venv/bin/python python3"
+else
+    CANDIDATES="$PACKAGE/.venv/bin/python python3"
+fi
+
+FOUND=""
+for candidate in $CANDIDATES; do
+    command -v "$candidate" >/dev/null 2>&1 || continue
+    if "$candidate" -c "import keepup" 2>/dev/null; then
+        FOUND="$candidate"
+        break
+    fi
+done
+
+if [ -z "$FOUND" ]; then
+    if [ -n "$GIVEN_PYTHON" ]; then
+        cat >&2 <<MESSAGE
+keepup is not importable with $GIVEN_PYTHON, which is what \$PYTHON names -- nor
+with the environments beside the tree.
+
+Install the tree and its capabilities into the one you meant:
+
+    $GIVEN_PYTHON -m pip install -e ".[test]" -e packages/keepup-*
+MESSAGE
+    else
+        cat >&2 <<MESSAGE
+keepup is not importable with any of: $CANDIDATES -- and not from $PACKAGE.
+
+Make an environment for the tree, or name one:
+
+    python3 -m venv .venv
+    .venv/bin/python -m pip install -e ".[test]" -e packages/keepup-*
+    .github/scripts/check.sh
+MESSAGE
+    fi
+    exit 2
+fi
+if [ -n "$GIVEN_PYTHON" ] && [ "$FOUND" != "$GIVEN_PYTHON" ]; then
+    echo "note: \$PYTHON=$GIVEN_PYTHON does not import keepup; using $FOUND" >&2
+fi
+PYTHON="$FOUND"
+
 cd "$PACKAGE" || exit 2
-if ! "$PYTHON" -c "import keepup" 2>/dev/null; then
+
+# --- the tree, not a copy of it ------------------------------------------------
+
+# Every distribution of the framework has to resolve inside this repository: a
+# stale copy in site-packages answers about itself instead. The run before this
+# check existed reported `no such table: distributed_locks` from a 0.4.0 copy of
+# keepup-db while the tree had declared the table (keepup-158, keepup-160).
+#
+# The import names are the distributions of this checkout -- `packages/*/keepup_*`
+# -- so the set that matters follows the tree rather than a list here, and a
+# capability installed only as an old copy is noticed by its absence from it.
+OUTSIDE="$("$PYTHON" - "$PACKAGE" <<'PY'
+import contextlib
+import importlib
+import io
+import pathlib
+import sys
+
+package = pathlib.Path(sys.argv[1]).resolve()
+names = {"keepup"}
+for directory in sorted((package / "packages").glob("*/keepup_*")):
+    # A package, not the `*.egg-info` directory an install leaves beside it.
+    if (directory / "__init__.py").is_file():
+        names.add(directory.name)
+
+outside = []
+for name in sorted(names):
+    try:
+        # A module of the framework may print while it is imported (a missing
+        # configuration file, say). That is not part of the answer.
+        with contextlib.redirect_stdout(io.StringIO()):
+            module = importlib.import_module(name)
+    except Exception as error:
+        outside.append(f"  {name} -> cannot import ({type(error).__name__})")
+        continue
+    where = getattr(module, "__file__", "") or ""
+    # Inside the repository is not enough: an environment in `.venv/` and a
+    # leftover `build/` are inside it too, and both answer as copies.
+    installed = ("/site-packages/", "/dist-packages/", "/.venv/", "/build/")
+    if not where.startswith(str(package)) or any(part in where for part in installed):
+        outside.append(f"  {name} -> {where}")
+print("\n".join(outside))
+PY
+)"
+
+if [ -n "$OUTSIDE" ]; then
     cat >&2 <<MESSAGE
-keepup is not importable with $PYTHON from $PACKAGE.
+These distributions are installed somewhere else, not from the tree:
 
-Install the tree and its capabilities first:
+$OUTSIDE
 
-    $PYTHON -m pip install -e ".[test]" -e packages/keepup-*
+A check has to answer about $PACKAGE, so take them out and install the tree
+instead -- one by one, which is the form that cannot resolve a copy of a
+capability against another capability's requirement in the same command:
+
+    $PYTHON -m pip uninstall -y keepup-db keepup-auth keepup-users keepup-ui keepup-audit \\
+        keepup-metrics keepup-tasks keepup-modules keepup-cluster keepup-log-shipping \\
+        keepup-http keepup-sqlite keepup-postgres keepup-integration-log
+    for package in packages/keepup-*; do
+        $PYTHON -m pip install --no-deps -e "$package"
+    done
 MESSAGE
     exit 2
 fi
