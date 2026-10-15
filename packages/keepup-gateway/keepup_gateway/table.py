@@ -75,6 +75,7 @@ class GatewayRoute:
         application: whether a keepup application stands behind the route, so
             the panel shows a card of it (`applications.py`).
         source: ``config``, ``registered`` or ``local``.
+        websocket: whether sockets to this prefix are carried as well as requests.
         group: the service a registered route belongs to -- one service holds
             several prefixes, and the panel shows it once.
         handler: for a local route, the callable of this runtime that answers it.
@@ -95,6 +96,7 @@ class GatewayRoute:
     application: bool = False
     source: str = SOURCE_CONFIG
     group: str = ""
+    websocket: bool = False
     handler: Optional[Callable[..., Any]] = field(default=None, compare=False, repr=False)
 
     @property
@@ -127,6 +129,7 @@ class GatewayRoute:
             "application": self.application,
             "source": self.source,
             "service": self.group or None,
+            "websocket": self.websocket,
         }
 
 
@@ -244,6 +247,7 @@ def _route(entry: Mapping[str, Any], index: int) -> GatewayRoute:
         max_body_bytes=int(_positive(name, entry, "max_body_bytes", DEFAULT_MAX_BODY_BYTES)),
         headers={str(key): str(value) for key, value in headers.items()},
         application=_flag(name, entry, "application"),
+        websocket=_flag(name, entry, "websocket"),
     )
 
 

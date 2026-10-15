@@ -32,7 +32,7 @@ __all__ = ["REGISTER_PATH", "Announcer", "parse_announce"]
 REGISTER_PATH = "/api/gateway/services"
 #: The route keys an announcement may carry to the gateway.
 _ROUTE_KEYS = ("methods", "strip_prefix", "auth", "permission", "timeout",
-               "connect_timeout", "max_body_bytes")
+               "connect_timeout", "max_body_bytes", "websocket")
 
 
 def parse_announce(section: Optional[Mapping[str, Any]]) -> Optional[Dict[str, Any]]:

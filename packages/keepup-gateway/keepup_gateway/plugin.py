@@ -36,6 +36,7 @@ from keepup_gateway.applications import ADMIN_ROLE, SELF_PATH, Prober, describe_
 from keepup_gateway.balancer import Balancer
 from keepup_gateway.identity import IdentityError, caller_of, verify_identity
 from keepup_gateway.proxy import FALLBACK_PATH, Proxy
+from keepup_gateway.sockets import FALLBACK_SOCKET, SocketProxy
 from keepup_gateway.registry import (
     ACTION_DEREGISTER,
     ACTION_REGISTER,
@@ -167,12 +168,14 @@ class GatewayPlugin(BasePlugin):
         priority=PRIORITY,
         provides=("gateway>=1",),
         wants=("auth>=1", "permissions>=1", "datasource>=1"),
-        contributions=("routes", "sections", "tables"),
+        contributions=("routes", "sockets", "sections", "tables"),
     )
 
-    def __init__(self, config=None, transport=None):
+    def __init__(self, config=None, transport=None, socket_connect=None):
         super().__init__("gateway", "Gateway", config)
         self._transport = transport
+        self._socket_connect = socket_connect
+        self.sockets: Optional[SocketProxy] = None
         self.service: Optional[GatewayService] = None
         self.proxy: Optional[Proxy] = None
         self.prober: Optional[Prober] = None
@@ -208,6 +211,9 @@ class GatewayPlugin(BasePlugin):
         self.proxy = Proxy(self.service.table, balancer, identity_secret=self.identity_secret,
                            transport=self._transport)
         self.prober = Prober(self.proxy.client, self.identity_secret)
+        options = {"connect": self._socket_connect} if self._socket_connect else {}
+        self.sockets = SocketProxy(self.service.table, balancer, self.identity_secret,
+                                   **options)
 
     def register(self, services):
         """Publish the gateway when it could be built, so plugins register local services.
@@ -284,6 +290,18 @@ class GatewayPlugin(BasePlugin):
             largest = max([DEFAULT_MAX_BODY_BYTES]
                           + [route.max_body_bytes for route in self.service.local])
             declared.append(self._passing(FALLBACK_PATH, largest))
+        return declared
+
+    def get_websocket_routes(self) -> List[Dict[str, Any]]:
+        """Sockets of the config's routes that carry them, and the fallback when the
+        registry may hold a service that does."""
+        if self._error is not None or self.service is None:
+            return []
+        declared = [{"path": path, "handler": self.sockets.handle}
+                    for route in self.service.routes if route.websocket
+                    for path in (route.prefix, route.prefix + "/{path:path}")]
+        if self.registry_enabled:
+            declared.append({"path": FALLBACK_SOCKET, "handler": self.sockets.handle})
         return declared
 
     def _passing(self, path: str, limit: int) -> Dict[str, Any]:

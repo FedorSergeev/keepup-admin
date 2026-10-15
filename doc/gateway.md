@@ -51,6 +51,7 @@ The routes are the plugin's `config`:
 | `max_body_bytes` | the largest request body passed on; above it, 413 | 10 MB |
 | `headers` | headers added to every request of the route | none |
 | `application` | a keepup application stands behind it: the panel shows its card | `false` |
+| `websocket` | sockets to the prefix are carried too, not only requests | `false` |
 
 Beside `routes` the config takes `identity_secret`, `registry` (`{"enabled":
 true}` keeps a registry of services) and `announce` (this application registers
@@ -196,6 +197,34 @@ another local service holds is refused when it is registered.
   every header the service sent except the connection's -- `Set-Cookie` repeated
   stays repeated.
 
+## Sockets
+
+A route with `"websocket": true` -- in the config, or in a service's
+registration -- carries sockets as well as requests: agents, consoles and
+anything else that holds a connection open reach the service through the same
+way in.
+
+- The path is matched like a request's, and a route that asks for sign-in or a
+  right checks it at the edge before anything is opened; a refusal closes the
+  socket before the handshake (the client sees 403, code 1008).
+- The route's addresses are tried in turn; one that takes no connection cools
+  down and the next is tried -- safe, since nothing was said yet. When none
+  takes it, the socket is closed with 1013 (try again later).
+- Only once the service accepted is the client accepted, with the subprotocol the
+  service chose. The service receives the same headers a request would --
+  `X-Forwarded-*`, `X-Request-Id`, the signed identity, never the client's own
+  `X-Keepup-*` -- without the handshake's own `Sec-WebSocket-*`, which the
+  gateway's client writes for its connection.
+- From then on every message goes both ways as it is, text or binary, up to the
+  route's `max_body_bytes` per message; whichever side closes, the other is
+  closed with the same code and reason.
+- A socket is not moved to another address once it is open: what was said on it
+  cannot be said again elsewhere.
+
+Sockets of registered services go through a fallback socket route, mounted when
+the registry is on; a socket no gateway route takes is handed to a socket route
+the application mounted after it, or refused as it was before the gateway.
+
 ## Several addresses
 
 A route's addresses take requests in turn. An address that took no connection,
@@ -304,6 +333,5 @@ An address that does not answer is a card that says so, not a page that waits.
 
 ## Not here yet
 
-- WebSocket through the gateway.
 - Cooldowns shared between replicas.
 - Rate limits at the edge.

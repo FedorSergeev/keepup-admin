@@ -63,7 +63,7 @@ ACTION_DEREGISTER = "deregister"
 
 #: What a registration may say about its routes; the rest is the gateway's.
 _ROUTE_KEYS = ("methods", "strip_prefix", "auth", "permission", "timeout",
-               "connect_timeout", "max_body_bytes")
+               "connect_timeout", "max_body_bytes", "websocket")
 #: How many prefixes one service may hold: an application answers a handful of
 #: areas, not a route per endpoint.
 MAX_PREFIXES = 32
