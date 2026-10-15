@@ -22,7 +22,6 @@ from keepup_db import DatabaseManagerV2
 from keepup_http.events_api import register_event_api_routes
 from keepup_metrics.api import register_metrics_routes
 from keepup_modules.catalogue import register_module_routes
-from keepup_db.schema import init_db
 from keepup_ui.themes import config_service, register_theme_routes
 
 ADMIN = {"id": 41, "username": "trail-admin"}
@@ -31,7 +30,6 @@ DECLARED = ("audit_user_login", "audit_order_repriced")
 
 @pytest.fixture(scope="module", autouse=True)
 def framework_tables():
-    init_db()
     events.init_event_manager()
 
 

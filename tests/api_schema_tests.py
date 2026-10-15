@@ -9,19 +9,12 @@ handed FastAPI the documentation pages' addresses but not the schema's.
 
 import uuid
 
-import pytest
 from fastapi.testclient import TestClient
 
 from keepup_auth import dependencies, user_roles
 from keepup_http.factory import create_app
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
-from keepup_db.schema import init_db
 from keepup.settings import KeepupSettings
-
-
-@pytest.fixture(scope="module", autouse=True)
-def tables():
-    init_db()
 
 
 def build(**settings):

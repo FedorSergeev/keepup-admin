@@ -22,7 +22,6 @@ PACKAGE = Path(__file__).resolve().parents[1]
 MOVED = {
     "keepup.db": "keepup_db",
     "keepup.tables": "keepup_db.tables",
-    "keepup.schema": "keepup_db.schema",
     "keepup.positional_sql": "keepup_db.positional_sql",
     "keepup.retention": "keepup_db.retention",
     "keepup.audit": "keepup_audit.audit",

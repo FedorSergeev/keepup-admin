@@ -18,14 +18,8 @@ from fastapi.testclient import TestClient
 from keepup_auth import dependencies, panel_session
 from keepup_auth.routes import register_auth_routes
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
 
 PASSWORD = "a-long-password-72"
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 @pytest.fixture(autouse=True)

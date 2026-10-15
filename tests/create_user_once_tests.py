@@ -11,16 +11,9 @@ creation, failed, and was logged and swallowed.
 import asyncio
 import logging
 
-import pytest
 
 from keepup_auth import dependencies
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 def test_one_account_one_insert_and_nothing_logged(monkeypatch, caplog):

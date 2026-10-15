@@ -85,12 +85,15 @@ class AuthPlugin(BasePlugin):
         the loops moved (keepup-65, keepup-109), and the one-time read of the
         legacy ``users.role`` column is nobody else's business (keepup-157).
         """
-        from keepup_auth import socket_sessions, user_roles
+        from keepup_auth import seed_accounts, socket_sessions, user_roles
 
         try:
+            # The first accounts and the legacy roles: one place creates them,
+            # and it is the capability that signs people in (keepup-158).
+            await asyncio.to_thread(seed_accounts.create_first_accounts)
             await asyncio.to_thread(user_roles.backfill_from_legacy_column)
-        except Exception as error:  # noqa: BLE001 - a start that cannot backfill still serves
-            logger.warning("Could not give the legacy roles out: %s", error)
+        except Exception as error:  # noqa: BLE001 - a start that cannot seed still serves
+            logger.warning("Could not create the first accounts: %s", error)
         self._socket_sweep = asyncio.create_task(socket_sessions.run_forever())
 
     async def cleanup(self):

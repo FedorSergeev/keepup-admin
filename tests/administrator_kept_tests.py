@@ -14,6 +14,8 @@ on who else is in it.
 from types import SimpleNamespace
 
 import pytest
+
+from framework_schema import create_framework_tables
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -23,15 +25,15 @@ from keepup_auth.dependencies import get_current_admin
 from keepup_auth.routes import register_auth_routes
 from keepup_db import DatabaseManagerV2, db_config
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
-from keepup_db.schema import init_db
 
 
 @pytest.fixture(autouse=True)
 def fresh_database(tmp_path, monkeypatch):
     DatabaseManagerV2.dispose()
     monkeypatch.setattr(db_config, "db_path", str(tmp_path / "roles.db"), raising=False)
+    # This check runs on a database of its own, so it asks for the schema.
+    create_framework_tables()
     monkeypatch.setattr(db_config, "db_type", "sqlite", raising=False)
-    init_db()
     cache.invalidate_all()
     # Whatever the start seeded is not an active administrator here.
     DatabaseManagerV2.execute_commit("UPDATE users SET status = 'blocked'")

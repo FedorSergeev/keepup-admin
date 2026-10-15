@@ -1,6 +1,7 @@
 """The tables of the accounts, declared where the capability lives.
 
-Task keepup-124. `keepup_db.schema` re-exports them for one release, so every
+Task keepup-124. They are declared here, and `keepup_db.schema` -- which used to
+re-export them -- is gone (keepup-158), so every
 importer keeps working while the accounts capability, its module and its plugin
 travel into this distribution; nothing that reads a user row imports the kernel
 for it.

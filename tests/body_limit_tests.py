@@ -18,15 +18,9 @@ from starlette.requests import Request
 
 from keepup_http.body_limit import BodyLimitMiddleware, declare_limit
 from keepup_http.routes import register_plugin_routes
-from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
 GENERAL = 100
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 class Manager:

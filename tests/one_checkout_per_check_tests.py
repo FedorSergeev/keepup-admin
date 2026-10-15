@@ -16,12 +16,6 @@ from sqlalchemy import event
 
 from keepup_auth import dependencies, panel_session
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 @pytest.fixture

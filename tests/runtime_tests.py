@@ -16,14 +16,12 @@ from keepup import logging_setup
 from keepup_db import DatabaseManagerV2
 from keepup.instance import get_instance_id, get_instance_name
 from keepup.locks import DatabaseLock, distributed_lock, with_distributed_lock
-from keepup_db.schema import init_db
 from keepup.settings import KeepupSettings
 
 
 @pytest.fixture(scope="module", autouse=True)
 def tables():
     """The framework's own tables, in the session's throwaway database."""
-    init_db()
 
 
 @pytest.fixture(autouse=True)
@@ -287,7 +285,9 @@ def test_the_defaults_name_no_product():
     assert settings.plugin_manager is None
     assert settings.gated_pages == {}
     assert settings.audit_redaction is None
-    assert settings.app_tables is None
+    # No schema hook: a table is declared by the plugin that keeps it and created
+    # by the kernel (keepup-158).
+    assert not hasattr(settings, "app_tables") and not hasattr(settings, "extra_setup")
 
 
 def test_every_field_can_be_overridden():

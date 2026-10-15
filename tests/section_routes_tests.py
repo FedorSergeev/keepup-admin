@@ -15,12 +15,6 @@ from fastapi.testclient import TestClient
 from keepup import cache
 from keepup_auth.dependencies import get_current_admin
 from keepup_modules.catalogue import register_module_routes
-from keepup_db.schema import init_db
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 @pytest.fixture

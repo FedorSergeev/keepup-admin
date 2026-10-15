@@ -19,15 +19,9 @@ from fastapi import FastAPI
 from keepup_auth import dependencies, login_throttle
 from keepup_auth.routes import register_auth_routes
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
 
 LIMIT = 5
 PASSWORD = "a-long-password-63"
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 @pytest.fixture(autouse=True)

@@ -15,12 +15,13 @@ import sys
 from datetime import datetime, timedelta
 
 import pytest
+
+from framework_schema import create_framework_tables
 from fastapi import FastAPI, HTTPException, WebSocket
 from fastapi.testclient import TestClient
 from starlette.websockets import WebSocketDisconnect
 
 from keepup_cluster import cluster
-from keepup_db import schema
 from keepup.api_versions import ApiVersionMiddleware
 from keepup_auth.dependencies import get_current_user
 from keepup_db import DatabaseManagerV2, db_config
@@ -46,8 +47,9 @@ def fresh_database(tmp_path, monkeypatch):
     """Its own database: the shared engine is cached on the class."""
     DatabaseManagerV2.dispose()
     monkeypatch.setattr(db_config, "db_path", str(tmp_path / "cluster.db"), raising=False)
+    # This check runs on a database of its own, so it asks for the schema.
+    create_framework_tables()
     monkeypatch.setattr(db_config, "db_type", "sqlite", raising=False)
-    schema.init_db()
     yield
     DatabaseManagerV2.dispose()
 

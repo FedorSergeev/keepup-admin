@@ -15,14 +15,12 @@ import pytest
 from keepup_audit import events
 from keepup_db import retention
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
 
 
 @pytest.fixture(scope="module", autouse=True)
 def framework_tables():
-    init_db()
     events.event_manager.init_table()
 
 

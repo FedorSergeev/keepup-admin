@@ -46,6 +46,8 @@ from typing import Iterable, Mapping, Optional, Sequence, Tuple
 
 import bcrypt
 
+from keepup.roles import ROLE_ADMIN
+
 logger = logging.getLogger(__name__)
 
 #: The first administrator's password, when whoever deploys wants to set it.
@@ -361,3 +363,33 @@ def retire_known_system_password(cursor, *, is_postgres: bool,
         SYSTEM_USERNAME,
     )
     return True
+
+
+def create_first_accounts() -> None:
+    """Create the administrator and the service account, on their own connection.
+
+    Run at start-up by the sign-in plugin (keepup-158). It used to be a step of
+    `keepup_db.schema.init_db`, which meant a deployment that assembled its
+    runtime from plugins -- the way the kernel does it -- created no first
+    account at all, and one that called it had to have the tables declared before
+    the call.
+
+    Idempotent: an account that exists is left alone, and a password already
+    stored is never rewritten.
+    """
+    from keepup_db import DatabaseManagerV2, db_config
+    from keepup_auth.factory import AuthProviderFactory
+
+    connection = DatabaseManagerV2.raw_connection()
+    cursor = connection.cursor()
+    try:
+        auth_source = AuthProviderFactory.get_provider().type
+        is_postgres = db_config.is_postgres()
+        ensure_admin(cursor, role=ROLE_ADMIN, auth_source=auth_source,
+                     is_postgres=is_postgres)
+        ensure_system_user(cursor, role=ROLE_ADMIN, auth_source=auth_source,
+                           is_postgres=is_postgres)
+        connection.commit()
+    finally:
+        cursor.close()
+        connection.close()

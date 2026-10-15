@@ -53,8 +53,6 @@ def test_the_password_rule_configured_for_sign_in_governs_the_administrator_too(
     """One rule for both doors, as before the split."""
     from fastapi.testclient import TestClient
     from keepup_auth.dependencies import get_current_admin, save_user_to_db, update_user
-    from keepup_db.schema import init_db
-    init_db()
     uid = save_user_to_db("split-rule", "a-long-password-59")
     update_user(uid, status="active")
     routes.configure(password=lambda password, username: "too plain")

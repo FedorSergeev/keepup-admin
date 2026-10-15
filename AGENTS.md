@@ -55,7 +55,6 @@ settings = KeepupSettings(
     project_name="my-panel",
     plugins_dir=PLUGINS_DIR,          # absolute, from this package's location
     plugins_config_path="config/modules.json",
-    app_tables=create_my_tables,      # the application's own tables, if any
 )
 app = create_app(settings)
 ```
@@ -65,10 +64,10 @@ Settings worth knowing: `cors_origins`, `security_headers`,
 `max_upload_bytes`, `static_dir`, `static_mounts`, `client_page` (the page at
 `/`), `built_in_themes`, `gated_pages`, `audit_redaction`, `password_rule`,
 `oidc`, `identity_provider`, `openapi_url`, `openapi_public`, `public_config`, `notification_channel`, `on_startup`, `on_shutdown`,
-`extra_setup`, `remote_log_url`, `profile`, and `performance` -- the database
-pool, the audit buffer and the metrics interval in one object. Each is documented
-in `keepup/settings.py`; a value you would have to edit inside keepup belongs in
-a setting instead.
+`remote_log_url`, `profile`, and `performance` -- the database pool, the audit
+buffer and the metrics interval in one object. Each is documented in
+`keepup/settings.py`; a value you would have to edit inside keepup belongs in a
+setting instead.
 
 ## Plugins
 
@@ -167,7 +166,9 @@ def ensure_schema():
 ```
 
 - `ensure_tables` creates what is missing and adds declared columns an existing
-  table lacks: a new column is just a new `Column`. There are no migrations.
+  table lacks: a new column is just a new `Column`. There are no migrations, and
+  no schema call to make: a plugin declares its tables and the kernel creates
+  them at start-up (`get_declared_tables()`, 0.5.0).
 - Dialect differences go into the declaration: `with_variant`,
   `tables.per_dialect(postgres=..., sqlite=...)`, `ddl_if`.
 - Foreign keys: `tables.foreign_key(...)`. A column on a table another module
@@ -293,7 +294,6 @@ against a stand-in document -- see `tests/header_badge_tests.py`.
 
 - **Application** -- a package built on keepup: its plugins, sections and config. **Plugin** -- a `BasePlugin` subclass loaded from the plugins directory.
 - **Route** -- a dictionary a plugin returns; the framework turns it into an endpoint.
-- **Request mask** -- a route's `params`: what it accepts, checked before the handler.
 - **Section** -- a panel page: a JS module, its catalogue entry and role grants.
 - **Shell** -- the panel page and `main_new.js` the framework ships. **Theme** -- a shell page and its stylesheet.
 - **Catalogue** -- the database's copy of sections and grants, seeded from `modules.json`.

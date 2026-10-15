@@ -16,9 +16,10 @@ from datetime import datetime, timedelta
 
 import pytest
 
+from framework_schema import create_framework_tables
+
 import keepup_metrics as metrics
 from keepup_metrics import api as metrics_api
-from keepup_db import schema
 from keepup_metrics import retention
 from keepup_db import DatabaseManagerV2, db_config
 
@@ -36,8 +37,9 @@ def fresh_database(tmp_path, monkeypatch):
     path = tmp_path / "metrics.db"
     DatabaseManagerV2.dispose()
     monkeypatch.setattr(db_config, "db_path", str(path), raising=False)
+    # This check runs on a database of its own, so it asks for the schema.
+    create_framework_tables()
     monkeypatch.setattr(db_config, "db_type", "sqlite", raising=False)
-    schema.init_db()
     yield path
     DatabaseManagerV2.dispose()
 

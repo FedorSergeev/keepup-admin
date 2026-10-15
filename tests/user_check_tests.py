@@ -21,12 +21,6 @@ from keepup_auth import dependencies, panel_session
 from keepup_auth.providers import local
 from keepup_auth.providers.base import AuthProvider
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 def make_user(username, status="active"):

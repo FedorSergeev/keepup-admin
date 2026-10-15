@@ -21,12 +21,6 @@ from keepup_auth import dependencies, panel_session
 from keepup_auth.providers.base import ALGORITHM
 from keepup_auth.signing_key import resolve_signing_key
 from keepup_auth.routes import register_auth_routes
-from keepup_db.schema import init_db
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 @pytest.fixture(scope="module")

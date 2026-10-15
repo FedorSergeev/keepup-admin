@@ -18,7 +18,7 @@ from fastapi.testclient import TestClient
 from keepup_http import factory
 from keepup_auth import oidc_policy, oidc_routes
 
-from oidc_flow_tests import begin, build, forget, return_from_provider, tables  # noqa: F401
+from oidc_flow_tests import begin, build, forget, return_from_provider  # noqa: F401
 from oidc_tests import ISSUER, FakeProvider
 
 

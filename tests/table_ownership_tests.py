@@ -10,11 +10,10 @@ import re
 from pathlib import Path
 
 PACKAGE = Path(__file__).resolve().parents[1]
-#: The tables the framework declares for a deployment that predates the
-#: catalogue; the declarations live with the abstraction and the capabilities
-#: (keepup-122). The kernel's own schema is gone.
-SCHEMA = PACKAGE / "packages" / "keepup-db" / "keepup_db" / "schema.py"
-SCHEMA_MODULE = "keepup_db.schema"
+#: Every declaration lives with the capability that keeps the table (keepup-122,
+#: keepup-158). `keepup_db.schema`, which held the ones that had not moved, is
+#: gone: the lock table moved to `keepup-tasks`, which provides the service that
+#: uses it.
 OWNERSHIP = PACKAGE / "doc" / "table-ownership.md"
 
 #: The tables owned by a capability that does not exist as a distribution yet:
@@ -35,7 +34,6 @@ def declared_tables():
     import importlib
 
     sources = [
-        SCHEMA,
         PACKAGE / "packages" / "keepup-audit" / "keepup_audit" / "audit.py",
         PACKAGE / "packages" / "keepup-audit" / "keepup_audit" / "events.py",
         PACKAGE / "packages" / "keepup-ui" / "keepup_ui" / "themes.py",
@@ -65,8 +63,8 @@ def declared_tables():
 def kernel_declarations():
     """The table names the kernel still declares itself: none of them.
 
-    The declaration of the distributed locks is the abstraction's now, with the
-    rest of `schema.py` (keepup-122); the kernel declares no table at all.
+    The lock table is `keepup-tasks`'s now (keepup-158); the kernel declares no
+    table at all, and neither does the abstraction.
     """
     kernel = sorted(path for path in PACKAGE.glob("*.py")
                     if "tables.table(" in path.read_text(encoding="utf-8"))

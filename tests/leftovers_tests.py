@@ -18,17 +18,10 @@ import pytest
 
 from keepup_db import tables
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
 REPO = PACKAGE.parent
 KEEPUP = Path(__file__).resolve().parents[1]
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    """The framework's own tables, in the session's throwaway database."""
-    init_db()
 
 
 @pytest.fixture(autouse=True)

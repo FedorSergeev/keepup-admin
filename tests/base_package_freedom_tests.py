@@ -83,7 +83,7 @@ def test_a_library_that_left_is_no_dependency_and_has_no_keeper():
 
 def test_the_kernel_does_not_import_a_capability_module():
     """The other direction of the same boundary: no `keepup_db`, `keepup_auth`."""
-    capabilities = ("keepup_db", "keepup_db.tables", "keepup_db.schema", "keepup_audit.audit",
+    capabilities = ("keepup_db", "keepup_db.tables", "keepup_audit.audit",
                     "keepup_audit.events", "keepup_metrics", "keepup_ui.themes",
                     "keepup_integration_log.integrations", "keepup_auth")
     offenders = {}

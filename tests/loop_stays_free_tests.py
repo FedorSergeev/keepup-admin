@@ -28,17 +28,11 @@ from keepup import locks
 from keepup.tests.repository import is_not_the_package
 from keepup_db import DatabaseManagerV2
 from keepup_audit.events import event_manager
-from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
 BLOCKING = {"execute", "execute_one", "execute_commit", "execute_many",
             "execute_commit_returning"}
 SLOW = 0.3
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 # --- statically -------------------------------------------------------------------

@@ -15,7 +15,8 @@ from pathlib import Path
 
 import pytest
 
-from keepup_db import schema
+from framework_schema import create_framework_tables
+
 from keepup import locks
 from keepup_db import DatabaseManagerV2, db_config
 
@@ -24,8 +25,9 @@ from keepup_db import DatabaseManagerV2, db_config
 def fresh_database(tmp_path, monkeypatch):
     DatabaseManagerV2.dispose()
     monkeypatch.setattr(db_config, "db_path", str(tmp_path / "locks.db"), raising=False)
+    # This check runs on a database of its own, so it asks for the schema.
+    create_framework_tables()
     monkeypatch.setattr(db_config, "db_type", "sqlite", raising=False)
-    schema.init_db()
     yield
     DatabaseManagerV2.dispose()
 

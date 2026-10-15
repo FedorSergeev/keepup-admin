@@ -26,7 +26,6 @@ from keepup_auth import login_throttle
 from keepup_db import DatabaseManagerV2
 from keepup_http.factory import create_app
 from keepup.plugins.base import PluginManager
-from keepup_db.schema import init_db
 from keepup.settings import KeepupSettings
 from keepup.tests.homegrown_as.service import build_service
 
@@ -97,11 +96,6 @@ def other_system():
     yield base, service.state.as_state
     server.should_exit = True
     thread.join(timeout=5)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 def deployment(tmp_path, base_url, **section):

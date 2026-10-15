@@ -36,7 +36,6 @@ from keepup_auth.routes import register_auth_routes
 from keepup_auth.signing_key import resolve_signing_key
 from keepup_db import DatabaseManagerV2
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
-from keepup_db.schema import init_db
 
 SOURCE = "memory-as"
 PASSWORD = "a-long-password-91"
@@ -70,11 +69,6 @@ class MemoryProvider(IdentityProvider):
 
     async def verify_password(self, username, password):
         return await self._answer("password", (username, password), self.passwords)
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 @pytest.fixture

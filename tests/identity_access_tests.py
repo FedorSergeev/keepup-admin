@@ -31,7 +31,6 @@ from keepup_auth.permissions import require_permission as old_decorator
 from keepup_db import DatabaseManagerV2
 from keepup_http.routes import register_plugin_routes
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
-from keepup_db.schema import init_db
 
 SOURCE = "deciding-as"
 
@@ -85,11 +84,6 @@ class Manager:
 
     def get_all_websocket_routes(self):
         return []
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 @pytest.fixture(autouse=True)

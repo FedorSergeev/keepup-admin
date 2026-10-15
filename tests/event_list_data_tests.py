@@ -12,12 +12,10 @@ import asyncio
 import pytest
 
 from keepup_audit import events
-from keepup_db.schema import init_db
 
 
 @pytest.fixture(scope="module", autouse=True)
 def framework_tables():
-    init_db()
     events.init_event_manager()
 
 

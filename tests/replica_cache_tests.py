@@ -15,13 +15,7 @@ from pathlib import Path
 from keepup_modules import catalogue as modules
 from keepup import cache, notification_bus
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
 from keepup_ui.themes import ACTIVE_THEME_CACHE, config_service
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 @pytest.fixture(autouse=True)

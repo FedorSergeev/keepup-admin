@@ -205,13 +205,6 @@ class KeepupSettings:
     #: Given a request or response body, returns it with secrets removed.
     audit_redaction: Optional[Callable] = None
 
-    # --- schema ---------------------------------------------------------
-    #: init_app_tables(cursor, types, db_config) -- the application's own DDL.
-    app_tables: Optional[Callable] = None
-    #: Runs before the framework opens its connection, for table modules of
-    #: the application that open their own.
-    extra_setup: Optional[Callable] = None
-
     # --- signing in through an external provider -------------------------
     #: The provider to sign people in with. Without it the sign-in routes are
     #: not registered at all: the possibility is off, not broken.

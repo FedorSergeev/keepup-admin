@@ -14,13 +14,7 @@ import pytest
 
 from keepup import cache
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
 from keepup_ui.themes import ConfigService
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 @pytest.fixture

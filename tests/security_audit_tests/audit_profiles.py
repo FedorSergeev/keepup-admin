@@ -25,7 +25,6 @@ from fastapi.testclient import TestClient
 
 from keepup_http.factory import create_app
 from keepup.plugins.base import PluginManager
-from keepup_db.schema import init_db
 from keepup.settings import KeepupSettings, OidcSettings
 
 SERVICE_KEY = "audit-homegrown-service-key"
@@ -253,7 +252,6 @@ def settings_for(profile: Profile, plugins: Path, modules: Path) -> KeepupSettin
 def running(profile: Profile, workdir: Path, other: Optional[OtherSystem] = None
             ) -> Iterator[Running]:
     """The profile's application, started, with a client to call it."""
-    init_db()
     with pytest.MonkeyPatch.context() as patch:
         auth_yaml, plugins, modules = _write_files(profile, workdir, other)
         patch.setenv("AUTH_CONFIG_PATH", str(auth_yaml))

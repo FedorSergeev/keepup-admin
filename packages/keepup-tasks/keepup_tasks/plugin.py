@@ -147,6 +147,17 @@ class TasksPlugin(BasePlugin):
             close_scheduler()
             self.scheduler = None
 
+    def get_declared_tables(self) -> List[Any]:
+        """The lock table: the service published here is the one that uses it.
+
+        Declared since keepup-158, when the 0.3.0 path that created it went
+        away. A deployment that assembles its runtime from plugins had no
+        `distributed_locks` table and failed on its first background sweep.
+        """
+        from keepup_tasks.tables import DISTRIBUTED_LOCKS
+
+        return [DISTRIBUTED_LOCKS]
+
     def get_api_routes(self):
         """The section's three doors, declared as data for the transport.
 

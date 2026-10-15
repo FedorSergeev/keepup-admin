@@ -21,7 +21,6 @@ from fastapi.testclient import TestClient
 from keepup_auth import seed_accounts
 from keepup_auth.routes import register_auth_routes
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
 
 PUBLIC = seed_accounts.RETIRED_ADMIN_PASSWORDS[0]
 
@@ -93,7 +92,6 @@ def test_without_one_the_public_password_is_named_not_replaced(cursor, caplog):
 
 @pytest.fixture
 def client():
-    init_db()
     DatabaseManagerV2.execute_commit("DELETE FROM login_attempts")
     app = FastAPI()
     register_auth_routes(app, SimpleNamespace(plugins={}))

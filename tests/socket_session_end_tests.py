@@ -18,12 +18,6 @@ from fastapi.testclient import TestClient
 
 from keepup_auth import dependencies, panel_session, socket_sessions
 from keepup_http.routes import signed_in_websocket
-from keepup_db.schema import init_db
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 def account(name):

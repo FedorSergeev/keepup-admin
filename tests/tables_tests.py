@@ -8,6 +8,8 @@ tests/schema_declaration_tests.py against the recorded hand-written DDL.
 """
 
 import pytest
+
+from framework_schema import create_framework_tables
 from sqlalchemy import (BigInteger, Boolean, Column, DateTime, ForeignKeyConstraint, Index,
                         Integer, MetaData, String, Text, UniqueConstraint)
 from sqlalchemy.dialects import postgresql
@@ -21,6 +23,8 @@ from keepup_db import DatabaseManagerV2, db_config
 def fresh_database(tmp_path, monkeypatch):
     DatabaseManagerV2.dispose()
     monkeypatch.setattr(db_config, "db_path", str(tmp_path / "tables.db"), raising=False)
+    # This check runs on a database of its own, so it asks for the schema.
+    create_framework_tables()
     monkeypatch.setattr(db_config, "db_type", "sqlite", raising=False)
     yield
     DatabaseManagerV2.dispose()

@@ -10,20 +10,13 @@ plugins got a panel nobody could sign into. Found by the load stand
 
 import asyncio
 
-import pytest
 from fastapi.testclient import TestClient
 
 from keepup_auth import dependencies, user_routes
 from keepup_http.factory import create_app
-from keepup_db.schema import init_db
 from keepup.settings import KeepupSettings
 
 PASSWORD = "a-long-password-89"
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 def test_an_application_without_plugins_signs_in():

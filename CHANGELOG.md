@@ -77,6 +77,16 @@ A deployment upgrades by installing the distributions it uses
   carries the pages, the styles and the framework's own sections, and reads them
   from its own package; the base ships no front end, so a deployment that serves
   no HTTP installs none.
+- **The 0.3.0 schema path is gone (keepup-158).** `keepup_db.schema` and its
+  `init_db` are removed: an application declares its tables and the kernel creates
+  them as the runtime comes up, which is what every capability has done since
+  keepup-124. Two things it did had no other home and moved: the first accounts
+  are created by the sign-in plugin at start-up (`seed_accounts.create_first_accounts`),
+  and the **lock table** is declared by `keepup-tasks`, the capability that
+  provides the locks -- a runtime assembled from plugins had no `distributed_locks`
+  table at all and failed on its first background sweep. The settings that path
+  was the only reader of -- `app_tables` and `extra_setup` -- are gone with it: an
+  application that needs a table declares it.
 - **`users.role` is gone (keepup-157).** The column was the deprecated mirror of
   the role set: written beside the set in one transaction and read by every
   application that compared it with `ADMIN`. It is no longer declared, written or
@@ -115,9 +125,11 @@ A deployment upgrades by installing the distributions it uses
 
 ### Known, and left for 0.6.0
 
-- The 0.3.0 table declarations that `keepup_db.schema.init_db` still creates for
-  applications that predate the catalogue, and the settings (`app_tables`,
-  `extra_setup`) that path is the only caller of.
+- The single-role bridge, in two places: `held_by()` answers a user an application
+  assembled by hand and described with `role` alone, and the answers
+  (`/api/auth/me`, the user list) still carry a computed `role`. Both go when the
+  applications that read one role read `roles` -- the set has been the truth since
+  0.5.0, and nothing in the framework decides by one role.
 
 ## 0.4.0 — 2026-10-10
 

@@ -12,7 +12,6 @@ column itself is gone (keepup-157).
 import ast
 from pathlib import Path
 
-import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
@@ -20,7 +19,6 @@ from keepup_auth import dependencies, user_roles
 from keepup_auth.dependencies import get_current_admin
 from keepup_http.lock_routes import register_lock_routes
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
-from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
 
@@ -73,11 +71,6 @@ def test_no_framework_decision_reads_one_role():
             continue
         offenders += [f"{relative}:{line}" for line in mirror_reads(path)]
     assert offenders == []
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 def test_a_field_that_disagrees_with_the_set_loses():

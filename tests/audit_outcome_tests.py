@@ -16,12 +16,6 @@ import pytest
 
 from keepup_audit import audit
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
-
-
-@pytest.fixture(scope="module", autouse=True)
-def tables():
-    init_db()
 
 
 @pytest.fixture(autouse=True)

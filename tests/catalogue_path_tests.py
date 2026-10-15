@@ -13,13 +13,11 @@ framework's sections and none of its own, and nothing said why.
 import json
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 
 from keepup_modules import catalogue as modules
 from keepup_db import DatabaseManagerV2
 from keepup_http.factory import create_app
-from keepup_db.schema import init_db
 from keepup.settings import KeepupSettings
 
 
@@ -52,11 +50,6 @@ def grant(section_id: str):
         "SELECT role_name FROM role_modules WHERE module_id = :id", {"id": section_id})
 
 
-@pytest.fixture(scope="module", autouse=True)
-def tables():
-    init_db()
-
-
 # --- the file the application named --------------------------------------------
 
 def test_the_start_seeds_the_catalogue_the_application_named(tmp_path):
@@ -72,26 +65,15 @@ def test_the_start_seeds_the_catalogue_the_application_named(tmp_path):
     assert grant("catalogue-98-start")["role_name"] == "ADMIN"
 
 
-def test_init_db_seeds_it_too_when_it_is_handed_the_path(tmp_path):
-    """An application that calls init_db() itself can name the same file."""
-    path = catalogue(tmp_path, "catalogue-98-init")
+def test_the_sync_reads_the_path_the_application_configured(tmp_path):
+    """The read is the modules capability's, and it takes the path in hand.
 
-    init_db(plugins_config_path=str(path))
-
-    assert section("catalogue-98-init") is not None
-
-
-def test_init_db_reads_the_path_the_application_configured(tmp_path):
-    """Called with nothing, it reads what create_app() handed to the module.
-
-    The application usually calls init_db() before create_app(), and then it
-    passes its own path; this is the other order, and either way the file that
-    is read is the one the deployment named.
+    `keepup_db.schema.init_db` used to be the caller an application could reach
+    for; it is gone (keepup-158), and the step it ran is this one.
     """
     path = catalogue(tmp_path, "catalogue-98-configured")
-    create_app(bare_settings(plugins_config_path=str(path)))
 
-    init_db()
+    modules.sync_new_modules_from_json(str(path))
 
     assert section("catalogue-98-configured") is not None
 

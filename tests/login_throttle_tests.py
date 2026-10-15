@@ -16,14 +16,8 @@ import pytest
 
 from keepup_auth import login_throttle
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
 
 AT_ONCE = 20
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 @pytest.fixture(autouse=True)

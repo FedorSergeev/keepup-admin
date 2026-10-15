@@ -69,10 +69,8 @@ def test_the_history_query_runs_against_a_real_database():
     """
     from builtin.db import DatabaseSource
     from keepup_db import DatabaseManagerV2
-    from keepup_db.schema import init_db
     from keepup_metrics.plugin import HISTORY_METRICS, MetricsService
 
-    init_db()
     service = MetricsService(DatabaseSource(DatabaseManagerV2))
     answer = asyncio.run(service.history(hours=24))
     assert answer["metrics"] == list(HISTORY_METRICS)

@@ -14,12 +14,10 @@ from sqlalchemy import event
 
 from keepup_db import DatabaseManagerV2
 from keepup_db.manager import _reads_only
-from keepup_db.schema import init_db
 
 
 @pytest.fixture(scope="module", autouse=True)
 def framework_tables():
-    init_db()
     DatabaseManagerV2.execute_commit(
         "CREATE TABLE IF NOT EXISTS read_probe (id INTEGER PRIMARY KEY, note TEXT)")
 

@@ -12,19 +12,12 @@ driver connection out of the same pool and hands it back.
 import re
 from pathlib import Path
 
-import pytest
 
 import keepup_db
 from keepup.tests.repository import is_not_the_package
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 def test_the_legacy_manager_is_gone_and_nothing_names_it():
@@ -55,7 +48,6 @@ def test_a_raw_connection_comes_from_the_pool_and_goes_back():
 
 def test_the_start_up_leaves_no_connection_checked_out():
     before = DatabaseManagerV2._engine.pool.checkedout()
-    init_db()
     assert DatabaseManagerV2._engine.pool.checkedout() == before
 
 

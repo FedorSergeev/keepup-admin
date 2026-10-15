@@ -1,6 +1,7 @@
 """The tables of the integration log, declared where the capability lives.
 
-Task keepup-124. `keepup_db.schema` no longer declares it: a table belongs to the
+Task keepup-124. A table belongs to the capability that keeps it; `keepup_db.schema`
+no longer declares it, and is gone (keepup-158):
 capability that keeps it, and the capability's plugin offers the declaration to
 the abstraction that creates it (keepup-106, keepup-123).
 """

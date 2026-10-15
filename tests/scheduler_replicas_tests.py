@@ -15,14 +15,8 @@ from keepup_tasks import scheduler as scheduling
 from keepup_db import DatabaseManagerV2
 from keepup.plugins.base import BasePlugin
 from keepup.plugins.registry import _post_construct
-from keepup_db.schema import init_db
 
 PACKAGE = Path(__file__).resolve().parents[1]
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 @pytest.fixture(autouse=True)

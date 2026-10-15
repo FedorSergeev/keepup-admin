@@ -47,8 +47,6 @@ def finding(number: int):
 @pytest.fixture
 def throttle(monkeypatch):
     """A known limit and a clean count, for the checks that sign in."""
-    from keepup_db.schema import init_db
-    init_db()
 
     def set_limit(limit):
         monkeypatch.setenv(login_throttle.MAX_ATTEMPTS_ENV, str(limit))

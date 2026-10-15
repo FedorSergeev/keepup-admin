@@ -50,6 +50,4 @@ async def pools(admin: dict = Depends(get_current_admin)):
 
 
 if __name__ == "__main__" and sys.argv[1:] == ["init"]:
-    from keepup_db.schema import init_db
-    init_db()
     print("schema ready")

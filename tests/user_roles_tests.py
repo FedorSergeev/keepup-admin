@@ -30,12 +30,6 @@ from keepup_http.factory import create_app
 from keepup_modules import decisions as plugins_admin
 from keepup.settings import KeepupSettings
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
-from keepup_db.schema import init_db
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 @pytest.fixture(autouse=True)

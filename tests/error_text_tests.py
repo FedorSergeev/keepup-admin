@@ -20,14 +20,12 @@ from keepup_auth.dependencies import get_current_admin
 from keepup_http.body_limit import BodyLimitMiddleware
 from keepup_http.events_api import register_event_api_routes
 from keepup.logging_setup import for_log
-from keepup_db.schema import init_db
 
 SECRET = "relation users: password_hash='$2b$12$abc' for token sk-live-1"
 
 
 @pytest.fixture(scope="module", autouse=True)
 def framework_tables():
-    init_db()
     events.init_event_manager()
 
 

@@ -25,7 +25,6 @@ from fastapi.testclient import TestClient
 from keepup_auth import dependencies, panel_session
 from keepup_auth.routes import register_auth_routes
 from keepup_db import DatabaseManagerV2
-from keepup_db.schema import init_db
 
 PASSWORD = "a-long-password-92"
 HOST = "testserver"
@@ -36,11 +35,6 @@ SHELL = Path(__file__).resolve().parents[1] / "packages" / "keepup-http" / "keep
 CSRF_REGION_START = "const SESSION_MARKER"
 CSRF_REGION_END = "installCsrfFetch(window);"
 NODE = shutil.which("node")
-
-
-@pytest.fixture(scope="module", autouse=True)
-def framework_tables():
-    init_db()
 
 
 @pytest.fixture(autouse=True)

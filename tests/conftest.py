@@ -59,6 +59,26 @@ for _factory in ("Gauge", "Counter", "Histogram"):
 sys.modules["prometheus_client"] = _prometheus
 
 
+# --- the schema ---------------------------------------------------------------
+
+# The framework's tables, for this suite: `keepup_db.schema.init_db` is gone and
+# the kernel's lifecycle does not run in a test. The helper lives in a module of
+# its own because a check that hands itself a database asks for the schema
+# inside its own fixture -- see tests/framework_schema.py.
+from framework_schema import create_framework_tables  # noqa: E402
+
+
+@pytest.fixture(scope="session", autouse=True)
+def framework_schema():
+    """The framework's tables, once, before any check builds an application.
+
+    A session, not a check: the database is the session's throwaway one, the
+    declarations are idempotent, and 42 files used to call `init_db()` for this
+    -- which no longer exists.
+    """
+    create_framework_tables()
+
+
 @pytest.fixture(autouse=True)
 def framework_state_restored():
     """Put back everything create_app() sets process-wide.

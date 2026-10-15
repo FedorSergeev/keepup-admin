@@ -3,7 +3,8 @@
 Task keepup-113. `frontend_modules` was declared by the panel's distribution
 because the panel drew the navigation from it; the model -- which section exists,
 who may see it, where its files are -- is the catalogue's, so the declaration
-travels with the catalogue. `keepup_db.schema` re-exports all three for one
+travels with the catalogue. `keepup_db.schema`, which re-exported all three for
+one
 release, which is what a path written before the split still imports.
 
 The navigation fields are columns now and not a JSON blob: the collapsed
