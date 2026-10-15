@@ -19,7 +19,9 @@ from pathlib import Path
 PACKAGE = Path(__file__).resolve().parents[1]
 
 #: Never part of the framework's shipped tree for this check.
-SKIPPED = ("__pycache__", ".venv", "build", "dist", "tests", "ci", "openspec", "doc")
+#: What is not the package: one rule, in one place, so that an environment
+#: nested in the repository is not read as framework code (keepup-160).
+from keepup.tests.repository import is_not_the_package  # noqa: E402
 
 #: What the sign-in is: the modules a capability owns, and the shape it uses.
 SIGN_IN = "keepup_auth"
@@ -34,8 +36,12 @@ STILL_IMPORTING = {
 def package_files():
     """Every Python file of the framework, tests and artifacts aside."""
     for path in sorted(PACKAGE.rglob("*.py")):
+        if is_not_the_package(path):
+            continue
         relative = path.relative_to(PACKAGE)
-        if any(part in SKIPPED for part in relative.parts):
+        # The checks and the design notes import the sign-in to talk about it;
+        # this check is about the framework's own modules.
+        if {"doc", "tests"} & set(relative.parts):
             continue
         yield path, str(relative)
 

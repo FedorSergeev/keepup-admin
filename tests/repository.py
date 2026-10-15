@@ -33,6 +33,10 @@ NOT_AN_APPLICATION = {"tests", "doc", "config", "static", "openspec", "ci"}
 NOT_THE_PACKAGE = {
     ".git", ".venv", "venv", ".idea", ".vscode", "ci", "openspec",
     "build", "dist", "static.min", "__pycache__", ".pytest_cache",
+    # An environment nested anywhere below the package -- the site keeps one for
+    # its own end-to-end checks -- is a copy of the framework, not the framework
+    # (keepup-160).
+    "site-packages", "node_modules",
     # The distributions a capability travels in (keepup-115): directories with
     # metadata of their own, beside the package rather than inside it.
     "packages",
