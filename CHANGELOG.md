@@ -29,6 +29,16 @@ A deployment upgrades by installing the distributions it uses
   when it is not there, and `create_runtime` builds a runtime without one. The
   capabilities declare the web layer they use: `keepup-http` and `keepup-auth`
   FastAPI and Starlette, `keepup-auth` pydantic.
+- **The transport binds what the plugins declared (keepup-121, keepup-122).**
+  `create_app` hands the kernel's collected declarations to the HTTP transport's
+  registrars -- `register_declared_routes` and `register_declared_sockets` in
+  `keepup_http.routes` -- so an application that names only `plugins_dir`
+  answers on the addresses its own plugins declare. A generated project used to
+  load and initialise its plugin and never mount a route of it, because only a
+  `PluginManager` of the 0.3.0 path ever bound them. An address the application
+  already answers -- the framework's own routes, or a manager's -- is skipped
+  rather than bound twice, and a declaration the runtime refuses still stops the
+  start (keepup-102).
 - **The cluster is a distribution, and delivery between replicas is a service
   (keepup-144, keepup-145).** `keepup-cluster` owns the registry, the commands,
   the controller, the panel section and the stopped-replica gate; `notify_transport`

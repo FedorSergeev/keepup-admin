@@ -40,6 +40,8 @@ from keepup.plugins import route_mask
 __all__ = [
     "accepted_params",
     "raw_request_wrapper",
+    "register_declared_routes",
+    "register_declared_sockets",
     "register_plugin_routes",
 ]
 
@@ -413,95 +415,223 @@ async def register_plugin_routes(app, manager):
     logger.info(f"Found {len(routes)} plugin routes to register")
 
     for route in routes:
-        handler = route['handler']
-        path = route['path']
-        methods = route['methods']
-        require_auth = route.get('require_auth', True)
-        is_upload = route.get('is_upload', False)
-        permission = route.get('permission')
-        audit = route.get('audit', True)
-        response_media_type = route.get('response_media_type')
-        if response_media_type is not None and (
-                not isinstance(response_media_type, str) or not response_media_type.strip()):
-            raise ValueError(
-                f"{path}: response_media_type is a media type, like 'text/plain'")
-        if response_media_type is not None and route.get('raw_request'):
-            raise ValueError(
-                f"{path}: a raw_request route answers with a Response of its own; "
-                "response_media_type would be ignored. Drop one of the two.")
-        if permission is not None:
-            # A right needs somebody to hold it: on a route nobody signs in to,
-            # or one that signs itself in, it would be a check that never runs.
-            if not isinstance(permission, str) or not permission.strip():
-                raise ValueError(f"{path}: permission must be a non-empty string")
-            if route.get('raw_request') or not require_auth:
-                raise ValueError(
-                    f"{path}: a route that declares a permission must be signed in by "
-                    "the framework -- drop require_auth: false or raw_request, or the "
-                    "permission")
-
-        logger.info(
-            f"Registering route {path} - methods: {methods}, auth: {require_auth}, upload: {is_upload}")
-
-        # The kernel parsed and checked the mask when it collected the route,
-        # for every transport there will ever be (keepup-102); a route that
-        # reaches here without one was declared by something else, and is
-        # checked the same way rather than trusted.
-        mask = route.get('_mask')
-        if mask is None:
-            try:
-                mask = route_mask.parse(route.get(route_mask.MASK_FIELD), path)
-                route_mask.check_signature(handler, mask)
-            except route_mask.MaskError as error:
-                # The same loudness as the raw_request check below: a mask naming
-                # a parameter the handler does not take is a typo, and finding it
-                # on a request would mean hearing about it from a user.
-                raise ValueError(f"{path}: {error}")
-
-        if route.get('raw_request'):
-            # A raw route authenticates inside the handler -- it is handed the
-            # Request and nothing else. Declaring require_auth on it therefore
-            # promises a check the framework does not make, and the start-up
-            # line used to print auth=True over an open route (keepup-12).
-            if route.get('require_auth') is True:
-                raise ValueError(
-                    f"{path}: a raw_request route cannot also declare "
-                    "require_auth -- the handler receives the Request and "
-                    "authenticates itself. Drop one of the two.")
-            require_auth = False
-            wrapper = raw_request_wrapper(handler)
-        else:
-            wrapper = create_wrapper(handler, path, methods, require_auth, is_upload, mask,
-                                     permission, audit=audit,
-                                     response_media_type=response_media_type)
-
-        # What the route says about its body: its own limit, or that it reads
-        # the body itself (keepup/body_limit.py).
-        declare_limit(wrapper, route)
-
-        app.add_api_route(
-            path,
-            wrapper,
-            methods=methods,
-            include_in_schema=route.get('include_in_schema', True)
-        )
-
-        logger.info(
-            f"Registered plugin route: {path} - {methods} (auth={require_auth}, upload={is_upload})")
+        _mount_route(app, route)
 
     websocket_routes = manager.get_all_websocket_routes()
     logger.info(f"Found {len(websocket_routes)} WebSocket plugin routes to register")
 
     for ws_route in websocket_routes:
-        path = ws_route['path']
-        handler = ws_route['handler']
-        # Off by default, unlike HTTP routes: sockets of agents and guests carry
-        # tokens of their own and would be refused by the panel's sign-in rule.
-        if ws_route.get('require_auth', False):
-            handler = signed_in_websocket(handler)
-        _register_websocket(app, path, handler)
-        logger.info(f"Registered WebSocket plugin route: {path} "
-                    f"(auth={bool(ws_route.get('require_auth', False))})")
+        _mount_socket(app, ws_route)
+
+
+def register_declared_routes(app, declarations) -> int:
+    """Mount the routes the kernel collected from the plugins (keepup-121).
+
+    The kernel resolves, loads and initialises the plugins, and what they
+    declared is the runtime's, transport-neutral: this is the HTTP half of that
+    seam, the call ``runtime.mount`` hands to a registrar. Until it existed an
+    application that named only ``plugins_dir`` got no route of its own, because
+    only a PluginManager of the 0.3.0 path ever bound them.
+
+    What the application already answers is left alone: the framework's own
+    routes are registered before the kernel starts, and an application that
+    passes a manager has its declarations bound by `register_plugin_routes` --
+    so one declaration never becomes two endpoints.
+
+    Args:
+        app: the FastAPI application.
+        declarations: the route declarations the kernel collected, each tagged
+            with ``_plugin_id`` and, because the collector does it once for every
+            transport, a parsed ``_mask``.
+
+    Returns:
+        How many declarations were mounted.
+    """
+    mounted = 0
+    for declaration in declarations:
+        path = declaration["path"]
+        methods = tuple(declaration.get("methods") or ())
+        if _already_mounted(app, path, methods):
+            logger.info("Route %s %s already answers: the kernel's declaration is "
+                        "not mounted twice", path, list(methods))
+            continue
+        _mount_route(app, declaration)
+        mounted += 1
+    return mounted
+
+
+def register_declared_sockets(app, declarations) -> int:
+    """Mount the sockets the kernel collected from the plugins (keepup-121).
+
+    The same seam as `register_declared_routes`, for the other thing a plugin
+    declares. A socket the application already answers is left alone.
+
+    Args:
+        app: the FastAPI application.
+        declarations: the socket declarations the kernel collected.
+
+    Returns:
+        How many declarations were mounted.
+    """
+    mounted = 0
+    for declaration in declarations:
+        path = declaration["path"]
+        if _already_mounted(app, path):
+            logger.info("Socket %s already answers: the kernel's declaration is not "
+                        "mounted twice", path)
+            continue
+        _mount_socket(app, declaration)
+        mounted += 1
+    return mounted
+
+
+def _mount_route(app, declaration):
+    """Turn one declared route into an endpoint, having checked it first.
+
+    One implementation for every declaration, whatever collected it -- the
+    manager of the 0.3.0 path or the kernel's catalogue (keepup-21, keepup-121).
+    A declaration the route runtime refuses -- a permission on a route nobody
+    signs in to, a mask naming a parameter the handler does not take -- is a
+    mistake found at the start, rather than a route that quietly goes missing
+    (keepup-102).
+
+    Args:
+        app: the FastAPI application.
+        declaration: the route as the plugin declared it. The kernel's collector
+            leaves a parsed ``_mask`` on it; a declaration from anywhere else is
+            checked here instead of trusted.
+
+    Raises:
+        ValueError: when the declaration is one the runtime refuses.
+    """
+    route = declaration
+    handler = route['handler']
+    path = route['path']
+    methods = route['methods']
+    require_auth = route.get('require_auth', True)
+    is_upload = route.get('is_upload', False)
+    permission = route.get('permission')
+    audit = route.get('audit', True)
+    response_media_type = route.get('response_media_type')
+    if response_media_type is not None and (
+            not isinstance(response_media_type, str) or not response_media_type.strip()):
+        raise ValueError(
+            f"{path}: response_media_type is a media type, like 'text/plain'")
+    if response_media_type is not None and route.get('raw_request'):
+        raise ValueError(
+            f"{path}: a raw_request route answers with a Response of its own; "
+            "response_media_type would be ignored. Drop one of the two.")
+    if permission is not None:
+        # A right needs somebody to hold it: on a route nobody signs in to,
+        # or one that signs itself in, it would be a check that never runs.
+        if not isinstance(permission, str) or not permission.strip():
+            raise ValueError(f"{path}: permission must be a non-empty string")
+        if route.get('raw_request') or not require_auth:
+            raise ValueError(
+                f"{path}: a route that declares a permission must be signed in by "
+                "the framework -- drop require_auth: false or raw_request, or the "
+                "permission")
+
+    logger.info(
+        f"Registering route {path} - methods: {methods}, auth: {require_auth}, upload: {is_upload}")
+
+    # The kernel parsed and checked the mask when it collected the route,
+    # for every transport there will ever be (keepup-102); a route that
+    # reaches here without one was declared by something else, and is
+    # checked the same way rather than trusted.
+    mask = route.get('_mask')
+    if mask is None:
+        try:
+            mask = route_mask.parse(route.get(route_mask.MASK_FIELD), path)
+            route_mask.check_signature(handler, mask)
+        except route_mask.MaskError as error:
+            # The same loudness as the raw_request check below: a mask naming
+            # a parameter the handler does not take is a typo, and finding it
+            # on a request would mean hearing about it from a user.
+            raise ValueError(f"{path}: {error}")
+
+    if route.get('raw_request'):
+        # A raw route authenticates inside the handler -- it is handed the
+        # Request and nothing else. Declaring require_auth on it therefore
+        # promises a check the framework does not make, and the start-up
+        # line used to print auth=True over an open route (keepup-12).
+        if route.get('require_auth') is True:
+            raise ValueError(
+                f"{path}: a raw_request route cannot also declare "
+                "require_auth -- the handler receives the Request and "
+                "authenticates itself. Drop one of the two.")
+        require_auth = False
+        wrapper = raw_request_wrapper(handler)
+    else:
+        wrapper = create_wrapper(handler, path, methods, require_auth, is_upload, mask,
+                                 permission, audit=audit,
+                                 response_media_type=response_media_type)
+
+    # What the route says about its body: its own limit, or that it reads
+    # the body itself (keepup/body_limit.py).
+    declare_limit(wrapper, route)
+
+    app.add_api_route(
+        path,
+        wrapper,
+        methods=methods,
+        include_in_schema=route.get('include_in_schema', True)
+    )
+
+    logger.info(
+        f"Registered plugin route: {path} - {methods} (auth={require_auth}, upload={is_upload})")
+
+
+def _mount_socket(app, declaration):
+    """Turn one declared socket into a route on the application.
+
+    The other half of the same seam: the kernel collects what a plugin declared,
+    and this is where HTTP binds it. Kept beside `_mount_route` because one
+    declaration should have one way in, whatever collected it.
+
+    Args:
+        app: the FastAPI application.
+        declaration: the socket as the plugin declared it.
+    """
+    ws_route = declaration
+    path = ws_route['path']
+    handler = ws_route['handler']
+    # Off by default, unlike HTTP routes: sockets of agents and guests carry
+    # tokens of their own and would be refused by the panel's sign-in rule.
+    if ws_route.get('require_auth', False):
+        handler = signed_in_websocket(handler)
+    _register_websocket(app, path, handler)
+    logger.info(f"Registered WebSocket plugin route: {path} "
+                f"(auth={bool(ws_route.get('require_auth', False))})")
+
+
+def _already_mounted(app, path, methods=None) -> bool:
+    """Whether the application already answers this address, and these verbs.
+
+    Asked before a kernel-collected declaration is mounted: the framework's own
+    routes and the ones a PluginManager bound are registered first, and a path
+    registered twice is an application that answers twice. A socket is asked
+    about by path alone -- it has no methods of its own.
+
+    Args:
+        app: the FastAPI application.
+        path: the address.
+        methods: the verbs, or None for a socket.
+
+    Returns:
+        True when the application already has it.
+    """
+    for route in getattr(app, "routes", ()):
+        if getattr(route, "path", None) != path:
+            continue
+        existing = getattr(route, "methods", None)
+        if methods is None:
+            if not existing:
+                return True
+            continue
+        if tuple(sorted(existing or ())) == tuple(sorted(methods)):
+            return True
+    return False
 
 
 def _register_websocket(app, path, handler):

@@ -43,6 +43,7 @@ from keepup_audit.events import init_event_manager
 from keepup_http.events_api import register_event_api_routes
 from keepup.instance import get_instance_id
 from keepup_http.lock_routes import register_lock_routes
+from keepup_http.routes import register_declared_routes, register_declared_sockets
 from keepup_metrics.api import register_metrics_routes
 from keepup_modules.catalogue import register_module_routes
 from keepup.plugins.registry import (
@@ -313,6 +314,19 @@ def _build_lifespan(settings: KeepupSettings):
 
         if manager is not None:
             await initialize_plugins(app, manager, config_path=settings.plugins_config_path)
+
+        # What the kernel's plugins declared is bound here (keepup-121): an
+        # application that named only `plugins_dir` used to get no route of its
+        # own, because only a PluginManager of the 0.3.0 path ever bound them.
+        # The manager above registered its declarations a moment ago; a route the
+        # application already answers is skipped rather than answered twice.
+        if kernel is not None:
+            mounted = kernel.mount({
+                "routes": lambda items, runtime=None: register_declared_routes(app, items),
+                "sockets": lambda items, runtime=None: register_declared_sockets(app, items),
+            })
+            if mounted:
+                logger.info("Mounted what the plugins declared: %s", mounted)
 
         # The log handlers the running capabilities contribute -- the shipping
         # one, when a collector is named (keepup-118). A deployment that
