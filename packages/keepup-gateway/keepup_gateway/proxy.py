@@ -27,7 +27,7 @@ from keepup_gateway import headers as edge
 from keepup_gateway.balancer import Balancer
 from keepup_gateway.identity import caller_of, sign_identity
 from keepup_gateway.local import LocalCall, answer_of
-from keepup_gateway.table import IDEMPOTENT_METHODS, GatewayRoute, match
+from keepup_gateway.table import IDEMPOTENT_METHODS, GatewayRoute, match, traverses
 
 logger = logging.getLogger(__name__)
 
@@ -94,6 +94,8 @@ class Proxy:
 
     async def _handle(self, request, request_id: str) -> Any:
         path = request.url.path
+        if traverses(path):
+            raise _Refused(400, "the path contains a dot segment")
         route = match(await self.table(), path)
         if route is None:
             return _elsewhere(request)
@@ -122,6 +124,11 @@ class Proxy:
             added=added,
         )
         target_path = route.upstream_path(path)
+        if traverses(target_path):
+            # The path was checked before the route was chosen; this is the
+            # same fact at the point the URL is built, so a later edit cannot
+            # quietly hand httpx a climb to normalise (keepup-170).
+            raise _Refused(400, "the path contains a dot segment")
         query = request.url.query
         timeout = httpx.Timeout(route.timeout, connect=route.connect_timeout)
 

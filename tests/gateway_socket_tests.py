@@ -120,6 +120,15 @@ def test_messages_go_both_ways_with_the_subprotocol_and_the_headers(service):
     assert "x-keepup-user-id" not in seen
 
 
+def test_a_dot_segment_closes_the_socket_before_a_route_is_chosen(service):
+    """The socket's prefix must hold for the path the service is addressed on."""
+    client, _ = gateway([{"prefix": "/ws", "upstreams": [service], "websocket": True}])
+    with pytest.raises(WebSocketDisconnect) as closed:
+        with client.websocket_connect("/ws/%2e%2e/admin"):
+            pass
+    assert closed.value.code == 1008
+
+
 def test_the_services_close_code_reaches_the_client(service):
     client, _ = gateway([{"prefix": "/ws", "upstreams": [service], "websocket": True}])
     with client.websocket_connect("/ws/agent") as ws:

@@ -24,7 +24,7 @@ from keepup_gateway import IdentityError, verify_identity
 from keepup_gateway.balancer import Balancer
 from keepup_gateway.identity import Caller, caller_of, sign_identity
 from keepup_gateway.plugin import SCRIPT_FILE, SECTION_SCRIPT, GatewayPlugin
-from keepup_gateway.table import TableError, match, parse_table
+from keepup_gateway.table import TableError, match, parse_table, traverses
 from keepup_http.routes import register_declared_routes
 
 SECRET = "shared-with-the-services"
@@ -158,6 +158,43 @@ def test_the_prefix_is_kept_unless_the_route_strips_it():
     services = Upstreams()
     client, _ = gateway([{"prefix": "/api/shop", "upstreams": ["http://shop"]}], services)
     assert client.get("/api/shop/items").json()["path"] == "/api/shop/items"
+
+
+def test_a_dot_segment_never_leaves_the_route_prefix():
+    """The prefix and its permission must hold for the path the service gets."""
+    services = Upstreams()
+    client, _ = gateway([{"prefix": "/api/shop", "upstreams": ["http://shop"],
+                          "strip_prefix": True}], services)
+    answer = client.get("/api/shop/%2e%2e/admin")
+    assert answer.status_code == 400
+    assert services.seen == [], "the service was reached through a normalised path"
+
+
+def test_a_double_encoded_dot_segment_is_refused_too():
+    """Starlette decodes once and an upstream may decode again."""
+    services = Upstreams()
+    client, _ = gateway([{"prefix": "/api/shop", "upstreams": ["http://shop"],
+                          "strip_prefix": True}], services)
+    assert client.get("/api/shop/%252e%252e/admin").status_code == 400
+    assert services.seen == []
+
+
+@pytest.mark.parametrize("path", [
+    "/api/shop/../admin",
+    "/api/shop/%2e%2e/admin",
+    "/api/shop/%252e%252e/admin",
+    "/api/shop/..",
+    "/api/shop/.%2e/admin",
+    "/api/shop\\..\\admin",
+])
+def test_every_spelling_of_a_climb_is_a_climb(path):
+    assert traverses(path)
+
+
+def test_a_name_that_merely_contains_dots_is_not_a_segment():
+    assert not traverses("/api/shop/a..b")
+    assert not traverses("/api/shop/...")
+    assert not traverses("/api/shop/a.b/c")
 
 
 def test_the_body_and_the_method_reach_the_service():

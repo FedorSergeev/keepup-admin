@@ -8,7 +8,7 @@ into a 404 that somebody reports a week later. Pure: no network, no FastAPI.
 
 from dataclasses import dataclass, field
 from typing import Any, Callable, Iterable, List, Mapping, Optional, Sequence, Tuple
-from urllib.parse import urlsplit
+from urllib.parse import unquote, urlsplit
 
 __all__ = [
     "AUTH_NONE",
@@ -24,6 +24,7 @@ __all__ = [
     "parse_table",
     "parse_route",
     "match",
+    "traverses",
 ]
 
 #: Where a route came from: the plugin's config, a service that registered
@@ -185,6 +186,30 @@ def match(routes: Sequence[GatewayRoute], path: str) -> Optional[GatewayRoute]:
         if route.covers(path) and (best is None or len(route.prefix) > len(best.prefix)):
             best = route
     return best
+
+
+def traverses(path: str) -> bool:
+    """Whether a request path carries a segment that may climb out of its prefix.
+
+    The router matches the path as the client wrote it, but the upstream client
+    normalises a URL when it builds one: ``/api/shop/../admin`` matches the
+    ``/api/shop`` route and reaches ``/admin`` on the service. So a dot segment
+    is refused before a route is chosen, not normalised into one -- a gateway
+    whose prefix and permission hold for one path and not the other is not a
+    gateway (keepup-170).
+
+    Decoded twice on purpose: Starlette has already decoded once, and an
+    upstream may decode again, so ``%2e%2e`` and ``%252e%252e`` are both the
+    same climb. A backslash is refused too -- some servers read it as a
+    separator.
+    """
+    if "\\" in path:
+        return True
+    for segment in path.split("/"):
+        decoded = unquote(segment)
+        if decoded in (".", "..") or unquote(decoded) in (".", ".."):
+            return True
+    return False
 
 
 def _route(entry: Mapping[str, Any], index: int) -> GatewayRoute:

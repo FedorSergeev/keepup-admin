@@ -25,7 +25,7 @@ from starlette.websockets import WebSocket, WebSocketDisconnect
 from keepup.kernel import security
 from keepup_gateway import headers as edge
 from keepup_gateway.identity import caller_of, sign_identity
-from keepup_gateway.table import GatewayRoute, match
+from keepup_gateway.table import GatewayRoute, match, traverses
 
 logger = logging.getLogger(__name__)
 
@@ -67,6 +67,11 @@ class SocketProxy:
     async def handle(self, websocket: WebSocket) -> None:
         """Carry one socket to the service its path is addressed to."""
         path = websocket.url.path
+        if traverses(path):
+            # Before the route is chosen: the socket client normalises a dot
+            # segment the same way the request client does (keepup-170).
+            await websocket.close(code=POLICY_VIOLATION)
+            return
         route = match([route for route in await self.table() if route.websocket], path)
         if route is None:
             await _elsewhere(websocket)
