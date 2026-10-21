@@ -13,10 +13,20 @@ a subsystem that runs as a process of its own, or to any other HTTP address. It
 knows nothing about what stands behind an address: it routes, it balances, and
 it tells the service who is calling.
 
-**Upgrading from 0.5.0.** Nothing moves and nothing breaks: the gateway is
-`optional` and no profile enables it, so a deployment without services beside it
-is untouched. A deployment that has them names the plugin in its plugins file and
-installs `keepup-admin[gateway]`.
+**Upgrading from 0.5.0.** Nothing moves and nothing breaks structurally: the
+gateway is `optional` and no profile enables it, so a deployment without services
+beside it is untouched. A deployment that has them names the plugin in its
+plugins file and installs `keepup-admin[gateway]`.
+
+**Signing in after 0.5.0.** The defaults are shorter and priced. An access token
+lives 60 minutes (was 24 hours), a session renews for 24 hours (was 30 days), and
+the panel warns 5 minutes before the end. A sign-in now costs an address 30 calls
+a minute and the deployment 600 (`AUTH_RATE_LIMIT_PER_MINUTE`,
+`AUTH_RATE_LIMIT_GLOBAL_PER_MINUTE`); both are environment settings and 0 turns a
+bucket off. The integration log is administrators-only now — an application that
+showed it to clients loses that on purpose. A second factor is available and off
+until somebody enrols one; `MFA_REQUIRED_FOR_ADMINS=true` makes it mandatory and
+should be switched on after the enrolment, not before.
 
 ### Added
 
@@ -34,6 +44,39 @@ installs `keepup-admin[gateway]`.
   registered behind it and the applications they serve, in the panel.
 - **The document (doc/gateway.md).** What the gateway is, the shape of the table,
   and the identity a service receives.
+
+### Security
+
+- **The integration log is the administrator's (keepup-169).** All four
+  `/api/integration-logs` routes declare `integration_logs.admin`, and the panel
+  section is `adminOnly`. The log carries other people's request and response
+  bodies; a signed-in client could read and delete them.
+- **A path cannot leave its gateway prefix (keepup-170).** A dot segment —
+  `%2e%2e`, `%252e%252e` or a backslash — is refused before the route is chosen,
+  so the path the permission was checked for is the path the service receives. A
+  socket with one is closed with 1008 before the handshake.
+- **A sign-in has a price (keepup-171).** Two database-backed buckets, one per
+  address and one for the deployment, counted per minute and shared by every
+  replica. Over the budget the answer is 429 with `Retry-After`, before the
+  password is read. The per-name lockout stays.
+- **The audit names the actor (keepup-172).** `incoming_requests` keeps `user_id`
+  and `username` as columns, outside the redacted body; the framework's own
+  profile, password, roles, user and cluster-command routes write the same row
+  as a plugin route; and a refused sign-in is logged with the name and address.
+  The last attempt's address is kept in `login_attempts`.
+- **A stolen session is worth less, and the key can rotate (keepup-173).** The
+  token, the renewal window and the warning are above. A token with no recorded
+  session start is no longer renewable for ever, `SECRET_KEY_PREVIOUS` keeps
+  tokens signed by the old key valid while they live, and every token names its
+  issuer and audience (`keepup` / `keepup-panel`).
+- **A second factor (keepup-174, keepup-176).** TOTP — RFC 6238, one-use codes,
+  ten recovery codes shown once — with a five-minute challenge between the
+  password and the session. The panel grows the code field after the password and
+  an account screen to enrol, confirm and disable the factor.
+- **The release is gated and disclosed (keepup-175).** Nothing is published
+  before the suite passes; the build tools and actions are pinned; the release
+  leaves a CycloneDX SBOM; and `SECURITY.md` names the private advisory channel,
+  the supported versions and the 7/30/90-day targets.
 
 ### Changed
 
@@ -57,8 +100,14 @@ installs `keepup-admin[gateway]`.
 
 ### Known, and left for 0.7.0
 
-- Nothing of the release's own: the two things 0.5.0 left behind -- the single
-  role in the table and the single role in the answers -- are both gone.
+- **Step-up is not in this release.** A second factor is required at sign-in, not
+  freshly before a role, password or plugin change; a stolen session with `otp`
+  can still take those actions until it expires.
+- **The enrolment screen shows a secret and an `otpauth://` URI, not a QR image.**
+  An authenticator accepts both; a camera is faster.
+- **Trusted hosts and the proxy allowlist** are not configurable yet. The
+  sign-in's forwarded address is the direct peer, and `X-Forwarded-*` is trusted
+  where the deployment put a proxy in front.
 
 ## 0.5.0 -- a base that is the standard library
 
