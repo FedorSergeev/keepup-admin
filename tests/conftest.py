@@ -38,6 +38,14 @@ if not os.environ.get("DB_TYPE"):
     os.environ["DB_TYPE"] = "sqlite"
     os.environ["DB_PATH"] = str(Path(_session_database) / "session.db")
 
+# --- the sign-in's budget -----------------------------------------------------
+
+# The suite signs in hundreds of times from one TestClient address. The
+# per-address window added in keepup-171 would turn a test run into a 429; the
+# checks of the limiter set these names themselves.
+os.environ.setdefault("AUTH_RATE_LIMIT_PER_MINUTE", "0")
+os.environ.setdefault("AUTH_RATE_LIMIT_GLOBAL_PER_MINUTE", "0")
+
 # --- the signing key ----------------------------------------------------------
 
 # Code that mints or checks a token refuses to work without one, and refuses

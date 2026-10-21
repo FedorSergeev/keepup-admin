@@ -24,7 +24,7 @@ from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, Field, field_validator
 
 from keepup_auth.usernames import is_valid_username
-from keepup_auth import panel_session, seed_accounts, user_routes
+from keepup_auth import auth_rate_limit, panel_session, seed_accounts, user_routes
 from keepup_auth.dependencies import (
     _authenticated_by_cookie,
     _bearer_of,
@@ -330,12 +330,18 @@ def register_auth_routes(app, manager):
         return config
 
     @app.post("/api/auth/register", response_model=dict)
-    async def register_endpoint(user: UserCreate):
+    async def register_endpoint(user: UserCreate, request: Request):
+        auth_rate_limit.check(request)
         return await register(user)
 
     @app.post("/api/auth/login", response_model=Token)
     async def login(login_data: LoginRequest, request: Request, response: Response):
         from keepup_auth import login_throttle
+
+        # The name's own counter below answers "is this password being guessed".
+        # It cannot see one address spraying one password across many names, so
+        # the address and the deployment are counted first (keepup-171).
+        auth_rate_limit.check(request)
 
         # Guessing a password had no cost: every attempt was answered as fast as the
         # first. The count is per name and lives in the database, because the next
@@ -415,6 +421,8 @@ def register_auth_routes(app, manager):
     async def refresh_access_token_endpoint(current_user: dict = Depends(get_current_user),
                                             request: Request = None, response: Response = None):
         """Exchange a still-valid token for a new one with a full lifetime."""
+        if request is not None:
+            auth_rate_limit.check(request)
         return await refresh_access_token(current_user, request, response)
 
     @app.post("/api/auth/logout")

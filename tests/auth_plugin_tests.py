@@ -49,13 +49,13 @@ def runtime_with(catalogue, with_source=True):
     )
 
 
-def test_the_capability_publishes_both_services_and_owns_both_tables():
-    """Who is calling and what they may do: two names, one answer, two tables."""
+def test_the_capability_publishes_both_services_and_owns_its_tables():
+    """Who is calling and what they may do: two names, one answer, its tables."""
     runtime = runtime_with([{"id": "db", "enabled": True}, {"id": "auth", "enabled": True}])
     asyncio.run(runtime.start())
     assert runtime.services.has("auth") and runtime.services.has("permissions")
     ensured = [declaration.name for declaration in SourcePlugin.source.ensured[0]]
-    assert ensured == ["auth_session", "login_attempts"]
+    assert ensured == ["auth_session", "login_attempts", "auth_rate_limit"]
 
 
 def test_the_runtime_lets_the_plugin_answer_for_the_process():

@@ -20,7 +20,7 @@ from typing import Any, Dict, List, Tuple
 from fastapi import HTTPException, Request, status
 from fastapi.responses import RedirectResponse
 
-from keepup_auth import external_accounts, oidc, oidc_policy, panel_session
+from keepup_auth import auth_rate_limit, external_accounts, oidc, oidc_policy, panel_session
 from keepup_auth.dependencies import issue_session_token
 from keepup_db import DatabaseManagerV2
 from keepup_auth import user_roles
@@ -189,6 +189,7 @@ def register_oidc_routes(app, settings) -> None:
         Takes the request only to decide whether the flow cookie may be marked
         Secure -- the same question the session cookie asks.
         """
+        auth_rate_limit.check(request)
         try:
             metadata = await directory.metadata()
         except Exception as error:
@@ -223,6 +224,7 @@ def register_oidc_routes(app, settings) -> None:
     async def oidc_callback(request: Request, code: str = None, state: str = None,
                             error: str = None):
         """Receive the person back and, if everything checks out, let them in."""
+        auth_rate_limit.check(request)
         if error:
             raise _refuse(f"the provider answered with an error: {error}")
         if not code or not state:

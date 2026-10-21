@@ -14,7 +14,7 @@ from keepup_db import tables
 #: The name the session table is declared under, as the module it came from had it.
 TABLE = "auth_session"
 
-__all__ = ["AUTH_SESSION", "LOGIN_ATTEMPTS"]
+__all__ = ["AUTH_RATE_LIMIT", "AUTH_SESSION", "LOGIN_ATTEMPTS"]
 
 AUTH_SESSION = tables.table(
     TABLE,
@@ -32,4 +32,15 @@ LOGIN_ATTEMPTS = tables.table(
     Column("username", String(255).with_variant(Text(), "sqlite"), primary_key=True, nullable=True),
     Column("failures", Integer, nullable=False, server_default=tables.sql_text("0")),
     Column("last_failure_at", DateTime),
+)
+
+#: One row per bucket and wall-clock minute: how much of a sign-in budget was
+#: spent, shared by every replica because it is in the database (keepup-171).
+AUTH_RATE_LIMIT = tables.table(
+    "auth_rate_limit",
+    Column("bucket", String(255).with_variant(Text(), "sqlite"), primary_key=True,
+           nullable=False),
+    Column("window_start", DateTime, primary_key=True, nullable=False),
+    Column("hits", Integer, nullable=False, server_default=tables.sql_text("0")),
+    Index("idx_auth_rate_limit_window", "window_start"),
 )
