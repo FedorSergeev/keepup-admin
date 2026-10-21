@@ -26,10 +26,16 @@ from keepup_integration_log.tables import INTEGRATION_LOGS
 
 logger = logging.getLogger(__name__)
 
-__all__ = ["Integration_logsPlugin", "IntegrationLogService", "SERVICE_INTEGRATION_LOG"]
+__all__ = ["ADMIN_PERMISSION", "Integration_logsPlugin", "IntegrationLogService",
+           "SERVICE_INTEGRATION_LOG"]
 
 #: What another plugin asks for to record a call it made outside.
 SERVICE_INTEGRATION_LOG = "integration_log"
+
+#: The right the journal needs. It carries other people's requests and
+#: responses, so reading or deleting it is not for every signed-in account
+#: (keepup-169).
+ADMIN_PERMISSION = "integration_logs.admin"
 
 #: How much of a body is kept: one large payload must not dominate the log.
 BODY_LIMIT = 10_000
@@ -201,6 +207,9 @@ class Integration_logsPlugin(BasePlugin):
             "initFunction": "initIntegrationLogs",
             "icon": "activity",
             "version": "1.0.0",
+            # A client has no business seeing a way into the administrator's
+            # journal (keepup-169).
+            "adminOnly": True,
         }]
 
     def get_api_routes(self):
@@ -208,6 +217,7 @@ class Integration_logsPlugin(BasePlugin):
         return [
             {"path": "/api/integration-logs", "methods": ["GET"],
              "handler": self.list_logs,
+             "permission": ADMIN_PERMISSION,
              "params": {
                  "host": {"type": "str", "in": "query"},
                  "username": {"type": "str", "in": "query"},
@@ -218,12 +228,15 @@ class Integration_logsPlugin(BasePlugin):
              }},
             {"path": "/api/integration-logs/stats", "methods": ["GET"],
              "handler": self.stats,
+             "permission": ADMIN_PERMISSION,
              "params": {"days": {"type": "int", "in": "query", "min": 1, "max": 365}}},
             {"path": "/api/integration-logs/cleanup", "methods": ["POST"],
              "handler": self.cleanup,
+             "permission": ADMIN_PERMISSION,
              "params": {"days": {"type": "int", "in": "query", "min": 1, "max": 3650}}},
             {"path": "/api/integration-logs/{log_id}", "methods": ["GET"],
              "handler": self.one_log,
+             "permission": ADMIN_PERMISSION,
              "params": {"log_id": {"type": "int", "in": "path"}}},
         ]
 

@@ -13,16 +13,29 @@ import asyncio
 import re
 from pathlib import Path
 
+import pytest
+from fastapi import HTTPException
 
 from keepup.kernel import create_runtime, invoke
-from keepup.kernel.call import Call
+from keepup.kernel.call import Call, CallError
 from keepup.kernel.datasource import SERVICE_DATASOURCE
 from keepup.kernel.descriptor import KIND_REQUIRED, PluginDescriptor
 from keepup.plugins.base import BasePlugin
 from keepup_integration_log import Integration_logsPlugin as FrameworkPlugin
+from keepup_integration_log.plugin import ADMIN_PERMISSION
 
 PACKAGE = Path(__file__).resolve().parents[1]
 SECTION_JS = PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static" / "modules" / "js" / "integration_logs.js"
+
+
+async def allowed(actor, request):
+    """What a transport's permission checker answers for somebody who may."""
+    return None
+
+
+async def refused(actor, request):
+    """What it answers for somebody who may not."""
+    raise HTTPException(status_code=403, detail=f"Permission '{request.permission}' required")
 
 
 class RecordingSource:
@@ -148,7 +161,8 @@ def test_a_route_answers_through_the_neutral_call():
     """The route is data, and the invocation knows nothing about the wire."""
     runtime = asyncio.run(running_deployment())
     spec = route_of(runtime, "/api/integration-logs")
-    answer = asyncio.run(invoke(Call(route=spec, params={"limit": 5}, source="test")))
+    answer = asyncio.run(invoke(Call(route=spec, params={"limit": 5}, source="test"),
+                                checker=allowed))
     assert answer["logs"][0]["host"] == "billing"
     assert answer["total"] == 2
 
@@ -158,7 +172,8 @@ def test_the_table_has_a_retention_route_at_last():
     runtime = asyncio.run(running_deployment())
     spec = route_of(runtime, "/api/integration-logs/cleanup")
     assert spec.methods == ("POST",)
-    answer = asyncio.run(invoke(Call(route=spec, params={"days": 30}, source="test")))
+    answer = asyncio.run(invoke(Call(route=spec, params={"days": 30}, source="test"),
+                                checker=allowed))
     assert answer == {"removed": 2, "days": 30}
     assert "DELETE FROM integration_logs" in SourcePlugin.source.statements[-1][1]
 
@@ -199,3 +214,58 @@ def test_a_deployment_without_the_data_source_does_not_start_the_log():
     assert row["outcome"] == "unsatisfied"
     assert "datasource>=1" in row["reason"]
     assert runtime.get_plugin("integration_logs") is None
+
+
+def test_every_journal_route_needs_the_administrators_right():
+    """The log is other people's traffic: a signed-in account is not enough."""
+    runtime = asyncio.run(running_deployment())
+    routes = [spec for spec in runtime.route_specs()
+              if spec.path.startswith("/api/integration-logs")]
+    assert len(routes) == 4
+    assert {spec.permission for spec in routes} == {ADMIN_PERMISSION}
+    assert all(spec.require_auth for spec in routes)
+
+
+def test_the_journal_section_is_for_the_administrator():
+    """A way into the journal is not shown to somebody who cannot take it."""
+    runtime = asyncio.run(running_deployment())
+    section = runtime.contributions.of("sections")[0]
+    assert section["adminOnly"] is True
+
+
+def test_a_route_with_a_right_and_no_checker_refuses_to_run():
+    """A right nobody checks is worse than a route that does not run (keepup-91)."""
+    runtime = asyncio.run(running_deployment())
+    spec = route_of(runtime, "/api/integration-logs")
+    with pytest.raises(CallError) as refusal:
+        asyncio.run(invoke(Call(route=spec, params={}, source="test")))
+    assert refusal.value.code == "unchecked_permission"
+    assert SourcePlugin.source.statements == []
+
+
+def test_a_client_is_refused_before_the_log_is_read():
+    """The refusal comes from the permission seam, not from the handler."""
+    runtime = asyncio.run(running_deployment())
+    spec = route_of(runtime, "/api/integration-logs")
+    SourcePlugin.source.statements.clear()
+    with pytest.raises(HTTPException) as refusal:
+        asyncio.run(invoke(
+            Call(route=spec, params={}, source="test",
+                 actor={"id": 2, "username": "client", "roles": ["CLIENT"]}),
+            checker=refused,
+        ))
+    assert refusal.value.status_code == 403
+    assert SourcePlugin.source.statements == []
+
+
+def test_an_administrator_reads_the_log_as_before():
+    """The administrator's answer does not change with the right added."""
+    runtime = asyncio.run(running_deployment())
+    spec = route_of(runtime, "/api/integration-logs")
+    answer = asyncio.run(invoke(
+        Call(route=spec, params={}, source="test",
+             actor={"id": 1, "username": "admin", "roles": ["ADMIN"]}),
+        checker=allowed,
+    ))
+    assert answer["logs"][0]["host"] == "billing"
+    assert answer["total"] == 2
