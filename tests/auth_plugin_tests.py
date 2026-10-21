@@ -55,7 +55,7 @@ def test_the_capability_publishes_both_services_and_owns_its_tables():
     asyncio.run(runtime.start())
     assert runtime.services.has("auth") and runtime.services.has("permissions")
     ensured = [declaration.name for declaration in SourcePlugin.source.ensured[0]]
-    assert ensured == ["auth_session", "login_attempts", "auth_rate_limit"]
+    assert ensured == ["auth_session", "login_attempts", "auth_rate_limit", "auth_totp"]
 
 
 def test_the_runtime_lets_the_plugin_answer_for_the_process():

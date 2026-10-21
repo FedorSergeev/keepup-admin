@@ -109,11 +109,11 @@ class AuthPlugin(BasePlugin):
 
     def get_declared_tables(self) -> List[Any]:
         """The tables this capability owns, declared once, until keepup-124."""
-        from keepup_auth.tables import AUTH_RATE_LIMIT
+        from keepup_auth.tables import AUTH_RATE_LIMIT, AUTH_TOTP
         from keepup_auth.login_throttle import LOGIN_ATTEMPTS
         from keepup_auth.panel_session import AUTH_SESSION
 
-        return [AUTH_SESSION, LOGIN_ATTEMPTS, AUTH_RATE_LIMIT]
+        return [AUTH_SESSION, LOGIN_ATTEMPTS, AUTH_RATE_LIMIT, AUTH_TOTP]
 
     def get_route_permissions(self) -> Dict[str, Any]:
         """The rights this capability's routes ask for, by name.

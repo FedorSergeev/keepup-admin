@@ -12,6 +12,7 @@ invented would be a different rule from the one its invitations enforce.
 
 import asyncio
 import logging
+import os
 from datetime import timedelta, datetime
 from typing import Optional
 
@@ -245,7 +246,8 @@ def create_access_token(
 
 
 def issue_session_token(user_id: int, username: str, sid: Optional[str] = None,
-                        session_started_at: Optional[datetime] = None) -> dict:
+                        session_started_at: Optional[datetime] = None,
+                        mfa: bool = False) -> dict:
     """A token bound to a session record: a new session, or `sid` carried on.
 
     Every token the server hands a person or an agent goes through here, so every
@@ -266,8 +268,10 @@ def issue_session_token(user_id: int, username: str, sid: Optional[str] = None,
                 detail="This session has run its course. Sign in again.",
             )
         panel_session.extend(sid, lifetime)
-    token = create_access_token({"sub": username, panel_session.SESSION_CLAIM: sid},
-                                expires_delta=lifetime, session_started_at=session_started_at)
+    token = create_access_token(
+        {"sub": username, panel_session.SESSION_CLAIM: sid,
+         "amr": ["pwd", "otp"] if mfa else ["pwd"]},
+        expires_delta=lifetime, session_started_at=session_started_at)
     return {"access_token": token, "session_id": sid,
             "expires_in": int(lifetime.total_seconds())}
 
@@ -429,6 +433,7 @@ async def _get_local_user(token: Optional[str], ignore_empty_user: bool = False)
     user["token_expires_at"] = _token_expiry(payload)
     user["session_started_at"] = _session_start(payload)
     user["session_id"] = payload.get(panel_session.SESSION_CLAIM)
+    user["amr"] = tuple(payload.get("amr") or ())
 
     return user
 
@@ -519,6 +524,16 @@ async def get_current_admin(current_user: dict = Depends(get_current_user)):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
             detail="Admin access required",
+        )
+    # A deployment may require a second factor of its administrators
+    # (keepup-174). Off by default: switching it on locks out an administrator
+    # who has not enrolled, which is a deployment's decision to make after the
+    # enrolment, not an upgrade's.
+    if os.getenv("MFA_REQUIRED_FOR_ADMINS", "false").lower() == "true" \
+            and "otp" not in (current_user.get("amr") or ()):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="A second factor is required for administrators",
         )
     return current_user
 

@@ -14,7 +14,7 @@ from keepup_db import tables
 #: The name the session table is declared under, as the module it came from had it.
 TABLE = "auth_session"
 
-__all__ = ["AUTH_RATE_LIMIT", "AUTH_SESSION", "LOGIN_ATTEMPTS"]
+__all__ = ["AUTH_RATE_LIMIT", "AUTH_SESSION", "AUTH_TOTP", "LOGIN_ATTEMPTS"]
 
 AUTH_SESSION = tables.table(
     TABLE,
@@ -57,4 +57,27 @@ AUTH_RATE_LIMIT = tables.table(
     Column("window_start", DateTime, primary_key=True, nullable=False),
     Column("hits", Integer, nullable=False, server_default=tables.sql_text("0")),
     Index("idx_auth_rate_limit_window", "window_start"),
+)
+
+#: One row per bucket and wall-clock minute: how much of a sign-in budget was
+#: spent, shared by every replica because it is in the database (keepup-171).
+AUTH_RATE_LIMIT = tables.table(
+    "auth_rate_limit",
+    Column("bucket", String(255).with_variant(Text(), "sqlite"), primary_key=True,
+           nullable=False),
+    Column("window_start", DateTime, primary_key=True, nullable=False),
+    Column("hits", Integer, nullable=False, server_default=tables.sql_text("0")),
+    Index("idx_auth_rate_limit_window", "window_start"),
+)
+
+#: The second factor of one account: a TOTP secret, whether it was confirmed,
+#: the last step used (a code is one-use) and the recovery codes, hashed.
+AUTH_TOTP = tables.table(
+    "auth_totp",
+    Column("user_id", Integer, primary_key=True, nullable=False),
+    Column("secret", String(64).with_variant(Text(), "sqlite"), nullable=False),
+    Column("confirmed_at", DateTime),
+    Column("last_step", Integer),
+    Column("recovery", Text),
+    Column("created_at", DateTime, nullable=False, server_default=tables.NOW),
 )

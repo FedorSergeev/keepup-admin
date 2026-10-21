@@ -46,6 +46,7 @@ PUBLIC_ROUTES = {
     ("POST", "/api/auth/login"): "signing in",
     ("POST", "/api/auth/logout"): "clears the cookies of a session that may already be gone",
     ("POST", "/api/auth/register"): "self-registration, refused unless the deployment opens it",
+    ("POST", "/api/auth/mfa/verify"): "a password challenge exchanged with a second factor",
     ("GET", "/api/health"): "the orchestrator's liveness probe",
     ("GET", "/api/version"): "the build the panel shows before sign-in",
     ("GET", "/api/versions"): "which API versions this server speaks",

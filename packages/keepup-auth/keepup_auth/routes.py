@@ -33,7 +33,6 @@ from keepup_auth.dependencies import (
     issue_session_token,
     refuse_foreign_session,
 )
-from keepup_auth.dto.token import Token
 from keepup_auth.external_accounts import AccountUnavailable
 from keepup_auth.identity import access
 from keepup_auth.identity import runtime as identity_runtime
@@ -332,7 +331,7 @@ def register_auth_routes(app, manager):
         auth_rate_limit.check(request)
         return await register(user)
 
-    @app.post("/api/auth/login", response_model=Token)
+    @app.post("/api/auth/login", response_model=None)
     async def login(login_data: LoginRequest, request: Request, response: Response):
         from keepup_auth import login_throttle
 
@@ -402,6 +401,17 @@ def register_auth_routes(app, manager):
                 status_code=status.HTTP_403_FORBIDDEN,
                 detail="User account is blocked. Please contact administrator.",
             )
+
+        # The password was right; this account's door has a second lock. Five
+        # minutes to present the code, and no session until it is (keepup-174).
+        from keepup_auth import mfa
+        if await asyncio.to_thread(mfa.needs_second_factor, user["id"]):
+            return {
+                "success": True,
+                "mfa_required": True,
+                "mfa_token": mfa.challenge_token(user["username"]),
+                "expires_in": mfa.CHALLENGE_MINUTES * 60,
+            }
 
         issued = await asyncio.to_thread(issue_session_token, user["id"], user["username"])
         access_token = issued["access_token"]
@@ -504,5 +514,8 @@ def register_auth_routes(app, manager):
     # Users are managed in a module of their own (keepup-59); the application
     # still registers everything through this one call.
     user_routes.register_user_routes(app, manager)
+    # The second factor's own endpoints (keepup-174).
+    from keepup_auth import mfa_routes
+    mfa_routes.register_mfa_routes(app)
 
 

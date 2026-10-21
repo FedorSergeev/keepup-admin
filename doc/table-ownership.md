@@ -30,6 +30,9 @@ it, and the distribution named here is where it goes.
 | `auth_session` | `keepup-auth` | declared by the capability since keepup-116 |
 | `login_attempts` | `keepup-auth` | declared by the capability since keepup-116 |
 | `auth_rate_limit` | `keepup-auth` | the sign-in's per-address and deployment budget, keepup-171 |
+| `auth_totp` | `keepup-auth` | the second factor and its recovery codes, keepup-174 |
+| `auth_rate_limit` | `keepup-auth` | the sign-in's per-address and deployment budget, keepup-171 |
+| `auth_totp` | `keepup-auth` | the second factor and its recovery codes, keepup-174 |
 | `incoming_requests` | `keepup-audit` | declared by the capability since keepup-111 |
 | `app_events` | `keepup-audit` | declared by the capability since keepup-111 |
 | `visual_themes` | `keepup-ui` | declared by the capability since keepup-104 |
