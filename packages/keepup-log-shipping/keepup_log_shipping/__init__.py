@@ -8,7 +8,7 @@ redaction helper -- stays in the kernel, because every deployment has a log and
 not every one has a collector.
 """
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 __all__ = ["Log_shippingPlugin", "SERVICE_LOG_SHIPPING", "create_logger_token",
            "init_remote_logging", "setup_remote_logging"]

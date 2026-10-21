@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "keepup-gateway"
-version = "0.5.0"
+version = "0.6.0"
 description = "One way in for the application's services: a route table, a proxy, a balancer and the sign-in at the edge."
 readme = "README.md"
 requires-python = ">=3.11"

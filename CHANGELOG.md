@@ -2,6 +2,60 @@
 
 Notable changes to `keepup-admin`.
 
+## 0.6.0 -- one way in
+
+The release in which a deployment of several processes becomes one address:
+`keepup-gateway` is the sixteenth distribution, and it stands in front of an
+application's services. A request comes to the application first; the gateway
+finds the route it is addressed to, checks the sign-in and the right at the edge
+when the route asks for them, and passes the request on -- to a microservice, to
+a subsystem that runs as a process of its own, or to any other HTTP address. It
+knows nothing about what stands behind an address: it routes, it balances, and
+it tells the service who is calling.
+
+**Upgrading from 0.5.0.** Nothing moves and nothing breaks: the gateway is
+`optional` and no profile enables it, so a deployment without services beside it
+is untouched. A deployment that has them names the plugin in its plugins file and
+installs `keepup-admin[gateway]`.
+
+### Added
+
+- **The gateway (keepup-162).** A table of routes in the plugin's `config` -- a
+  prefix, one or more upstreams, and whether the prefix is stripped -- with the
+  requests balanced across the upstreams and the sign-in and the right checked at
+  the edge when a route asks for them. The service is told who is calling by a
+  signed identity, so it does not have to trust the network it answers on.
+- **The service registry (keepup-164, keepup-165).** A service registers itself,
+  one service may answer on several prefixes, and a plugin of the same runtime is
+  served in process rather than through the proxy.
+- **WebSocket through the gateway (keepup-166).** The upgrade is routed like any
+  other request, and the socket stays open through the gateway.
+- **The panel's section and cards (keepup-163).** The gateway, the services
+  registered behind it and the applications they serve, in the panel.
+- **The document (doc/gateway.md).** What the gateway is, the shape of the table,
+  and the identity a service receives.
+
+### Changed
+
+- **One version for sixteen distributions.** `keepup-gateway` joins the base and
+  the fourteen capabilities: the release publishes it with the rest, and the base
+  names it in the `gateway` extra -- so the publisher for the new name on PyPI is
+  part of the release, not an afterthought.
+
+### Fixed
+
+- **The 0.5.0 suite still holds.** The gateway arrives with its own checks, and
+  the whole tree -- all sixteen distributions built, installed into an empty
+  environment and asked to stand up -- passes the local check unchanged.
+
+### Known, and left for 0.7.0
+
+- The single-role bridge from 0.5.0: `held_by()` still answers a user an
+  application assembled by hand and described with `role` alone, and the answers
+  (`/api/auth/me`, the user list) still carry a computed `role`. Both go when the
+  applications that read one role read `roles`; nothing in the framework decides
+  by one role.
+
 ## 0.5.0 -- a base that is the standard library
 
 The release in which the capabilities finish leaving the base, and the base stops

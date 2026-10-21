@@ -129,7 +129,6 @@ homes at once.
 | --- | --- | --- | --- |
 | `keepup/auth/` | `keepup-auth` | 20 files, ~6 000 lines | its modules import each other (`providers`, `dependencies`, `user_roles`), and it is one capability: sign-in, sessions, throttling, roles, OIDC, the routes of the panel's sign-in |
 | `keepup/events.py` | `keepup-audit` | 495 lines, 10 importers | it is the event log the audit capability keeps; the event API, the administrator's trail and the panel's section reach it by name, and `keepup.events` stays as the compatibility name |
-| `keepup/schema.py` | -- | 214 lines, 49 importers | it keeps the four declarations whose capabilities are 0.5.0 work (`doc/table-ownership.md`), and it is the path that predates the catalogue: it shrinks as those capabilities arrive, not before |
 | `keepup/migrations.py` | -- | depends on `schema.py` | the same: it initialises what `schema.py` declares |
 
 An attempt to move a single file out of `keepup/auth/` would be an attempt to make

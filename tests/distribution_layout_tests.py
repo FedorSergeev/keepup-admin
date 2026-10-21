@@ -15,7 +15,7 @@ from pathlib import Path
 PACKAGE = Path(__file__).resolve().parents[1]
 
 #: The release the tree declares; one tag names one release.
-RELEASE = "0.5.0"
+RELEASE = "0.6.0"
 PACKAGES = PACKAGE / "packages"
 
 #: What each distribution is for: the plugin it declares, and what it provides.

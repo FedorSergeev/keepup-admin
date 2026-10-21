@@ -10,7 +10,7 @@ service checks -- import nothing beyond the standard library, so a service
 behind the gateway can verify what it was sent without installing FastAPI.
 """
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 from keepup_gateway.identity import IdentityError, sign_identity, verify_identity  # noqa: E402
 
