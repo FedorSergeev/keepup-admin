@@ -114,17 +114,18 @@ def locked_until(username: str, now: Optional[datetime] = None) -> Optional[date
 #: against guessing must not do (keepup-48). A name whose window has passed
 #: starts its count again, so old failures do not add up to a lockout weeks later.
 _RECORD_FAILURE = (
-    "INSERT INTO login_attempts (username, failures, last_failure_at) "
-    "VALUES (:username, 1, :now) "
+    "INSERT INTO login_attempts (username, failures, last_failure_at, last_address) "
+    "VALUES (:username, 1, :now, :address) "
     "ON CONFLICT (username) DO UPDATE SET "
     "failures = CASE WHEN login_attempts.last_failure_at IS NOT NULL "
     "AND login_attempts.last_failure_at <= :window_start "
     "THEN 1 ELSE login_attempts.failures + 1 END, "
-    "last_failure_at = :now"
+    "last_failure_at = :now, last_address = :address"
 )
 
 
-def record_failure(username: str, now: Optional[datetime] = None) -> None:
+def record_failure(username: str, now: Optional[datetime] = None,
+                   address: Optional[str] = None) -> None:
     """Count one failed attempt against this name, atomically."""
     if not username:
         return
@@ -133,12 +134,14 @@ def record_failure(username: str, now: Optional[datetime] = None) -> None:
     try:
         DatabaseManagerV2.execute_commit(
             _RECORD_FAILURE,
-            {"username": username, "now": now, "window_start": now - lockout_window()})
+            {"username": username, "now": now, "address": address,
+             "window_start": now - lockout_window()})
     except Exception as error:
         logger.warning(f"Could not record a failed login of {username}: {error}")
 
 
-def reserve_attempt(username: str, now: Optional[datetime] = None) -> int:
+def reserve_attempt(username: str, now: Optional[datetime] = None,
+                    address: Optional[str] = None) -> int:
     """Count this attempt before the password is checked; how many there are now.
 
     The check and the count used to be separated by the password check -- a
@@ -159,7 +162,7 @@ def reserve_attempt(username: str, now: Optional[datetime] = None) -> int:
         with DatabaseManagerV2.get_session() as session:
             row = session.execute(
                 text(_RECORD_FAILURE + " RETURNING failures"),
-                {"username": username, "now": now,
+                {"username": username, "now": now, "address": address,
                  "window_start": now - lockout_window()}).fetchone()
         return int(row[0]) if row else 0
     except Exception as error:

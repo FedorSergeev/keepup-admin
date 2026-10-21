@@ -27,6 +27,7 @@ from keepup_auth.dependencies import (
 )
 from keepup_db import DatabaseManagerV2
 from keepup.instance import get_instance_id
+from keepup.kernel.observability import audited
 
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
@@ -145,6 +146,7 @@ def register_user_routes(app, manager):
     from keepup_auth import routes as sign_in
 
     @app.put("/api/auth/profile", response_model=dict)
+    @audited("users.profile", method="PUT", actor="current_user")
     def update_profile(
         profile_data: UserProfileUpdate,
         current_user: dict = Depends(get_current_user)
@@ -162,6 +164,7 @@ def register_user_routes(app, manager):
         else:
             raise HTTPException(status_code=500, detail="Error updating profile")
     @app.put("/api/admin/users/{user_id}/password", response_model=dict)
+    @audited("users.password", method="PUT", actor="admin")
     def admin_change_user_password(
             user_id: int,
             password_data: UserPasswordUpdate,
@@ -243,6 +246,7 @@ def register_user_routes(app, manager):
         return {"roles": user.get("roles", []), "known_roles": known}
 
     @app.put("/api/admin/users/{user_id}/roles", response_model=dict)
+    @audited("users.roles", method="PUT", actor="admin")
     async def set_user_roles_endpoint(
             user_id: int,
             payload: UserRolesUpdate,
@@ -267,6 +271,7 @@ def register_user_routes(app, manager):
         return {"success": True, "roles": held}
 
     @app.patch("/api/admin/users/{user_id}", response_model=dict)
+    @audited("users.update", method="PATCH", actor="admin")
     async def update_user_endpoint(
             user_id: int,
             user_data: UserUpdateRequest,

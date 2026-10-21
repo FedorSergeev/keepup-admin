@@ -22,6 +22,11 @@ INCOMING_REQUESTS = tables.table(
     Column("endpoint", Text, nullable=False),
     Column("host", Text, nullable=False),
     Column("request_data", postgresql.JSONB().with_variant(Text(), "sqlite")),
+    # The actor is a column, not a key inside request_data: redaction replaces
+    # every value there, and a row that cannot say who called is not an audit
+    # (keepup-172).
+    Column("user_id", Integer),
+    Column("username", Text),
     Column("request_start_at", DateTime, nullable=False),
     Column("request_end_at", DateTime),
     Column("duration_ms", Integer),

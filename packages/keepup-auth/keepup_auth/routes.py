@@ -357,7 +357,9 @@ def register_auth_routes(app, manager):
 
         # Counted before the password is looked at, so attempts sent at once are
         # numbered and the ones past the limit never reach the check (keepup-63).
-        attempt = await asyncio.to_thread(login_throttle.reserve_attempt, login_data.username)
+        address = request.client.host if request.client else None
+        attempt = await asyncio.to_thread(login_throttle.reserve_attempt,
+                                          login_data.username, address=address)
         if attempt > login_throttle.max_attempts():
             raise HTTPException(
                 status_code=status.HTTP_429_TOO_MANY_REQUESTS,
@@ -374,6 +376,11 @@ def register_auth_routes(app, manager):
             # still gets in while that system is down (keepup-91).
             user = await _provider_sign_in(login_data.username, login_data.password)
         if not user:
+            # A refusal that leaves no trace is how a wave of attempts goes
+            # unnoticed: the name and the address, never the password
+            # (keepup-172).
+            logger.warning("Sign-in refused for %r from %s",
+                           login_data.username, address or "unknown")
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="Incorrect username or password",

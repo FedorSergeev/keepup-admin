@@ -20,7 +20,7 @@ import logging
 import time
 from contextlib import asynccontextmanager
 from datetime import datetime
-from typing import Any, Dict, Optional
+from typing import Any, Dict, Mapping, Optional
 
 
 from keepup import clock
@@ -166,13 +166,21 @@ class IncomingRequestLogger:
             endpoint: str,
             host: str,
             request_data: Optional[Dict[str, Any]] = None,
-            request_start_at: Optional[datetime] = None
+            request_start_at: Optional[datetime] = None,
+            actor: Optional[Mapping[str, Any]] = None
     ) -> str:
-        """Begin recording a request and return its id."""
+        """Begin recording a request and return its id.
+
+        ``actor`` is the signed-in account, when the transport resolved one. It
+        is kept in its own columns rather than in ``request_data``: redaction
+        replaces every value there, so an actor that travelled inside it was
+        stored as ``<hidden>`` and the row could not say who called (keepup-172).
+        """
         from uuid import uuid4
 
         request_id = str(uuid4())
         request_start = request_start_at or clock.utcnow()
+        actor = actor or {}
 
         async with incoming_requests_lock:
             incoming_requests_buffer[request_id] = {
@@ -181,6 +189,8 @@ class IncomingRequestLogger:
                 'endpoint': endpoint,
                 'host': host,
                 'request_data': redact(request_data),
+                'user_id': actor.get('id') if isinstance(actor, Mapping) else None,
+                'username': actor.get('username') if isinstance(actor, Mapping) else None,
                 'request_start_at': request_start,
                 'created_at': clock.utcnow()
             }
@@ -281,6 +291,8 @@ class IncomingRequestLogger:
             'endpoint': req['endpoint'],
             'host': req['host'],
             'request_data': json.dumps(req['request_data']) if req['request_data'] else None,
+            'user_id': req.get('user_id'),
+            'username': req.get('username'),
             'request_start_at': req['request_start_at'],
             'request_end_at': req.get('request_end_at'),
             'duration_ms': req.get('duration_ms'),
@@ -290,9 +302,9 @@ class IncomingRequestLogger:
             'error_message': req.get('error_message'),
             'created_at': req['created_at'],
         } for req in chosen.values()]
-        columns = ("instance_id, method, endpoint, host, request_data, request_start_at, "
-                   "request_end_at, duration_ms, http_status, response_data, error_message, "
-                   "created_at")
+        columns = ("instance_id, method, endpoint, host, request_data, user_id, username, "
+                   "request_start_at, request_end_at, duration_ms, http_status, "
+                   "response_data, error_message, created_at")
         placeholders = ", ".join(":" + c.strip() for c in columns.split(","))
         if db_config.is_postgres():
             query = (f"INSERT INTO incoming_requests ({columns}) VALUES ({placeholders}) "
@@ -429,7 +441,8 @@ async def log_api_request(
         method: str,
         endpoint: str,
         host: str = "plugin_api",
-        request_data: Optional[Dict[str, Any]] = None
+        request_data: Optional[Dict[str, Any]] = None,
+        actor: Optional[Mapping[str, Any]] = None
 ):
     """Async context manager recording one API request."""
     request_id = None
@@ -443,7 +456,8 @@ async def log_api_request(
             endpoint=endpoint,
             host=host,
             request_data=request_data,
-            request_start_at=clock.utcnow()
+            request_start_at=clock.utcnow(),
+            actor=actor
         )
 
         yield request_id

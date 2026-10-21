@@ -40,6 +40,7 @@ from fastapi.responses import JSONResponse
 from keepup import clock
 from keepup_auth.dependencies import get_current_admin
 from keepup.instance import get_instance_id, get_instance_name
+from keepup.kernel.observability import audited
 
 logger = logging.getLogger(__name__)
 
@@ -660,6 +661,7 @@ def register_cluster_routes(app) -> None:
         return await cluster_overview()
 
     @app.post("/api/admin/cluster/{instance_id}/commands")
+    @audited("cluster.command", method="POST", actor="admin")
     async def give_command_endpoint(instance_id: str, request: Dict[str, Any],
                                     admin: dict = Depends(get_current_admin)):
         """Stop, start or restart one replica (administrators only)."""

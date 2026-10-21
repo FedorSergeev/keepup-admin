@@ -616,17 +616,17 @@ def test_a_public_call_is_recorded_as_anonymous(audited, values_kept):
     """There is no user to name, and the row says so rather than leaving a gap."""
     running([OPEN], signed_in_as=None).get("/api/probe/open?kind=x")
 
-    written = the_record(audited)["request_data"]
-    assert written["username"] == "anonymous"
-    assert written["user_id"] is None
+    record = the_record(audited)
+    assert record["username"] is None
+    assert record["user_id"] is None
 
 
 def test_a_call_with_a_user_is_recorded_against_that_user(audited, values_kept):
     running([THING]).get("/api/probe/things/5")
 
-    written = the_record(audited)["request_data"]
-    assert (written["user_id"], written["username"]) == (7, "tester")
-    assert written["path_params"] == {"thing_id": "5"}
+    record = the_record(audited)
+    assert (record["user_id"], record["username"]) == (7, "tester")
+    assert record["request_data"]["path_params"] == {"thing_id": "5"}
 
 
 # --- authentication and a raw route -------------------------------------------

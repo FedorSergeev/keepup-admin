@@ -16,12 +16,14 @@ which is a deployment, not a failure.
 
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
+from functools import wraps
 from typing import Any, AsyncIterator, Awaitable, Callable, Mapping, Optional
 
 __all__ = [
     "SERVICE_AUDIT",
     "SERVICE_EVENTS",
     "Recording",
+    "audited",
     "emit",
     "end_call",
     "recording",
@@ -76,7 +78,8 @@ def recording() -> Optional[Recording]:
 
 @asynccontextmanager
 async def start_call(method: str, endpoint: str, host: str,
-                     request_data: Mapping[str, Any]) -> AsyncIterator[Any]:
+                     request_data: Mapping[str, Any],
+                     actor: Optional[Mapping[str, Any]] = None) -> AsyncIterator[Any]:
     """Open the record of one call, or a record that writes nowhere.
 
     Args:
@@ -84,6 +87,9 @@ async def start_call(method: str, endpoint: str, host: str,
         endpoint: the route's path as declared.
         host: what the call came through.
         request_data: what is known about the request.
+        actor: who called, when the transport resolved them. Kept apart from
+            ``request_data`` so that redaction of the body does not hide the
+            one fact an incident is read for (keepup-172).
 
     Yields:
         The request id the call is finished with.
@@ -93,7 +99,7 @@ async def start_call(method: str, endpoint: str, host: str,
         yield None
         return
     async with current.start(method=method, endpoint=endpoint, host=host,
-                             request_data=request_data) as request_id:
+                             request_data=request_data, actor=actor) as request_id:
         yield request_id
 
 
@@ -125,3 +131,49 @@ async def emit(event_type: str, payload: Mapping[str, Any] = None) -> int:
         await emitter(event_type, payload or {})
         written += 1
     return written
+
+
+def audited(action: str, method: str = "POST", actor: str = "current_user",
+            host: str = "framework"):
+    """Record a framework route that the transport did not wrap (keepup-172).
+
+    A plugin route reaches the audit through the route runtime. The framework's
+    own administrative routes are FastAPI endpoints, and until now they wrote
+    nothing: changing a password, granting ADMIN, toggling a plugin or stopping
+    a replica left a line in the rotating application log and no row in the
+    audit. This decorator is the same seam for those routes.
+
+    The actor is read from the keyword argument FastAPI injects (``admin`` for
+    most of these routes), never guessed from the body.
+
+    Args:
+        action: what the row is called, e.g. ``users.roles``.
+        method: the verb the audit names.
+        actor: the keyword argument holding the signed-in account.
+        host: what the call came through; the framework's own routes have no
+            plugin host.
+    """
+
+    def decorate(handler):
+        @wraps(handler)
+        async def wrapper(*args, **kwargs):
+            caller = kwargs.get(actor)
+            async with start_call(method, action, host, {}, actor=caller) as request_id:
+                try:
+                    answer = await handler(*args, **kwargs)
+                except Exception as error:
+                    await end_call(
+                        request_id,
+                        getattr(error, "status_code", 500),
+                        error_message=getattr(error, "detail", type(error).__name__),
+                    )
+                    raise
+                await end_call(
+                    request_id, 200,
+                    response_data=answer if isinstance(answer, dict) else None,
+                )
+                return answer
+
+        return wrapper
+
+    return decorate

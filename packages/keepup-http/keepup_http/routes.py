@@ -337,10 +337,9 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
 
     async def call(request: Request, current_user):
         """One call of a plugin route, from the audit's first row to its last."""
-        request_data = {
-            'user_id': current_user.get('id') if current_user else None,
-            'username': current_user.get('username') if current_user else 'anonymous',
-        }
+        # The actor is not part of request_data: that is redacted whole, and a
+        # row that cannot name who called is not an audit (keepup-172).
+        request_data = {}
         if has_path_params:
             request_data['path_params'] = dict(request.path_params)
         request_data['query_params'] = dict(request.query_params)
@@ -355,7 +354,8 @@ def create_wrapper(handler, path, methods, require_auth: bool = True,
                 method=method_name,
                 endpoint=path,
                 host='plugin_api',
-                request_data=request_data
+                request_data=request_data,
+                actor=current_user
         ) as request_id:
             try:
                 response = await invoke(request, current_user)

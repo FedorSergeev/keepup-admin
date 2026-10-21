@@ -32,6 +32,20 @@ LOGIN_ATTEMPTS = tables.table(
     Column("username", String(255).with_variant(Text(), "sqlite"), primary_key=True, nullable=True),
     Column("failures", Integer, nullable=False, server_default=tables.sql_text("0")),
     Column("last_failure_at", DateTime),
+    # Where the last attempt came from: the row already counted failures, and a
+    # count without an address cannot be read after an incident (keepup-172).
+    Column("last_address", String(64).with_variant(Text(), "sqlite")),
+)
+
+#: One row per bucket and wall-clock minute: how much of a sign-in budget was
+#: spent, shared by every replica because it is in the database (keepup-171).
+AUTH_RATE_LIMIT = tables.table(
+    "auth_rate_limit",
+    Column("bucket", String(255).with_variant(Text(), "sqlite"), primary_key=True,
+           nullable=False),
+    Column("window_start", DateTime, primary_key=True, nullable=False),
+    Column("hits", Integer, nullable=False, server_default=tables.sql_text("0")),
+    Index("idx_auth_rate_limit_window", "window_start"),
 )
 
 #: One row per bucket and wall-clock minute: how much of a sign-in budget was
