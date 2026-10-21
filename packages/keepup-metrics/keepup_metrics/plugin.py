@@ -38,7 +38,7 @@ from keepup.kernel.descriptor import KIND_OPTIONAL, PluginDescriptor
 from keepup.plugins.base import BasePlugin
 from keepup_metrics.api import PANEL_METRICS, get_latest_metric_value
 from keepup_metrics.collector import metrics_collector, update_metrics_background
-from keepup_metrics import retention as metrics_retention_background
+from keepup_metrics.retention import metrics_retention_background
 from keepup_metrics.tables import SYSTEM_METRICS
 
 logger = logging.getLogger(__name__)

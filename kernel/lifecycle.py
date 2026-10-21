@@ -175,6 +175,11 @@ class Runtime:
         self.loader = loader or PluginLoader(self.plugins_dir, entry_points, builtin_dir=builtin_dir)
         self.catalogue: Dict[str, Any] = {}
         self.contributions = Contributions()
+        # The decisions this start took. The panel's plugin report reads it as
+        # what is actually running and compares it with the decisions of the
+        # moment; empty until the start, so a report asked early answers instead
+        # of failing (keepup-167).
+        self.resolution = enablement.resolve({}, self.environ, {})
 
     # --- what a plugin reaches for ------------------------------------------
 
@@ -638,6 +643,7 @@ class Runtime:
                 logger.error("The administrator's decisions are unreadable: %s", error)
                 overrides = {}
         resolution = enablement.resolve(self.catalogue, self.environ, overrides)
+        self.resolution = resolution
         for unknown in resolution.unknown:
             logger.warning(
                 "%s/%s name an undeclared plugin: %s",
