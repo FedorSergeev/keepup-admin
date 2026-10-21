@@ -53,3 +53,6 @@ data/
 /openspec/changes/the-initializr-service/
 /openspec/changes/capability-tickboxes/
 /openspec/changes/keepup-site/
+
+# The application the gateway is tested against (keepup-162).
+/ceasar.keepupproject.ru/

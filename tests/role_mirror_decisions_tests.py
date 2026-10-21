@@ -15,6 +15,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from keepup.tests.repository import NOT_THE_PACKAGE
 from keepup_auth import dependencies, user_roles
 from keepup_auth.dependencies import get_current_admin
 from keepup_http.lock_routes import register_lock_routes
@@ -42,8 +43,10 @@ def framework_files():
     for root in (PACKAGE, PACKAGE / "packages"):
         for path in sorted(root.rglob("*.py")):
             relative = path.relative_to(PACKAGE).as_posix()
-            if any(part in ("tests", "ci", "openspec", "doc", "build", "__pycache__")
-                   or part.startswith(".") for part in path.relative_to(PACKAGE).parts):
+            # Everything that is not the package, except the capabilities: the
+            # sign-in's modules moved there and a guard must follow (keepup-124).
+            skipped = NOT_THE_PACKAGE - {"packages"}
+            if any(part in skipped for part in path.relative_to(PACKAGE).parts):
                 continue
             if relative in seen:
                 continue

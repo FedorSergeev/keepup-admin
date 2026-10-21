@@ -185,7 +185,10 @@ def keepup_assets():
         for path in sorted(root.rglob("*")):
             if not path.is_file() or path.suffix not in SHIPPED_SUFFIXES:
                 continue
-            if any(part in ("build", "dist", "__pycache__", ".venv") for part in path.parts):
+            # The capabilities are what this walks; what is not the package is
+            # the environments, the build output and the application beside it.
+            if any(part in ("build", "dist", "__pycache__", ".venv",
+                            "ceasar.keepupproject.ru") for part in path.parts):
                 continue
             if any(str(path).endswith(name) for name in VENDORED):
                 continue

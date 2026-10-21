@@ -36,7 +36,10 @@ NOT_THE_PACKAGE = {
     # An environment nested anywhere below the package -- the site keeps one for
     # its own end-to-end checks -- is a copy of the framework, not the framework
     # (keepup-160).
-    "site-packages", "node_modules",
+    "site-packages", "node_modules", "tests",
+    # An application checked against the tree: it sits in the package directory
+    # while it is being tested and is not part of the package (keepup-167).
+    "ceasar.keepupproject.ru",
     # The distributions a capability travels in (keepup-115): directories with
     # metadata of their own, beside the package rather than inside it.
     "packages",

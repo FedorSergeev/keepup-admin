@@ -15,6 +15,8 @@ has to hold it at import time belongs on the list below, with its reason.
 import ast
 from pathlib import Path
 
+from keepup.tests.repository import is_not_the_package
+
 PACKAGE = Path(__file__).resolve().parents[1]
 
 #: Modules that declare tables, so they need SQLAlchemy to be imported at all.
@@ -39,13 +41,9 @@ def framework_files():
     """Every Python file of the framework, checks and artifacts aside."""
     for path in sorted(PACKAGE.rglob("*.py")):
         relative = str(path.relative_to(PACKAGE))
-        parts = relative.split("/")
-        if any(part.startswith(".") or part in
-               ("tests", "ci", "openspec", "doc", "packages", "build", "__pycache__",
-                # The initializr and the site: projects of the repository kept on
-                # disk while they are not tracked, not part of the package.
-                "initializr", "keepupproject.ru")
-               for part in parts):
+        # What is not the package is one rule (keepup-167): an environment, a
+        # capability's directory, the site, the generator, an application.
+        if is_not_the_package(path) or "doc" in path.relative_to(PACKAGE).parts:
             continue
         yield path, relative
 

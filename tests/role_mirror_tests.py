@@ -17,6 +17,7 @@ single role again.
 import re
 from pathlib import Path
 
+from keepup.tests.repository import NOT_THE_PACKAGE
 from keepup_auth.user_roles import has_role
 from keepup_users.tables import USERS
 
@@ -47,10 +48,10 @@ def framework_files():
     for root in roots:
         for path in sorted(root.rglob("*.py")):
             relative = str(path.relative_to(PACKAGE))
-            parts = relative.split("/")
-            if any(part.startswith(".") or part in
-                   ("tests", "ci", "openspec", "doc", "build", "__pycache__")
-                   for part in parts):
+            # Everything that is not the package, except the capabilities: this
+            # guard watches them too (keepup-124).
+            skipped = NOT_THE_PACKAGE - {"packages"}
+            if any(part in skipped for part in path.relative_to(PACKAGE).parts):
                 continue
             # The first root already holds the second one: a file reached twice
             # is one file, and a list of offenders has to say so.

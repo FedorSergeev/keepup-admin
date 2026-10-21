@@ -113,7 +113,7 @@ def _framework_files():
                ("tests", "ci", "openspec", "doc", "packages", "build", "__pycache__",
                 # Not the package: the generator that writes projects and the
                 # site that documents them (keepup-161).
-                "initializr", "keepupproject.ru")
+                "initializr", "keepupproject.ru", "ceasar.keepupproject.ru")
                for part in parts):
             continue
         yield path, "/".join(parts)
