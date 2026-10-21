@@ -62,8 +62,8 @@ def test_a_role_is_asked_of_the_service_not_of_the_table():
     runtime = runtime_with([{"id": "db", "enabled": True}, {"id": "users", "enabled": True}])
     asyncio.run(runtime.start())
     service = runtime.services.require("users")
-    assert service.has_role({"username": "tester", "role": "ADMIN"}, "ADMIN") is True
-    assert service.has_role({"username": "tester", "role": "CLIENT"}, "ADMIN") is False
+    assert service.has_role({"username": "tester", "roles": ["ADMIN"]}, "ADMIN") is True
+    assert service.has_role({"username": "tester", "roles": ["CLIENT"]}, "ADMIN") is False
 
 
 def test_the_accounts_section_is_a_contribution():

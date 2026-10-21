@@ -243,22 +243,18 @@ def roles_of(user_id: int) -> List[str]:
 def held_by(user: Optional[Mapping[str, Any]]) -> List[str]:
     """The roles of a user the caller already has in hand.
 
-    A user the framework handed out carries its set. One an application or a test
-    assembled itself may carry only the deprecated single role, and that is still
-    an answer -- which is why this rule lives in one function rather than at each
-    of the places that decide by it.
+    The set is the only answer: a user the framework handed out carries it, and a
+    user an application or a test assembled itself carries it too. A mapping that
+    names one role and no set names no role at all -- the single role is gone, in
+    the table and in the shape a route receives (keepup-157, keepup-168).
 
     Args:
         user: the user as a route receives it, or None.
 
     Returns:
-        The role names; empty only for a user that names none.
+        The role names, or an empty list.
     """
-    roles = (user or {}).get("roles")
-    if roles:
-        return list(roles)
-    single = (user or {}).get("role")
-    return [single] if single else []
+    return list((user or {}).get("roles") or [])
 
 
 def has_role(user: Optional[Mapping[str, Any]], role: str) -> bool:
@@ -294,10 +290,6 @@ def attach_roles(user: Optional[Dict[str, Any]]) -> Optional[Dict[str, Any]]:
         return None
     user = dict(user)
     user["roles"] = roles_of(user.get("id"))
-    # The model of an answer still asks for one role (keepup-51); it is computed
-    # here, in the one place a row becomes a payload, and never read from a
-    # column -- there is none (keepup-157).
-    user["role"] = primary_role(user["roles"])
     return user
 
 

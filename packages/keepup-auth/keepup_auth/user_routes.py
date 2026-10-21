@@ -49,10 +49,9 @@ class UserResponse(BaseModel):
     full_name: Optional[str] = None
     agree_terms: bool = False
     status: str
-    #: The roles this account holds, and the one role that answers for the set,
-    #: which is computed for a caller that reads one (keepup-51, keepup-157).
+    #: The roles this account holds. The single role an older panel read is gone,
+    #: from the table and from this answer (keepup-157, keepup-168).
     roles: List[str] = []
-    role: str
     created_at: datetime
     updated_at: Optional[datetime] = None
 class UserRolesUpdate(BaseModel):

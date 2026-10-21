@@ -26,14 +26,9 @@ PACKAGE = Path(__file__).resolve().parents[1]
 #: What a decision by one role looks like, in any of its spellings.
 DECIDES_BY_ONE_ROLE = ('["role"] ==', "['role'] ==", '.get("role") ==', ".get('role') ==")
 
-#: Where a single role is still mentioned, with its reason.
-MAY_MENTION_IT = {
-    "packages/keepup-auth/keepup_auth/user_roles.py":
-        "held_by() answers a user somebody assembled by hand, and the backfill "
-        "reads the legacy column once",
-    "packages/keepup-auth/keepup_auth/routes.py":
-        "the answer computes one role from the set, for a caller that reads one",
-}
+#: Where a single role is still mentioned, with its reason. Nowhere: the bridge
+#: is gone (keepup-168).
+MAY_MENTION_IT = {}
 
 
 def framework_files():
@@ -106,16 +101,19 @@ def test_the_decision_follows_the_set():
     user = {"id": 1, "roles": ["CLIENT", "AUDITOR"], "role": "CLIENT"}
     assert has_role(user, "AUDITOR") is True
     assert has_role(user, "ADMIN") is False
-    # A user somebody assembled by hand carries one role and no set: that is the
-    # bridge for an application, not a decision of the framework.
-    assert has_role({"id": 2, "role": "ADMIN"}, "ADMIN") is True
-    # And a set always wins over it.
+    # A user somebody assembled by hand names the set, or holds no role: the
+    # single role left with the bridge (keepup-168).
+    assert has_role({"id": 2, "role": "ADMIN"}, "ADMIN") is False
     assert has_role({"id": 3, "roles": ["AUDITOR"], "role": "ADMIN"}, "ADMIN") is False
 
 
-def test_the_answer_computes_the_one_role_from_the_set():
-    """An older panel reads `role`; it is computed, never read from a row."""
-    text = (PACKAGE / "packages" / "keepup-auth" / "keepup_auth"
-            / "routes.py").read_text(encoding="utf-8")
-    assert text.count('"role": user_roles.primary_role(current_user.get("roles", []))') >= 2
-    assert 'current_user["role"]' not in text
+def test_the_answers_name_the_set_and_no_role():
+    """The field an older panel read is gone, from the answers and the shell."""
+    auth = PACKAGE / "packages" / "keepup-auth" / "keepup_auth"
+    routes = (auth / "routes.py").read_text(encoding="utf-8")
+    dependencies = (auth / "dependencies.py").read_text(encoding="utf-8")
+    assert '"role":' not in routes and '"role":' not in dependencies
+    shell = (PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static" / "js"
+             / "main_new.js").read_text(encoding="utf-8")
+    # `user.roles` is the set; `user.role` would be the bridge.
+    assert "user.role" not in shell.replace("user.roles", "")

@@ -213,9 +213,9 @@ A role comes into being as a grant in the section catalogue; the framework's own
 two are `ADMIN` and `CLIENT`.
 
 - **Ask with `has_role(user, ROLE_ADMIN)`**, never `user["role"] == ROLE_ADMIN`:
-  `users.role` was a mirror of the set and is gone from the table (0.5.0). A
-  route that needs one role computes it -- `primary_role(roles)`, which the
-  answer of `/api/auth/me` still carries. In the panel it is
+  `users.role` was a mirror of the set and is gone from the table (0.5.0) and
+  from the answers and the shape a route receives (0.6.0). A route that needs one
+  role computes it with `primary_role(roles)`. In the panel it is
   `window.AppRoles.has(user, role)`.
 - **Nobody holds no role.** An empty set is refused on write and reads as
   CLIENT; access is closed by blocking the account, not by emptying it.

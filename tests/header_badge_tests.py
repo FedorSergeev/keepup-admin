@@ -52,8 +52,8 @@ def run(script: str):
 
 def test_without_a_badge_the_corner_shows_the_role():
     shown = run("""
-    currentUser = {role: 'ADMIN'}; renderHeaderBadge(); const admin = show();
-    currentUser = {role: 'CLIENT'}; renderHeaderBadge();
+    currentUser = {roles: ['ADMIN']}; renderHeaderBadge(); const admin = show();
+    currentUser = {roles: ['CLIENT']}; renderHeaderBadge();
     console.log(JSON.stringify([admin, show()]));
     """)
     assert shown[0]["text"] == "Admin" and "role-admin" in shown[0]["className"]
@@ -62,7 +62,7 @@ def test_without_a_badge_the_corner_shows_the_role():
 
 def test_the_applications_badge_takes_the_roles_place_and_gives_it_back():
     shown = run("""
-    currentUser = {role: 'CLIENT'};
+    currentUser = {roles: ['CLIENT']};
     window.AppHeader.setBadge({text: '120 credits', title: 'Available balance', tone: 'positive'});
     const badge = show();
     window.AppHeader.clearBadge();

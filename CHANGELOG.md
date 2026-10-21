@@ -42,6 +42,13 @@ installs `keepup-admin[gateway]`.
   names it in the `gateway` extra -- so the publisher for the new name on PyPI is
   part of the release, not an afterthought.
 
+- **The single-role bridge is gone (keepup-168).** `held_by()` answers the set
+  and only the set -- a mapping that names one role and no set names no role --
+  and the answers (`/api/auth/me`, the login answer, the user list) carry `roles`
+  without a computed `role` beside it. The panel's shell reads the set too. This
+  is the last piece of the 0.5.0 roles story: since then the set has been the
+  truth, and now it is the only shape.
+
 ### Fixed
 
 - **The 0.5.0 suite still holds.** The gateway arrives with its own checks, and
@@ -50,11 +57,8 @@ installs `keepup-admin[gateway]`.
 
 ### Known, and left for 0.7.0
 
-- The single-role bridge from 0.5.0: `held_by()` still answers a user an
-  application assembled by hand and described with `role` alone, and the answers
-  (`/api/auth/me`, the user list) still carry a computed `role`. Both go when the
-  applications that read one role read `roles`; nothing in the framework decides
-  by one role.
+- Nothing of the release's own: the two things 0.5.0 left behind -- the single
+  role in the table and the single role in the answers -- are both gone.
 
 ## 0.5.0 -- a base that is the standard library
 

@@ -46,7 +46,7 @@ from keepup.plugins.base import (
 
 #: Whoever the framework says is calling. A test that cares about signing in
 #: says so by not using this.
-SOMEBODY = {"id": 7, "username": "tester", "role": "admin"}
+SOMEBODY = {"id": 7, "username": "tester", "roles": ["admin"]}
 
 
 class ProbePlugin(BasePlugin):
@@ -905,7 +905,7 @@ async def test_a_user_is_offered_what_the_role_allows_and_what_actually_came_up(
     manager = PluginManager(plugins_dir="")
     manager.loaded_plugins["alpha"] = ProbePlugin([], plugin_id="alpha")
 
-    offered = await admin.get_plugins(manager, {"role": "client"})
+    offered = await admin.get_plugins(manager, {"roles": ["client"]})
 
     assert offered == {"plugins": [{"id": "alpha", "name": "Alpha",
                                     "config": {"section": "orders"}}]}
@@ -916,7 +916,7 @@ async def test_a_role_the_file_does_not_describe_is_offered_nothing(declared):
     manager = PluginManager(plugins_dir="")
     manager.loaded_plugins["alpha"] = ProbePlugin([], plugin_id="alpha")
 
-    assert await admin.get_plugins(manager, {"role": "stranger"}) == {"plugins": []}
+    assert await admin.get_plugins(manager, {"roles": ["stranger"]}) == {"plugins": []}
 
 
 async def test_a_plugin_nobody_declared_cannot_be_switched_from_the_panel(declared):

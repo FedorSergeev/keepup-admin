@@ -228,12 +228,17 @@ async def test_a_user_without_admin_in_the_set_is_refused():
     assert refused.value.status_code == 403
 
 
-async def test_a_user_assembled_without_a_set_is_judged_by_its_single_role():
-    # A plugin or a test that builds a user dict of its own is not silently
-    # refused: the deprecated field is still an answer.
-    assert await dependencies.get_current_admin({"role": ROLE_ADMIN})
+async def test_a_user_assembled_without_a_set_holds_no_role():
+    """The single role is gone in the shape too, not only in the table.
+
+    A plugin that builds a user dict of its own names the set; a mapping that
+    names one role and no set is a mapping without roles, and the right it asks
+    for is refused -- which is the honest answer, and the one that keeps two
+    representations from creeping back (keepup-168).
+    """
     with pytest.raises(HTTPException):
-        await dependencies.get_current_admin({"role": ROLE_CLIENT})
+        await dependencies.get_current_admin({"role": ROLE_ADMIN})
+    assert await dependencies.get_current_admin({"roles": [ROLE_ADMIN]})
 
 
 def test_the_list_of_users_carries_every_role():
@@ -268,9 +273,9 @@ def test_one_role_still_gets_exactly_its_own_sections():
     assert "glue-client-only" in ids and "glue-admin-only" not in ids
 
 
-def test_the_roles_of_a_user_fall_back_to_the_single_field():
+def test_the_roles_of_a_user_are_its_set_and_nothing_else():
     assert user_roles.held_by({"roles": ["A", "B"]}) == ["A", "B"]
-    assert user_roles.held_by({"role": ROLE_CLIENT}) == [ROLE_CLIENT]
+    assert user_roles.held_by({"role": ROLE_CLIENT}) == []
     assert user_roles.held_by({}) == [] and user_roles.held_by(None) == []
 
 
@@ -430,9 +435,9 @@ def test_the_current_user_is_told_its_whole_set(client):
                         headers={"Authorization": f"Bearer {signed_in(uid, 'routes-me')}"})
     assert answer.status_code == 200
     assert answer.json()["roles"] == [ROLE_ADMIN, ROLE_CLIENT]
-    # The one role is still answered for the applications that read it, and it is
-    # computed from the set (keepup-157).
-    assert answer.json()["role"] == ROLE_ADMIN
+    # The answers name the set and nothing else: the single role left with the
+    # bridge (keepup-157, keepup-168).
+    assert "role" not in answer.json()
 
 
 # --- the panel shell ---------------------------------------------------------------
@@ -469,18 +474,18 @@ def run_in_node(script: str):
 
 
 @pytest.mark.skipif(NODE is None, reason="needs node: the shell is JavaScript")
-def test_the_shell_decides_by_the_set_and_falls_back_to_the_single_role():
+def test_the_shell_decides_by_the_set_and_only_by_the_set():
     answered = run_in_node("""
     const set = {roles: ['CLIENT', 'ADMIN']};
-    const mirrored = {role: 'ADMIN'};
+    const single = {role: 'ADMIN'};
     const client = {roles: ['CLIENT']};
     console.log(JSON.stringify([
         userRolesOf(set), userHasRole(set, ROLE_ADMIN), userHasRole(client, ROLE_ADMIN),
-        userHasRole(mirrored, ROLE_ADMIN), userRolesOf(null),
+        userHasRole(single, ROLE_ADMIN), userRolesOf(null),
         window.AppRoles.has(set, 'CLIENT'),
     ]));
     """)
-    assert answered == [["CLIENT", "ADMIN"], True, False, True, [], True]
+    assert answered == [["CLIENT", "ADMIN"], True, False, False, [], True]
 
 
 @pytest.mark.skipif(NODE is None, reason="needs node: the shell is JavaScript")

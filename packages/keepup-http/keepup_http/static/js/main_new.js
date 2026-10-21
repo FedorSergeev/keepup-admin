@@ -77,13 +77,11 @@ const ROLE_CLIENT = 'CLIENT';
 //
 // A user holds a set of roles, and the panel decides by the set: somebody who is
 // both an administrator and a client holds two, and comparing one field with
-// ROLE_ADMIN would have made them choose. `role` is the deprecated mirror of the
-// set and is still the answer for a user an application assembled itself; it
-// goes away in keepup 0.3.0 (keepup-51). Cut out by these markers and executed
-// under node -- see tests/user_roles_tests.py.
+// ROLE_ADMIN would have made them choose. The set is the only answer, in the
+// answers and in the table (keepup-51, keepup-168). Cut out by these markers and
+// executed under node -- see tests/user_roles_tests.py.
 function userRolesOf(user) {
-    if (user && Array.isArray(user.roles) && user.roles.length) return user.roles;
-    return user && user.role ? [user.role] : [];
+    return user && Array.isArray(user.roles) ? user.roles : [];
 }
 
 function userHasRole(user, role) {

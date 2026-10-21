@@ -124,7 +124,7 @@ def get_all_users():
     answer = []
     for user in users:
         roles = sorted(held.get(user["id"], [])) or [ROLE_CLIENT]
-        answer.append(dict(user, roles=roles, role=user_roles.primary_role(roles)))
+        answer.append(dict(user, roles=roles))
     return answer
 
 
