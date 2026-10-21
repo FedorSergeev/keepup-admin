@@ -1187,6 +1187,21 @@ function setupAuthForms() {
     // Updated sign-in form handler
     document.getElementById('loginForm').addEventListener('submit', function (e) {
         e.preventDefault();
+        // The password earned a challenge, not a session: the same form now
+        // carries the code (keepup-176).
+        if (window.MfaPanel && MfaPanel.challengeToken()) {
+            const code = document.getElementById('loginCode');
+            MfaPanel.verify(code ? code.value : '').then(function (result) {
+                if (result.ok) {
+                    finishSignIn(result.data);
+                } else {
+                    showAuthMessage(result.data.detail || 'That code is not right', 'error');
+                }
+            }).catch(function (error) {
+                showAuthMessage('Network error: ' + error, 'error');
+            });
+            return;
+        }
         const username = document.getElementById('loginUsername').value;
         const password = document.getElementById('loginPassword').value;
         login(username, password);
@@ -1293,31 +1308,54 @@ async function login(username, password) {
         const data = await response.json();
 
         if (response.ok) {
-            localStorage.setItem('authToken', SESSION_MARKER);
-            scheduleSessionRefresh(data.expires_in);
-            const userResponse = await fetch('/api/auth/me');
-
-            if (userResponse.ok) {
-                const userData = await userResponse.json();
-                currentUser = userData;
-                updateUIAfterAuth();
-                closeAuthModal();
-                if (!(await ensureAgreements())) {
-                    return;
+            // A confirmed second factor answers here with a challenge, not a
+            // session: no marker, no refresh timer, no /me without a cookie
+            // (keepup-176). Before this, the panel called that a success and
+            // then showed "Failed to get user data".
+            if (data.mfa_required) {
+                if (window.MfaPanel) {
+                    MfaPanel.showChallenge(data.mfa_token);
+                    showAuthMessage('Enter the code from your authenticator app.', 'info');
+                } else {
+                    showAuthMessage('This panel cannot ask for the second factor.', 'error');
                 }
-                await loadModules();
-                refreshEntireUI();
-
-                closeAuthModal();
-                showAuthMessage('Signed in successfully!', 'success');
-            } else {
-                showAuthMessage('Failed to get user data', 'error');
+                return;
             }
+            await finishSignIn(data);
         } else {
             showAuthMessage(data.detail || 'Sign-in failed', 'error');
         }
     } catch (error) {
         showAuthMessage('Network error: ' + error, 'error');
+    }
+}
+
+async function finishSignIn(data) {
+    // The one place a sign-in becomes a session in this browser, whichever
+    // door it came through: password, or password and a code (keepup-176).
+    if (!data || !data.access_token) {
+        showAuthMessage('Sign-in failed: the server answered without a session.', 'error');
+        return;
+    }
+    localStorage.setItem('authToken', SESSION_MARKER);
+    scheduleSessionRefresh(data.expires_in);
+    const userResponse = await fetch('/api/auth/me');
+
+    if (userResponse.ok) {
+        const userData = await userResponse.json();
+        currentUser = userData;
+        updateUIAfterAuth();
+        closeAuthModal();
+        if (!(await ensureAgreements())) {
+            return;
+        }
+        await loadModules();
+        refreshEntireUI();
+
+        closeAuthModal();
+        showAuthMessage('Signed in successfully!', 'success');
+    } else {
+        showAuthMessage('Failed to get user data', 'error');
     }
 }
 
@@ -1538,6 +1576,7 @@ async function logout() {
     }
     localStorage.removeItem('authToken');
     localStorage.removeItem('auth_token');
+    if (window.MfaPanel) MfaPanel.clearChallenge();
     currentUser = null;
     headerBadge = null;
     updateUIAfterAuth();
@@ -1810,6 +1849,9 @@ document.head.appendChild(styleSheet);
 
 document.addEventListener('DOMContentLoaded', function() {
     initializeApp();
+    if (window.MfaPanel) {
+        MfaPanel.install();
+    }
     checkAuth();
 });
 

@@ -28,7 +28,8 @@ STATIC = PACKAGE / "packages" / "keepup-http" / "keepup_http" / "static"
 VENDORED = {"tailwind.js", "feather-icons.js", "aos.js", "chart.js",
             "chartjs-adapter-date-fns.bundle.min.js"}
 PAGES = sorted(STATIC.glob("*.html"))
-SCRIPTS = ([STATIC / "js" / "main_new.js", STATIC / "js" / "layout_bootstrap.js"]
+SCRIPTS = (sorted(path for path in (STATIC / "js").glob("*.js")
+                  if path.name not in VENDORED)
            + sorted(path for path in (STATIC / "modules" / "js").glob("*.js")
                     if path.name not in VENDORED))
 SOURCES = PAGES + SCRIPTS
