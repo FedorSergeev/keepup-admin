@@ -68,7 +68,7 @@ should be switched on after the enrolment, not before.
   token, the renewal window and the warning are above. A token with no recorded
   session start is no longer renewable for ever, `SECRET_KEY_PREVIOUS` keeps
   tokens signed by the old key valid while they live, and every token names its
-  issuer and audience (`keepup` / `keepup-panel`).
+  issuer and audience (keepup / keepup-panel).
 - **A second factor (keepup-174, keepup-176).** TOTP — RFC 6238, one-use codes,
   ten recovery codes shown once — with a five-minute challenge between the
   password and the session. The panel grows the code field after the password and
