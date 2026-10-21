@@ -171,6 +171,24 @@ with the reason, which is a decision rather than a fix for a red check. The
 audit runs on push and weekly -- an advisory is published against a version that
 was fine yesterday.
 
+## Security settings
+
+These are read from the environment, not from `KeepupSettings`. A deployment
+that changes none of them gets the secure default.
+
+| Name | What it does |
+|---|---|
+| `SECRET_KEY` | Signs tokens. Required, at least 32 characters, placeholders refused at start. |
+| `SECRET_KEY_PREVIOUS` | Still believed for verification while tokens it signed live. Rotation: new value in `SECRET_KEY`, old one here; remove after the longest lifetime. |
+| `SESSION_RENEWAL_WINDOW_HOURS` | How long a session may be renewed; 24 by default. |
+| `AUTH_RATE_LIMIT_PER_MINUTE` | Sign-in calls one address may make a minute; 30 by default, 0 disables the bucket. |
+| `AUTH_RATE_LIMIT_GLOBAL_PER_MINUTE` | Sign-in calls the deployment may make a minute; 600 by default, 0 disables. |
+| `MFA_REQUIRED_FOR_ADMINS` | `true` refuses administrative routes to a session without a second factor. Off by default; enrol before switching it on. |
+| `LOGIN_MAX_ATTEMPTS`, `LOGIN_LOCKOUT_MINUTES` | The per-name lockout: 10 failures, 15 minutes. |
+
+`SECURITY.md` is the disclosure policy: a private advisory, the supported
+versions, and how long a fix may take.
+
 ## Troubleshooting
 
 - **`ModuleNotFoundError: No module named 'keepup'`** -- the package is not

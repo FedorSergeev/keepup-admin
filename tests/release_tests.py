@@ -57,17 +57,21 @@ def test_every_capability_is_published_by_a_job_of_its_own():
 def test_one_publishing_invocation_per_job():
     """The action says so itself: two invocations in one job are unsupported."""
     jobs = workflow()["jobs"]
-    assert set(jobs) == {"capabilities", "base"}
-    for name, job in jobs.items():
-        assert len(publishes(job)) == 1, f"{name} publishes more than once"
+    publishing = {name for name, job in jobs.items() if publishes(job)}
+    assert publishing == {"capabilities", "base"}
+    for name in publishing:
+        assert len(publishes(jobs[name])) == 1, f"{name} publishes more than once"
 
 
 def test_the_capabilities_go_first_and_the_base_waits_for_them():
     jobs = workflow()["jobs"]
     needs = jobs["base"]["needs"]
     needs = {needs} if isinstance(needs, str) else set(needs)
-    assert needs == {"capabilities"}
-    assert list(jobs) == ["capabilities", "base"], "the base is published last"
+    assert needs == {"gate", "capabilities"}
+    assert "gate" in jobs["capabilities"]["needs"]
+    order = list(jobs)
+    assert order.index("gate") < order.index("capabilities") < order.index("base")
+    assert order.index("base") < order.index("sbom"), "the SBOM follows the release"
 
 
 def test_a_capability_may_be_re_run_and_the_base_may_not():
@@ -92,6 +96,8 @@ def test_an_api_token_is_the_way_out_when_a_publisher_cannot_be_registered():
     """A password turns attestations off: they need Trusted Publishing."""
     jobs = workflow()["jobs"]
     for job in jobs.values():
+        if not publishes(job):
+            continue
         step = publishes(job)[0]["with"]
         assert step["password"] == "${{ secrets.PYPI_API_TOKEN }}"
         assert step["attestations"] == "${{ secrets.PYPI_API_TOKEN == '' }}"
@@ -100,6 +106,8 @@ def test_an_api_token_is_the_way_out_when_a_publisher_cannot_be_registered():
 def test_the_tag_is_held_to_every_distribution_by_the_script():
     jobs = workflow()["jobs"]
     for job in jobs.values():
+        if not publishes(job):
+            continue
         assert "release_versions.py" in run_of(job, "release_versions.py")
 
 
