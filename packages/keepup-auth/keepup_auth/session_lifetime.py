@@ -17,23 +17,22 @@ from datetime import datetime, timedelta
 from typing import Optional
 from keepup import clock
 
-#: How long before the end a holder is told to renew. An hour is far longer
-#: than any pause in the agent's work -- it reconnects in seconds and reports
-#: telemetry in minutes -- so a warning always arrives while there is still a
-#: valid token to exchange.
-WARNING_WINDOW = timedelta(hours=1)
+#: How long before the end a holder is told to renew. Five minutes is longer
+#: than a reconnect or a telemetry report, so the warning arrives while there
+#: is still a valid token to exchange, and short enough not to be a constant
+#: interruption on a sixty-minute token (keepup-173).
+WARNING_WINDOW = timedelta(minutes=5)
 
 #: How long a session may keep renewing itself, counted from the login that
 #: started it. Renewal is authorised by the token being renewed and nothing
 #: else, so without a ceiling one login lasts forever and changing a password
 #: takes nothing away from whoever already holds a token.
 #:
-#: The default is long on purpose: the host agent holds its session across a
-#: rental, and asking its owner to type a password mid-rent drops the host out
-#: of the system with a machine still running on it. A month bounds the session
-#: without making that the normal case.
+#: A day bounds the session without making the normal case a password in the
+#: middle of a rental: the host agent renews on its own, and an administrator
+#: who has been away signs in once a day rather than once a month.
 RENEWAL_WINDOW_ENV = "SESSION_RENEWAL_WINDOW_HOURS"
-DEFAULT_RENEWAL_WINDOW = timedelta(days=30)
+DEFAULT_RENEWAL_WINDOW = timedelta(hours=24)
 
 
 def renewal_window(environ=None) -> timedelta:
@@ -58,12 +57,13 @@ def is_renewable(
 ) -> bool:
     """Whether a session that began then may still be renewed.
 
-    A session with no recorded beginning is renewable: tokens issued before this
-    rule existed carry no such mark, and refusing them would log everybody out
-    twice over -- once for the key change, once for this.
+    A session with no recorded beginning is not renewable. Those tokens were
+    issued before the mark existed, and accepting them was the one path that
+    renewed for ever: every exchange carried ``None`` forward, and ``None`` had
+    no end (keepup-173). A deployment upgrading signs those holders in once.
     """
     if session_started_at is None:
-        return True
+        return False
     now = now or clock.utcnow()
     return now - session_started_at <= renewal_window(environ)
 

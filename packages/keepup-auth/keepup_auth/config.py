@@ -69,7 +69,7 @@ class AuthConfig(BaseModel):
     #: a default -- it only put a key-shaped string into the package.
     jwt_secret: str = Field("", description="JWT signing key; supplied by the deployment")
     jwt_algorithm: str = Field("HS256", description="JWT algorithm")
-    jwt_expire_minutes: int = Field(1440, description="Token lifetime, in minutes")
+    jwt_expire_minutes: int = Field(60, description="Token lifetime, in minutes")
 
     @classmethod
     def from_yaml(cls, config_path: Path = Path("config/auth.yaml")) -> "AuthConfig":
@@ -107,7 +107,7 @@ class AuthConfig(BaseModel):
             default_role=section.get("default_role", ROLE_CLIENT),
             jwt_secret=jwt_config.get("secret", ""),
             jwt_algorithm=jwt_config.get("algorithm", "HS256"),
-            jwt_expire_minutes=jwt_config.get("expire_minutes", 1440),
+            jwt_expire_minutes=jwt_config.get("expire_minutes", 60),
         )
 
 

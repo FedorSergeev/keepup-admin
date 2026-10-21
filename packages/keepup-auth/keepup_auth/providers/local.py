@@ -19,15 +19,14 @@ from fastapi import HTTPException
 # not the one with a module-level decode(). The call fell into `except
 # Exception` and returned None, so the path was closed by accident rather than
 # by decision (task keepup-15).
-import jwt
 from starlette import status
 
 from keepup_auth import user_roles
 from keepup.roles import ROLE_CLIENT
 from keepup_auth.config import auth_config
 from keepup_db import DatabaseManagerV2
-from keepup_auth.signing_key import resolve_signing_key
-from .base import AuthProvider, ALGORITHM
+from keepup_auth.signing_key import decode_token
+from .base import AuthProvider
 
 logger = logging.getLogger()
 
@@ -76,11 +75,7 @@ class LocalAuthProvider(AuthProvider):
     async def get_user_info_from_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Return user information carried by a JWT token."""
         try:
-            payload = jwt.decode(
-                token,
-                resolve_signing_key(),
-                algorithms=[auth_config.jwt_algorithm if hasattr(auth_config, 'jwt_algorithm') else ALGORITHM]
-            )
+            payload = decode_token(token)
 
             username = payload.get("sub")
             if username:

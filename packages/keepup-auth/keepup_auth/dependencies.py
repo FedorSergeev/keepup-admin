@@ -31,7 +31,8 @@ from keepup_auth.identity import access
 from keepup_auth.identity import runtime as identity_runtime
 from keepup_auth.identity.contract import IdentityRejected, ProviderUnavailable
 from keepup_auth.providers.base import AuthProvider, ALGORITHM, oauth2_scheme
-from keepup_auth.signing_key import resolve_signing_key
+from keepup_auth.signing_key import (TOKEN_AUDIENCE, TOKEN_ISSUER, decode_token,
+                                      resolve_signing_key)
 from keepup_auth import user_roles
 from keepup.roles import ROLE_ADMIN, ROLE_CLIENT
 from keepup_db import DatabaseManagerV2
@@ -231,7 +232,7 @@ def create_access_token(
         expire = clock.utcnow() + expires_delta
     else:
         expire = clock.utcnow() + timedelta(minutes=15)
-    to_encode.update({"exp": expire})
+    to_encode.update({"exp": expire, "iss": TOKEN_ISSUER, "aud": TOKEN_AUDIENCE})
 
     # A renewal carries the beginning of the session forward unchanged. Stamping
     # "now" on every renewal is what made a session endless: each exchange would
@@ -376,8 +377,17 @@ async def _get_local_user(token: Optional[str], ignore_empty_user: bool = False)
         # Every token this server issues has an expiry, a subject and a session;
         # one without them was not issued here, or was issued before sessions
         # were recorded -- long enough ago to have expired (keepup-64, keepup-81).
-        payload = jwt.decode(token, resolve_signing_key(), algorithms=[ALGORITHM],
-                             options={"require": ["exp", "sub", panel_session.SESSION_CLAIM]})
+        payload = decode_token(
+            token,
+            options={"require": ["exp", "sub", panel_session.SESSION_CLAIM]})
+        # A token minted for another service behind the same key is not a token
+        # of this panel. Tokens from before the claim existed are still read:
+        # the rotation a deployment performs on upgrade does not sign people
+        # out twice (keepup-173).
+        if payload.get("iss") not in (None, TOKEN_ISSUER):
+            raise credentials_exception
+        if payload.get("aud") not in (None, TOKEN_AUDIENCE):
+            raise credentials_exception
         username: str = payload.get("sub")
         if username is None:
             if ignore_empty_user:

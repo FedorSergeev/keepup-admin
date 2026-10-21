@@ -21,7 +21,7 @@ import jwt
 from starlette import status
 
 from keepup_auth.usernames import is_valid_username
-from keepup_auth.signing_key import resolve_signing_key
+from keepup_auth.signing_key import decode_token
 from keepup_auth import user_roles
 from keepup.roles import ROLE_CLIENT
 from keepup_auth.config import auth_config
@@ -47,7 +47,7 @@ ALGORITHM = "HS256"
 #: was parsed out of config/auth.yaml and then read by nobody, so a deployment
 #: that asked for fifteen minutes went on handing out day-long tokens and had
 #: no way to tell (task keepup-14).
-ACCESS_TOKEN_EXPIRE_MINUTES = getattr(auth_config, "jwt_expire_minutes", 1440) or 1440
+ACCESS_TOKEN_EXPIRE_MINUTES = getattr(auth_config, "jwt_expire_minutes", 60) or 60
 
 class AuthProvider(ABC):
     """Abstract base class for authentication providers."""
@@ -125,11 +125,7 @@ class AuthProvider(ABC):
     async def get_user_info_from_token(self, token: str) -> Optional[Dict[str, Any]]:
         """Return user information carried by a JWT token (base implementation)."""
         try:
-            payload = jwt.decode(
-                token,
-                resolve_signing_key(),
-                algorithms=[auth_config.jwt_algorithm if hasattr(auth_config, 'jwt_algorithm') else ALGORITHM]
-            )
+            payload = decode_token(token)
 
             username = payload.get("sub")
             auth_source = payload.get("auth_source", "local")

@@ -19,7 +19,6 @@ import re
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, Response, status
-import jwt
 from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, Field, field_validator
 
@@ -39,8 +38,7 @@ from keepup_auth.external_accounts import AccountUnavailable
 from keepup_auth.identity import access
 from keepup_auth.identity import runtime as identity_runtime
 from keepup_auth.identity.contract import IdentityRejected, ProviderUnavailable
-from keepup_auth.providers.base import ALGORITHM
-from keepup_auth.signing_key import resolve_signing_key
+from keepup_auth.signing_key import decode_token
 from keepup_db import DatabaseManagerV2
 
 #: What an application may import from this module. Everything else is
@@ -444,7 +442,7 @@ def register_auth_routes(app, manager):
         revoked = False
         if token:
             try:
-                payload = jwt.decode(token, resolve_signing_key(), algorithms=[ALGORITHM])
+                payload = decode_token(token)
                 sid = payload.get(panel_session.SESSION_CLAIM)
                 if sid:
                     revoked = await asyncio.to_thread(

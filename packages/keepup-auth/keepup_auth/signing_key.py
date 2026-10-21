@@ -25,7 +25,14 @@ from typing import Mapping, Optional
 #: What an application may import from this module. Everything else is
 #: internal and may change without notice -- see doc/keepup.md.
 __all__ = [
+    "ALGORITHM",
+    "PREVIOUS_SIGNING_KEY_ENV",
     "SigningKeyUnavailable",
+    "TOKEN_AUDIENCE",
+    "TOKEN_ISSUER",
+    "decode_token",
+    "keys_for_verification",
+    "previous_signing_keys",
     "resolve_signing_key",
 ]
 
@@ -136,3 +143,78 @@ def _auth_config() -> Optional[object]:
     except Exception:  # pragma: no cover - configuration is optional here
         return None
     return auth_config
+
+
+#: A key that is no longer signed with, but is still believed. Rotation is a
+#: deployment replacing SECRET_KEY and moving the old value here: tokens minted
+#: before the change stay valid until they expire, and no session is signed out
+#: by the act of rotating (keepup-173).
+PREVIOUS_SIGNING_KEY_ENV = "SECRET_KEY_PREVIOUS"
+
+#: What every token of this framework is for. A deployment may run several
+#: services behind one key; a token minted for another one must not open this
+#: panel.
+TOKEN_ISSUER = "keepup"
+TOKEN_AUDIENCE = "keepup-panel"
+
+#: The one algorithm this framework signs with; kept here so the decoder does
+#: not have to import the provider (which imports this module).
+ALGORITHM = "HS256"
+
+
+def _usable(value: Optional[str]) -> Optional[str]:
+    """A candidate key, or None when it is absent, short or an example value."""
+    value = (value or "").strip()
+    if not value or value in PLACEHOLDER_KEYS or len(value) < MINIMUM_KEY_LENGTH:
+        return None
+    return value
+
+
+def previous_signing_keys(environ: Optional[Mapping[str, str]] = None,
+                          config: Optional[object] = None) -> tuple:
+    """Keys still accepted for verification, newest first.
+
+    One previous key is enough for a rotation: a deployment sets the new
+    SECRET_KEY, keeps the old value in SECRET_KEY_PREVIOUS, and removes it once
+    the longest token lifetime has passed.
+    """
+    if environ is None:
+        environ = os.environ
+    value = _usable(environ.get(PREVIOUS_SIGNING_KEY_ENV))
+    return (value,) if value else ()
+
+
+def keys_for_verification(environ: Optional[Mapping[str, str]] = None,
+                          config: Optional[object] = None) -> tuple:
+    """The current key first, then every key still believed."""
+    return (resolve_signing_key(environ, config), *previous_signing_keys(environ, config))
+
+
+def decode_token(token: str, options: Optional[Mapping[str, object]] = None,
+                 environ: Optional[Mapping[str, str]] = None,
+                 config: Optional[object] = None):
+    """Decode a token with the current key, then with the previous one.
+
+    Audience is not checked here: PyJWT would refuse a token that carries an
+    ``aud`` claim when the caller names none. The caller that needs it checks
+    :data:`TOKEN_AUDIENCE` itself, so a token minted for another service is
+    refused where the claim is known to matter.
+
+    Raises:
+        jwt.PyJWTError: the last refusal, when no key believes the token.
+    """
+    import jwt
+
+    from jwt import PyJWTError
+
+    settings = {"verify_aud": False}
+    settings.update(dict(options or {}))
+    last = None
+    for key in keys_for_verification(environ, config):
+        try:
+            return jwt.decode(token, key, algorithms=[ALGORITHM], options=settings)
+        except PyJWTError as refusal:
+            last = refusal
+    if last is not None:
+        raise last
+    raise jwt.InvalidTokenError("no signing key is configured")

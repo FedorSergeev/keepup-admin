@@ -160,6 +160,12 @@ def test_the_local_provider_reads_tokens_with_the_library_the_package_declares()
     from keepup.tests.repository import source_of
 
     source = source_of("keepup_auth.providers.local").read_text(encoding="utf-8")
-    assert "\nimport jwt\n" in source
+    # The decode moved into signing_key with keepup-173: one place tries the
+    # current key and the previous one, and that is the place that must use
+    # PyJWT. The provider delegates rather than importing the name itself.
+    assert "decode_token" in source
+    signing = source_of("keepup_auth.signing_key").read_text(encoding="utf-8")
+    assert "import jwt" in signing
     assert "from jose import" not in source, \
         "python-jose is back, and with it an advisory that has no fix (keepup-32)"
+    assert "from jose import" not in signing

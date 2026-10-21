@@ -231,12 +231,9 @@ def csrf_for(token: Optional[str]) -> Optional[str]:
     if not token:
         return None
     try:
-        import jwt
-        from keepup_auth.providers.base import ALGORITHM
-        from keepup_auth.signing_key import resolve_signing_key
+        from keepup_auth.signing_key import decode_token, resolve_signing_key
         key = resolve_signing_key()
-        payload = jwt.decode(token, key, algorithms=[ALGORITHM],
-                             options={"verify_exp": False})
+        payload = decode_token(token, options={"verify_exp": False})
     except Exception:
         return None
     sid = payload.get(SESSION_CLAIM)
