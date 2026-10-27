@@ -405,6 +405,10 @@ function toggleSidebar() {
     sidebar.classList.toggle('sidebar-collapsed');
     const isCollapsed = sidebar.classList.contains('sidebar-collapsed');
     localStorage.setItem('sidebarCollapsed', isCollapsed);
+
+    // The collapsed menu shows icons only and the search field goes with the
+    // text, so a filter left on would look like sections that went missing.
+    if (isCollapsed) clearModuleSearch();
 }
 
     // Restore menu state on page load
@@ -661,6 +665,7 @@ function initializeApp() {
     setupRouter();
     registerAppSections();
     setupNavigation();
+    setupModuleSearch();
     setupAuthForms();
 
     // A token left from before the cookie is traded for one and forgotten; with
@@ -1123,6 +1128,194 @@ function setupNavigation() {
         }
     });
 }
+
+/* ==========================================================================
+   The search of the sidebar (keepup-179).
+
+   The menu of a full panel is longer than a screen, and the person looking for
+   one section reads it top to bottom. The field above the menu narrows the menu
+   to the entries whose text contains what was typed -- a substring, in any
+   case, front-end only: nothing is asked of the server and nothing is stored.
+
+   A submenu is drawn from the same elements, so the search has to keep the
+   shape as well as the text. An entry is a submodule when it sits inside
+   another entry (a `.nav-item` inside a `.nav-item`) or inside a container the
+   parent keeps for its children (`data-nav-children`); its depth is the deeper
+   of the two counts. A match that comes without its parent is indented by that
+   depth and carries a leading dot, so a result never reads as a top-level
+   section.
+
+   The parent of a match stays on screen even when its own text does not match:
+   hiding it would hide the child that lives inside it. A parent whose children
+   sit in a sibling container can be hidden, and then the child stands alone --
+   which is the case the indentation exists for.
+   ========================================================================== */
+// --- the search field of the sidebar
+const NAV_SEARCH_ROOT_ID = 'modules-nav-container';
+const NAV_SEARCH_INPUT_ID = 'nav-search-input';
+const NAV_SEARCH_CLEAR_ID = 'nav-search-clear';
+const NAV_SEARCH_EMPTY_ID = 'nav-search-empty';
+const NAV_SEARCH_ITEM = '.nav-item';
+const NAV_SEARCH_CHILDREN = '[data-nav-children]';
+const NAV_SEARCH_HIDDEN = 'nav-search-hidden';
+const NAV_SEARCH_MATCH = 'nav-search-match';
+const NAV_SEARCH_NESTED = 'nav-search-nested';
+
+//: What a menu entry says, without the icon beside it.
+function navSearchLabel(item) {
+    const text = item.querySelector ? item.querySelector('.nav-text') : null;
+    const label = (text && text.textContent) || item.textContent || '';
+    return String(label).trim();
+}
+
+//: The typed text, comparable: padded text is not a different search.
+function navSearchQuery(raw) {
+    return String(raw == null ? '' : raw).trim().toLowerCase();
+}
+
+//: How many menu levels down a match sits; 0 is a top-level section.
+function navSearchDepth(item, root) {
+    let items = 0;
+    let containers = 0;
+    let node = item.parentElement;
+    while (node && node !== root) {
+        if (node.matches) {
+            if (node.matches(NAV_SEARCH_ITEM)) items += 1;
+            else if (node.matches(NAV_SEARCH_CHILDREN)) containers += 1;
+        }
+        node = node.parentElement;
+    }
+    // A submenu keeps its children in a container beside the parent's link, so
+    // one level counts either the parent entry above the container or the
+    // container itself -- never both.
+    return Math.max(items, containers);
+}
+
+function navSearchContains(parent, child) {
+    for (let node = child.parentElement; node; node = node.parentElement) {
+        if (node === parent) return true;
+    }
+    return false;
+}
+
+function navSearchSetHidden(element, hidden) {
+    if (element.classList) element.classList.toggle(NAV_SEARCH_HIDDEN, Boolean(hidden));
+}
+
+/**
+ * Narrow the sidebar to the entries whose text contains `rawQuery`.
+ *
+ * Returns the query as it was understood and how many entries matched, which is
+ * what the status line and the tests read.
+ */
+function applyModuleSearch(rawQuery) {
+    const root = document.getElementById(NAV_SEARCH_ROOT_ID);
+    const query = navSearchQuery(rawQuery);
+    const clear = document.getElementById(NAV_SEARCH_CLEAR_ID);
+    const empty = document.getElementById(NAV_SEARCH_EMPTY_ID);
+    if (clear) clear.hidden = query === '';
+    if (!root || !root.querySelectorAll) {
+        if (empty) empty.hidden = true;
+        return {query: query, matches: 0};
+    }
+
+    const items = Array.from(root.querySelectorAll(NAV_SEARCH_ITEM)).map(element => {
+        const label = navSearchLabel(element);
+        return {
+            element: element,
+            label: label,
+            depth: navSearchDepth(element, root),
+            matches: query !== '' && label.toLowerCase().indexOf(query) !== -1,
+        };
+    });
+
+    const matches = items.filter(item => item.matches).length;
+    items.forEach(item => {
+        // An entry survives a search when it matches, or when a match lives
+        // inside it and hiding it would take the match away.
+        const keepsPath = items.some(other => other.matches && navSearchContains(item.element, other.element));
+        const visible = query === '' || item.matches || keepsPath;
+        navSearchSetHidden(item.element, !visible);
+        if (item.element.classList) {
+            item.element.classList.toggle(NAV_SEARCH_MATCH, query !== '' && item.matches);
+            item.element.classList.toggle(NAV_SEARCH_NESTED,
+                query !== '' && item.matches && item.depth > 0);
+        }
+        if (item.element.style && item.element.style.setProperty) {
+            item.element.style.setProperty('--nav-search-depth', String(item.depth));
+        }
+    });
+
+    if (empty) {
+        empty.hidden = !(query !== '' && matches === 0);
+        if (!empty.hidden) empty.textContent = 'No modules match "' + query + '"';
+    }
+    return {query: query, matches: matches};
+}
+
+//: The clear button and Escape put the menu back the way it was.
+function clearModuleSearch() {
+    const input = document.getElementById(NAV_SEARCH_INPUT_ID);
+    if (input) input.value = '';
+    return applyModuleSearch('');
+}
+
+function setupModuleSearch() {
+    const input = document.getElementById(NAV_SEARCH_INPUT_ID);
+    if (!input) return;
+
+    const update = () => applyModuleSearch(input.value);
+    input.addEventListener('input', update);
+    // The browser's own clear button of a type="search" field does not fire
+    // "input" everywhere; "search" is the event it does fire.
+    input.addEventListener('search', update);
+    input.addEventListener('keydown', event => {
+        if (event.key === 'Escape') {
+            if (input.value === '') return;
+            event.preventDefault();
+            clearModuleSearch();
+            return;
+        }
+        if (event.key === 'Enter') {
+            const root = document.getElementById(NAV_SEARCH_ROOT_ID);
+            const first = root && root.querySelectorAll
+                ? Array.from(root.querySelectorAll('.' + NAV_SEARCH_MATCH))[0]
+                : null;
+            if (first && first.click) {
+                event.preventDefault();
+                first.click();
+            }
+        }
+    });
+
+    const clear = document.getElementById(NAV_SEARCH_CLEAR_ID);
+    if (clear) {
+        clear.addEventListener('click', () => {
+            clearModuleSearch();
+            input.focus();
+        });
+    }
+
+    // Sections add their entries as they initialise, which can happen after the
+    // field is on screen; a search typed meanwhile has to reach them too.
+    const root = document.getElementById(NAV_SEARCH_ROOT_ID);
+    if (root && typeof MutationObserver !== 'undefined') {
+        new MutationObserver(() => {
+            if (input.value.trim() !== '') applyModuleSearch(input.value);
+        }).observe(root, {childList: true, subtree: true});
+    }
+
+    update();
+}
+
+// What a section -- or a test -- may ask of the field without owning it.
+window.AppNavSearch = {
+    apply: applyModuleSearch,
+    clear: clearModuleSearch,
+    label: navSearchLabel,
+    depth: navSearchDepth,
+};
+// --- end of the search field of the sidebar
 
 const appSections = {
     sections: new Map(),

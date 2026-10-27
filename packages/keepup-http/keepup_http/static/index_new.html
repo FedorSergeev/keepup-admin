@@ -162,6 +162,22 @@
             </div>
             <nav class="mt-4" id="main-nav">
 
+                <!-- The search of the menu (keepup-179). It is chrome: the
+                     theme styles it, and the shell's script narrows the entries
+                     below to what is typed. No inline handler -- the panel is
+                     served with a Content-Security-Policy that refuses one. -->
+                <div id="nav-search" class="nav-search" role="search">
+                    <i data-feather="search" class="nav-search-icon" aria-hidden="true"></i>
+                    <input id="nav-search-input" class="nav-search-input" type="search"
+                           placeholder="Search modules" aria-label="Search modules"
+                           aria-controls="modules-nav-container" autocomplete="off" spellcheck="false">
+                    <button id="nav-search-clear" class="nav-search-clear" type="button"
+                            aria-label="Clear the search" hidden>
+                        <i data-feather="x" class="nav-search-clear-icon" aria-hidden="true"></i>
+                    </button>
+                </div>
+                <p id="nav-search-empty" class="nav-search-empty" role="status" hidden></p>
+
                 <div id="modules-nav-container"></div>
             </nav>
         </div>

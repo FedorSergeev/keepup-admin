@@ -35,6 +35,20 @@
     --nav-item-bg-active: #1e40af;
     --nav-item-icon-gap: 0.75rem;
 
+    /* The search of the menu (keepup-179). A field sits above the entries and
+       a match that is a submodule is pushed right by its depth, so a result
+       shown without its parent still reads as a sub-item. */
+    --nav-search-bg: rgba(255, 255, 255, 0.12);
+    --nav-search-bg-focus: rgba(255, 255, 255, 0.2);
+    --nav-search-border: rgba(255, 255, 255, 0.16);
+    --nav-search-border-focus: rgba(255, 255, 255, 0.5);
+    --nav-search-radius: 10px;
+    --nav-search-fg: rgba(255, 255, 255, 0.75);
+    --nav-search-value: #ffffff;
+    --nav-search-placeholder: rgba(255, 255, 255, 0.6);
+    --nav-item-search-base: 1.5rem;
+    --nav-item-search-step: 1.1rem;
+
     /* Adaptive layout. --layout-breakpoint is the single source of the
        narrow/wide boundary: main_new.js reads it off :root, drives a
        matchMedia off it and keeps the .is-narrow class on <html>, and the
@@ -224,6 +238,130 @@
     transition: margin 0.3s ease;
 }
 
+/* The field above the menu (keepup-179). Chrome, so it is declared here and a
+   section must not restate it. It sits outside #modules-nav-container on
+   purpose: the entries scroll under it, the field stays where it was put. */
+.nav-search {
+    display: flex;
+    align-items: center;
+    margin: 0.25rem 0.75rem 0.5rem;
+    padding: 0 0.75rem;
+    border: 1px solid var(--nav-search-border, rgba(255, 255, 255, 0.16));
+    border-radius: var(--nav-search-radius, 10px);
+    background-color: var(--nav-search-bg, rgba(255, 255, 255, 0.12));
+    transition: var(--chrome-transition, all 0.3s ease);
+}
+
+.nav-search:focus-within {
+    border-color: var(--nav-search-border-focus, rgba(255, 255, 255, 0.5));
+    background-color: var(--nav-search-bg-focus, rgba(255, 255, 255, 0.2));
+}
+
+.nav-search-icon {
+    flex: 0 0 auto;
+    width: 1rem;
+    height: 1rem;
+    color: var(--nav-search-fg, rgba(255, 255, 255, 0.75));
+    stroke-width: 2;
+}
+
+.nav-search-input {
+    flex: 1 1 auto;
+    min-width: 0;
+    width: 100%;
+    padding: 0.55rem 0.5rem;
+    border: 0;
+    background: transparent;
+    color: var(--nav-search-value, #ffffff);
+    font: inherit;
+    font-size: 0.875rem;
+    outline: none;
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.nav-search-input::placeholder {
+    color: var(--nav-search-placeholder, rgba(255, 255, 255, 0.6));
+}
+
+/* The field carries its own clear button: the browser's would be a second one
+   with a different look, and on some engines it cannot be styled at all. */
+.nav-search-input::-webkit-search-cancel-button,
+.nav-search-input::-webkit-search-decoration {
+    -webkit-appearance: none;
+    appearance: none;
+}
+
+.nav-search-clear {
+    flex: 0 0 auto;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 1.5rem;
+    height: 1.5rem;
+    padding: 0;
+    border: 0;
+    border-radius: 9999px;
+    background: transparent;
+    color: var(--nav-search-fg, rgba(255, 255, 255, 0.75));
+    cursor: pointer;
+}
+
+.nav-search-clear:hover,
+.nav-search-clear:focus-visible {
+    color: var(--nav-search-value, #ffffff);
+    background-color: var(--nav-search-bg-focus, rgba(255, 255, 255, 0.2));
+    outline: none;
+}
+
+.nav-search-clear[hidden] {
+    display: none;
+}
+
+.nav-search-clear-icon {
+    width: 0.85rem;
+    height: 0.85rem;
+    stroke-width: 2.5;
+}
+
+.nav-search-empty {
+    margin: 0.25rem 1.5rem 0.5rem;
+    color: var(--nav-search-placeholder, rgba(255, 255, 255, 0.6));
+    font-size: 0.8rem;
+    line-height: 1.35;
+}
+
+.nav-search-empty[hidden] {
+    display: none;
+}
+
+/* What the search leaves on screen: an entry that does not match goes, an entry
+   the match lives inside stays so the result keeps its path. */
+.nav-item.nav-search-hidden {
+    display: none !important;
+}
+
+/* A matched submodule is indented by its depth: shown without its parent it
+   would otherwise look like a section of its own. The dot is the second cue, so
+   the depth reads even when the two items sit far from the menu's edge. */
+.nav-item.nav-search-match {
+    padding-left: calc(
+        var(--nav-item-search-base, 1.5rem)
+        + var(--nav-search-depth, 0) * var(--nav-item-search-step, 1.1rem)
+    );
+}
+
+.nav-item.nav-search-nested::before {
+    content: "";
+    flex: 0 0 auto;
+    width: 4px;
+    height: 4px;
+    margin-right: 0.5rem;
+    border-radius: 9999px;
+    background-color: currentColor;
+    opacity: 0.55;
+}
+
 /* Collapsed sidebar. Declared once, for the whole panel, and only for the wide
    layout: below the breakpoint the panel is a drawer, so a collapsed flag saved
    on a desktop would narrow the drawer and shift the content 64px to the right
@@ -235,6 +373,14 @@
 }
 
 :root:not(.is-narrow) .sidebar-collapsed .nav-text {
+    display: none;
+}
+
+/* The field belongs to the wide menu: collapsed, there is no room for it and
+   nothing to type into. The script clears the filter on the way down, so no
+   section is left hidden behind a field nobody can see. */
+:root:not(.is-narrow) .sidebar-collapsed .nav-search,
+:root:not(.is-narrow) .sidebar-collapsed .nav-search-empty {
     display: none;
 }
 
