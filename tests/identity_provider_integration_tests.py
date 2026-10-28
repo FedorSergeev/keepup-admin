@@ -22,7 +22,7 @@ import pytest
 import uvicorn
 from fastapi.testclient import TestClient
 
-from keepup_auth import login_throttle
+from keepup_auth import login_throttle, panel_session
 from keepup_db import DatabaseManagerV2
 from keepup_http.factory import create_app
 from keepup.plugins.base import PluginManager
@@ -290,8 +290,9 @@ def test_the_panel_signs_in_with_the_password_of_the_foreign_system(stand):
     me = client.get("/api/auth/me")
     assert me.status_code == 200
     assert me.json()["username"].startswith("anna")
-    renewed = client.post("/api/auth/refresh",
-                          headers={"X-CSRF-Token": client.cookies.get("ss_csrf")})
+    renewed = client.post(
+        "/api/auth/refresh",
+        headers={"X-CSRF-Token": client.cookies.get(panel_session.cookie_names(False)[1])})
     assert renewed.status_code == 200, renewed.text
 
 

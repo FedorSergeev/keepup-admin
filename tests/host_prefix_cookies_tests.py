@@ -43,6 +43,10 @@ def no_throttle():
 
 
 def app():
+    # A stand-alone application here, not a deployment: these checks name the
+    # shared cookies of 0.6.0 themselves. (Another module's application may
+    # have left its own namespace configured process-wide.)
+    panel_session.configure("")
     application = FastAPI()
     register_auth_routes(application, SimpleNamespace(plugins={}))
     application.add_middleware(panel_session.CsrfCookieRefresh)

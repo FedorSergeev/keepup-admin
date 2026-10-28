@@ -147,18 +147,20 @@ def test_the_provider_decides_the_right_and_its_refusal_holds(identity):
 
 def test_a_foreign_token_is_not_traded_for_a_session_here(identity):
     token = session_there(identity, "anna", "anna-as-pass")
+    session_name = panel_session.cookie_base(panel_session.SESSION_COOKIE)
     for door in ("/api/auth/refresh", "/api/auth/session"):
         answer = identity.client.post(door, headers=bearer(token))
         assert answer.status_code == 400, door
         assert "access_token" not in answer.text
-        assert panel_session.SESSION_COOKIE not in answer.headers.get("set-cookie", "")
+        assert session_name not in answer.headers.get("set-cookie", "")
 
 
 def test_a_foreign_token_in_the_cookie_does_not_pass_the_csrf_check(identity):
     """Planted as the session cookie, it cannot bring the CSRF value a change needs."""
     token = session_there(identity, "anna", "anna-as-pass")
-    headers = {"Cookie": f"{panel_session.SESSION_COOKIE}={token}; "
-                         f"{panel_session.CSRF_COOKIE}=anything",
+    session_name, csrf_name = panel_session.cookie_names(secure=False)
+    headers = {"Cookie": f"{session_name}={token}; "
+                         f"{csrf_name}=anything",
                panel_session.CSRF_HEADER: "anything"}
     answer = identity.client.post(PLUGIN_WRITE, headers=headers, json={})
     assert answer.status_code == 403

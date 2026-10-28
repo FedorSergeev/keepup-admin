@@ -181,6 +181,7 @@ that changes none of them gets the secure default.
 | `SECRET_KEY` | Signs tokens. Required, at least 32 characters, placeholders refused at start. |
 | `SECRET_KEY_PREVIOUS` | Still believed for verification while tokens it signed live. Rotation: new value in `SECRET_KEY`, old one here; remove after the longest lifetime. |
 | `SESSION_RENEWAL_WINDOW_HOURS` | How long a session may be renewed; 24 by default. |
+| `SESSION_REMEMBER_DAYS` | How long a session signed in with "Stay signed in" may go unused before it ends; 30 by default. Every renewal moves the window. |
 | `AUTH_RATE_LIMIT_PER_MINUTE` | Sign-in calls one address may make a minute; 30 by default, 0 disables the bucket. |
 | `AUTH_RATE_LIMIT_GLOBAL_PER_MINUTE` | Sign-in calls the deployment may make a minute; 600 by default, 0 disables. |
 | `MFA_REQUIRED_FOR_ADMINS` | `true` refuses administrative routes to a session without a second factor. Off by default; enrol before switching it on. |

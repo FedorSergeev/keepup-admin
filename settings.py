@@ -112,6 +112,18 @@ class KeepupSettings:
     # --- identity -------------------------------------------------------
     title: str = "KeepUP"
     project_name: str = "keepup"
+    #: The namespace of the panel's cookies (0.7.0). A cookie belongs to a
+    #: host, not to a port: several keepup applications opened on one host --
+    #: `localhost:8000` and `localhost:8010` -- used to write the same
+    #: `ss_session`, and whichever signed in last took the other's session
+    #: away. The names now carry this value (`ss_session_<prefix>`); None takes
+    #: the application's `project_name`, so two applications that name
+    #: themselves differently coexist without any further configuration. An
+    #: empty string keeps the shared names of 0.6.0 and earlier, which is right
+    #: only for a host that runs one keepup application. A value that is not a
+    #: legal cookie name is made into one, keeping a digest of what it was, so
+    #: two values never collapse into the same cookie.
+    cookie_prefix: Optional[str] = None
     docs_url: Optional[str] = "/api/docs"
     redoc_url: Optional[str] = "/api/redoc"
     #: Where the OpenAPI schema is served. None removes it, and the

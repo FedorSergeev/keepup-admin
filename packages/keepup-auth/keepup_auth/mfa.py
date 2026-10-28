@@ -36,6 +36,7 @@ __all__ = [
     "CHALLENGE_MINUTES",
     "RECOVERY_CODES",
     "begin",
+    "challenge_remember",
     "challenge_token",
     "code_for",
     "confirm",
@@ -212,12 +213,31 @@ def verify_for_user(user_id: int, code: Optional[str] = None,
     return bool(claimed)
 
 
-def challenge_token(username: str) -> str:
-    """Five minutes between the password and the code; not a session."""
-    from keepup_auth.dependencies import create_access_token
+def challenge_token(username: str, remember: bool = False) -> str:
+    """Five minutes between the password and the code; not a session.
 
-    return create_access_token({"sub": username, "purpose": PURPOSE},
-                               expires_delta=timedelta(minutes=CHALLENGE_MINUTES))
+    The "stay signed in" answer travels in the challenge: the session is issued
+    after the code, and the box a person ticked must still hold then
+    (keepup-177).
+    """
+    from keepup_auth.dependencies import REMEMBER_CLAIM, create_access_token
+
+    claims = {"sub": username, "purpose": PURPOSE}
+    if remember:
+        claims[REMEMBER_CLAIM] = True
+    return create_access_token(claims, expires_delta=timedelta(minutes=CHALLENGE_MINUTES))
+
+
+def challenge_remember(token: str) -> bool:
+    """Whether the sign-in behind this challenge asked to stay signed in."""
+    from keepup_auth.dependencies import REMEMBER_CLAIM
+    from keepup_auth.signing_key import decode_token
+
+    try:
+        payload = decode_token(token)
+    except Exception:
+        return False
+    return payload.get("purpose") == PURPOSE and bool(payload.get(REMEMBER_CLAIM))
 
 
 def read_challenge(token: str) -> Optional[str]:

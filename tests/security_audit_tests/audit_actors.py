@@ -41,8 +41,9 @@ class Actor:
         ``csrf`` is "right", "wrong" or None (no header at all).
         """
         value = panel_session.csrf_for(self.token)
-        headers = {"Cookie": f"{panel_session.SESSION_COOKIE}={self.token}; "
-                             f"{panel_session.CSRF_COOKIE}={value}"}
+        session_name, csrf_name = panel_session.cookie_names(secure=False)
+        headers = {"Cookie": f"{session_name}={self.token}; "
+                             f"{csrf_name}={value}"}
         if csrf == "right":
             headers[panel_session.CSRF_HEADER] = value
         elif csrf == "wrong":

@@ -244,7 +244,8 @@ def test_a_socket_does_not_take_the_cookie_of_another_site(start):
     """The cookie rides along with any page's socket; the origin says whose page it is."""
     running = start("plugins")
     actor = audit_actors.client_actor()
-    headers = {"Cookie": f"ss_session={actor.token}", "Origin": "https://evil.example"}
+    session_name, _ = panel_session.cookie_names(secure=False)
+    headers = {"Cookie": f"{session_name}={actor.token}", "Origin": "https://evil.example"}
     try:
         with running.client.websocket_connect(SOCKET_SIGNED, headers=headers) as socket:
             socket.receive_json()

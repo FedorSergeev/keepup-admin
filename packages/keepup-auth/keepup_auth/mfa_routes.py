@@ -95,8 +95,16 @@ def register_mfa_routes(app) -> None:
             raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED,
                                 detail="That code is not right")
 
-        issued = await asyncio.to_thread(issue_session_token, user["id"], user["username"],
-                                         mfa=True)
-        panel_session.set_cookies(response, request, issued["access_token"],
-                                  issued["expires_in"])
+        # The box ticked at the password still holds after the code (keepup-177).
+        remember = mfa.challenge_remember(payload.mfa_token)
+        refresh_secret = panel_session.new_refresh_secret() if remember else None
+
+        issued = await asyncio.to_thread(
+            issue_session_token, user["id"], user["username"], mfa=True,
+            remember=remember,
+            refresh_hash=panel_session.refresh_digest(refresh_secret))
+        panel_session.set_cookies(
+            response, request, issued["access_token"],
+            panel_session.remember_cookie_age() if remember else None,
+            refresh=refresh_secret)
         return {**issued, "token_type": "bearer", "success": True}

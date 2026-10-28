@@ -19,9 +19,11 @@ import re
 from typing import Optional
 
 from fastapi import Depends, HTTPException, Request, Response, status
+from fastapi.responses import JSONResponse
 from jwt import PyJWTError as JWTError
 from pydantic import BaseModel, Field, field_validator
 
+from keepup import clock
 from keepup_auth.usernames import is_valid_username
 from keepup_auth import auth_rate_limit, panel_session, seed_accounts, user_routes
 from keepup_auth.dependencies import (
@@ -30,8 +32,11 @@ from keepup_auth.dependencies import (
     authenticate,
     create_user,
     get_current_user,
+    get_optional_user,
+    get_user_by_id,
     issue_session_token,
     refuse_foreign_session,
+    request_token,
 )
 from keepup_auth.external_accounts import AccountUnavailable
 from keepup_auth.identity import access
@@ -119,6 +124,11 @@ class LoginRequest(BaseModel):
 
     username: str
     password: str
+    #: Stay signed in: the browser keeps the session across a restart and the
+    #: session renews for as long as it is used, a month after the last visit.
+    #: Unticked, the cookies end with the browser and the session with its day
+    #: of renewals (keepup-177).
+    remember: bool = Field(False, description="Stay signed in on this browser")
 class UserCreate(UserBase):
     """A registration, validated before it reaches the database."""
 
@@ -176,6 +186,24 @@ def self_registration_enabled(environ=None) -> bool:
     environ = environ if environ is not None else os.environ
     return str(environ.get(SELF_REGISTRATION_ENV, "")).strip().lower() in (
         "1", "true", "yes", "on")
+def _session_over(detail: str = "This session has run its course. Sign in again."):
+    """The one refusal a renewal gives: the session is over, sign in again."""
+    return HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail=detail)
+
+
+def _put_session_in_cookies(response, request, issued, remember: bool,
+                            refresh: Optional[str] = None) -> None:
+    """Hand a signed-in session to the browser.
+
+    A remembered session's cookies outlive the browser's close, an ordinary
+    one's do not -- which is the visible half of the checkbox (keepup-177).
+    """
+    panel_session.set_cookies(
+        response, request, issued["access_token"],
+        panel_session.remember_cookie_age() if remember else None,
+        refresh=refresh if remember else None)
+
+
 async def refresh_access_token(current_user: dict, request: Request = None,
                                response: Response = None):
     """Exchange a still-valid token for a new one with a full lifetime.
@@ -189,6 +217,11 @@ async def refresh_access_token(current_user: dict, request: Request = None,
     nothing: a token issued once would live forever. A blocked account is
     refused for the same reason it is refused everywhere else: status is
     checked on every request, not only at login.
+
+    A session that was asked to stay signed in is held to its own window: the
+    renewal moves the window instead of counting down from the login, and a
+    renewal whose token has already expired reaches this same session through
+    its renewal credential (``refresh_from_credential``, keepup-177).
     """
     from keepup_auth import session_lifetime
 
@@ -196,20 +229,21 @@ async def refresh_access_token(current_user: dict, request: Request = None,
     # here to renew, and must not be handed one (keepup-91).
     refuse_foreign_session(current_user)
 
+    remember = bool(current_user.get("remember"))
     session_started_at = current_user.get("session_started_at")
-    if not session_lifetime.is_renewable(session_started_at):
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="This session has run its course. Sign in again.",
-        )
+    if not session_lifetime.is_renewable(session_started_at, remember=remember):
+        raise _session_over()
 
     # Carried forward, not restarted: the window counts from the login, and the
     # session stays the one a logout will revoke.
     issued = await asyncio.to_thread(
         issue_session_token, current_user["id"], current_user["username"],
-        sid=current_user.get("session_id"), session_started_at=session_started_at)
+        sid=current_user.get("session_id"), session_started_at=session_started_at,
+        remember=remember)
     if request is not None and response is not None and _authenticated_by_cookie(request):
-        panel_session.set_cookies(response, request, issued["access_token"], issued["expires_in"])
+        _put_session_in_cookies(
+            response, request, issued, remember,
+            panel_session.refresh_token_in(request.cookies))
 
     logger.info(f"Refreshed access token for {current_user['username']}")
 
@@ -217,7 +251,55 @@ async def refresh_access_token(current_user: dict, request: Request = None,
         "access_token": issued["access_token"],
         "token_type": "bearer",
         "expires_in": issued["expires_in"],
+        "remember": remember,
         "success": True
+    }
+
+
+async def refresh_from_credential(request: Request, response: Response):
+    """Buy a new access token with the renewal credential of a remembered session.
+
+    This is the door that an hour of silence used to close: the access token is
+    gone, but the browser still holds the HttpOnly credential, and the session
+    row -- not the token -- says whether the promise holds. It is spent only
+    against that row: a revoked session, a blocked account and a month without
+    a visit all refuse it. The same CSRF pair as any cookie-authenticated change
+    is required, because the browser sends the cookie by itself (keepup-177).
+    """
+    secret = panel_session.refresh_token_in(request.cookies)
+    if not secret:
+        raise _session_over()
+    if not panel_session.csrf_matches(request):
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN,
+                            detail="CSRF token missing or invalid")
+
+    row = await asyncio.to_thread(panel_session.session_for_refresh, secret)
+    if row is None:
+        raise _session_over()
+
+    user = await asyncio.to_thread(get_user_by_id, int(row["user_id"]))
+    if user is None:
+        raise _session_over()
+    if user.get("status") != "active":
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="User account is blocked",
+        )
+
+    issued = await asyncio.to_thread(
+        issue_session_token, user["id"], user["username"], sid=row["sid"],
+        # The window slides from this renewal. The row's own end -- not the
+        # token's -- is what a remembered session is held to.
+        session_started_at=clock.utcnow(), remember=True)
+    _put_session_in_cookies(response, request, issued, remember=True, refresh=secret)
+
+    logger.info(f"Renewed the remembered session of {user['username']}")
+    return {
+        "access_token": issued["access_token"],
+        "token_type": "bearer",
+        "expires_in": issued["expires_in"],
+        "remember": True,
+        "success": True,
     }
 
 
@@ -312,7 +394,17 @@ def register_auth_routes(app, manager):
         one application, and the panel shell -- which the framework ships --
         called it in every application, including the two that never had it.
         """
-        config = {"self_registration": self_registration_enabled()}
+        config = {
+            "self_registration": self_registration_enabled(),
+            # The panel's script has to read the CSRF cookie, and since 0.7.0
+            # its name carries the application's own: a cookie belongs to a
+            # host, not to a port, so several panels on one host share the
+            # plain name. The names are public; neither is a credential.
+            "panel_cookies": {
+                "session": panel_session.cookie_base(panel_session.SESSION_COOKIE),
+                "csrf": panel_session.cookie_base(panel_session.CSRF_COOKIE),
+            },
+        }
         if application_public_config is None:
             return config
         try:
@@ -404,20 +496,26 @@ def register_auth_routes(app, manager):
 
         # The password was right; this account's door has a second lock. Five
         # minutes to present the code, and no session until it is (keepup-174).
+        # The checkbox travels in the challenge: the session is issued after the
+        # code, and "stay signed in" must not be forgotten in between (keepup-177).
+        remember = bool(login_data.remember)
         from keepup_auth import mfa
         if await asyncio.to_thread(mfa.needs_second_factor, user["id"]):
             return {
                 "success": True,
                 "mfa_required": True,
-                "mfa_token": mfa.challenge_token(user["username"]),
+                "mfa_token": mfa.challenge_token(user["username"], remember=remember),
                 "expires_in": mfa.CHALLENGE_MINUTES * 60,
             }
 
-        issued = await asyncio.to_thread(issue_session_token, user["id"], user["username"])
+        refresh_secret = panel_session.new_refresh_secret() if remember else None
+        issued = await asyncio.to_thread(
+            issue_session_token, user["id"], user["username"], remember=remember,
+            refresh_hash=panel_session.refresh_digest(refresh_secret))
         access_token = issued["access_token"]
         # The panel keeps the session in a cookie its scripts cannot read; the token
         # in the body stays for the host agent and scripts, which send it as Bearer.
-        panel_session.set_cookies(response, request, access_token, issued["expires_in"])
+        _put_session_in_cookies(response, request, issued, remember, refresh_secret)
 
         if record_login is not None:
             await record_login(user)
@@ -430,15 +528,40 @@ def register_auth_routes(app, manager):
             # off this: an expired token cannot buy a websocket key, and the host
             # then drops out of the system with the machine still running.
             "expires_in": issued["expires_in"],
+            "remember": remember,
             "success": True
         }
     @app.post("/api/auth/refresh")
-    async def refresh_access_token_endpoint(current_user: dict = Depends(get_current_user),
-                                            request: Request = None, response: Response = None):
-        """Exchange a still-valid token for a new one with a full lifetime."""
-        if request is not None:
-            auth_rate_limit.check(request)
-        return await refresh_access_token(current_user, request, response)
+    async def refresh_access_token_endpoint(
+            request: Request, response: Response,
+            token: Optional[str] = Depends(request_token)):
+        """Exchange a session for a new access token.
+
+        A live token is exchanged as before. A session that was asked to stay
+        signed in has a second door: the renewal credential of a token that has
+        already expired buys the next one, because a closed browser or a laptop
+        that slept is exactly what the checkbox promised to survive (keepup-177).
+
+        ``request_token`` is the door's own check: a cookie-authenticated change
+        proves itself with the CSRF pair, and a real bearer cannot be planted by
+        another site. A request with no token at all reaches the renewal
+        credential below, which checks the pair itself.
+        """
+        auth_rate_limit.check(request)
+        current_user = await get_optional_user(token) if token else None
+        if current_user is not None:
+            return await refresh_access_token(current_user, request, response)
+        try:
+            return await refresh_from_credential(request, response)
+        except HTTPException as refusal:
+            if refusal.status_code != status.HTTP_401_UNAUTHORIZED:
+                raise
+            # Told to stop carrying a credential nothing accepts. A refusal
+            # cannot ride on the injected answer, so it carries its own.
+            answer = JSONResponse(status_code=refusal.status_code,
+                                  content={"detail": refusal.detail})
+            panel_session.clear_refresh_cookies(answer, panel_session.is_https(request))
+            return answer
 
     @app.post("/api/auth/logout")
     async def logout(request: Request, response: Response):
@@ -449,16 +572,23 @@ def register_auth_routes(app, manager):
         cookie request -- a logout by GET could be triggered by an image elsewhere.
         """
         token = panel_session.token_from_request(request, _bearer_of(request))
-        revoked = False
+        sid = None
         if token:
             try:
-                payload = decode_token(token)
+                # Expired is still worth revoking: a remembered session's token
+                # ages out long before the session does, and pressing "Sign out"
+                # must end the session, not only forget the cookies (keepup-177).
+                payload = decode_token(token, options={"verify_exp": False})
                 sid = payload.get(panel_session.SESSION_CLAIM)
-                if sid:
-                    revoked = await asyncio.to_thread(
-                        panel_session.revoke, sid, panel_session.REASON_LOGOUT) > 0
             except JWTError:
                 pass
+        if not sid:
+            sid = panel_session.session_of_refresh(
+                panel_session.refresh_token_in(request.cookies))
+        revoked = False
+        if sid:
+            revoked = await asyncio.to_thread(
+                panel_session.revoke, sid, panel_session.REASON_LOGOUT) > 0
         panel_session.clear_cookies(response)
         return {"success": True, "revoked": revoked}
     @app.post("/api/auth/session")
@@ -471,16 +601,31 @@ def register_auth_routes(app, manager):
         The token is not returned: the point is that the page stops holding one.
         """
         refuse_foreign_session(current_user)
+        remember = bool(current_user.get("remember"))
         issued = issue_session_token(current_user["id"], current_user["username"],
                                      sid=current_user.get("session_id"),
-                                     session_started_at=current_user.get("session_started_at"))
-        panel_session.set_cookies(response, request, issued["access_token"], issued["expires_in"])
-        return {"success": True, "expires_in": issued["expires_in"]}
+                                     session_started_at=current_user.get("session_started_at"),
+                                     remember=remember)
+        _put_session_in_cookies(
+            response, request, issued, remember,
+            panel_session.refresh_token_in(request.cookies))
+        return {"success": True, "expires_in": issued["expires_in"],
+                "remember": remember}
     @app.get("/api/auth/verify")
     async def verify_token(current_user: dict = Depends(get_current_user)):
-        """Validate the caller's token."""
+        """Validate the caller's token and say how long it still has.
+
+        The panel schedules its renewal off ``expires_in``: an open tab that
+        asks for a new token only at the last minute, and a tab that woke from a
+        sleep knows there is nothing left to renew and reaches for the renewal
+        credential (keepup-177).
+        """
+        from keepup_auth import session_lifetime
+
         return {
             "success": True,
+            "expires_in": session_lifetime.seconds_left(current_user["token_expires_at"]),
+            "remember": bool(current_user.get("remember")),
             "user": {
                 "id": current_user["id"],
                 "username": current_user["username"],

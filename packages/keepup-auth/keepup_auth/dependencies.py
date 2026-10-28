@@ -222,11 +222,17 @@ def verify_password(plain_password: str, hashed_password: str):
 #: know whether the session has gone on long enough.
 SESSION_START_CLAIM = "sst"
 
+#: Whether this session was asked to stay signed in. The claim travels with the
+#: token so a renewal knows which window to hold it to without reading the row:
+#: a day from the login, or a month from the last renewal (keepup-177).
+REMEMBER_CLAIM = "rmb"
+
 
 def create_access_token(
         data: dict,
         expires_delta: Optional[timedelta] = None,
         session_started_at: Optional[datetime] = None,
+        remember: bool = False,
 ):
     to_encode = data.copy()
     if expires_delta:
@@ -237,9 +243,13 @@ def create_access_token(
 
     # A renewal carries the beginning of the session forward unchanged. Stamping
     # "now" on every renewal is what made a session endless: each exchange would
-    # reset the clock that is supposed to be running out.
+    # reset the clock that is supposed to be running out. A remembered session
+    # does want its window moved -- that is what "for as long as it is used"
+    # means -- and it is the only one the caller may slide (keepup-177).
     started = session_started_at or clock.utcnow()
     to_encode.setdefault(SESSION_START_CLAIM, int(started.timestamp()))
+    if remember:
+        to_encode[REMEMBER_CLAIM] = True
 
     encoded_jwt = jwt.encode(to_encode, resolve_signing_key(), algorithm=ALGORITHM)
     return encoded_jwt
@@ -247,33 +257,43 @@ def create_access_token(
 
 def issue_session_token(user_id: int, username: str, sid: Optional[str] = None,
                         session_started_at: Optional[datetime] = None,
-                        mfa: bool = False) -> dict:
+                        mfa: bool = False, remember: bool = False,
+                        refresh_hash: Optional[str] = None) -> dict:
     """A token bound to a session record: a new session, or `sid` carried on.
 
     Every token the server hands a person or an agent goes through here, so every
-    one of them can be revoked.
+    one of them can be revoked. A remembered session gets a month-long row that
+    each renewal pushes forward instead of the day an ordinary one is held to
+    (keepup-177).
     """
     from keepup_auth.providers.base import ACCESS_TOKEN_EXPIRE_MINUTES
+    from keepup_auth import session_lifetime
+
     lifetime = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
+    window = session_lifetime.remember_window() if remember else lifetime
     if sid is None:
-        sid = panel_session.open_session(user_id, lifetime)
+        sid = panel_session.open_session(user_id, window, remember=remember,
+                                         refresh_hash=refresh_hash)
     else:
         # Every renewal is held to the window, not only /api/auth/refresh: the
         # exchange of a token for the cookie carried a session on without the
         # check, so a stolen token could be renewed for ever (keepup-64).
-        from keepup_auth import session_lifetime
-        if not session_lifetime.is_renewable(session_started_at):
+        if not session_lifetime.is_renewable(session_started_at, remember=remember):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="This session has run its course. Sign in again.",
             )
-        panel_session.extend(sid, lifetime)
+        panel_session.extend(sid, window)
     token = create_access_token(
         {"sub": username, panel_session.SESSION_CLAIM: sid,
          "amr": ["pwd", "otp"] if mfa else ["pwd"]},
-        expires_delta=lifetime, session_started_at=session_started_at)
+        expires_delta=lifetime,
+        # A remembered session's window starts at this renewal; an ordinary one
+        # keeps counting from the login it began with (keepup-173, keepup-177).
+        session_started_at=None if remember else session_started_at,
+        remember=remember)
     return {"access_token": token, "session_id": sid,
-            "expires_in": int(lifetime.total_seconds())}
+            "expires_in": int(lifetime.total_seconds()), "remember": bool(remember)}
 
 
 def _session_start(payload: dict) -> Optional[datetime]:
@@ -434,6 +454,7 @@ async def _get_local_user(token: Optional[str], ignore_empty_user: bool = False)
     user["session_started_at"] = _session_start(payload)
     user["session_id"] = payload.get(panel_session.SESSION_CLAIM)
     user["amr"] = tuple(payload.get("amr") or ())
+    user["remember"] = bool(payload.get(REMEMBER_CLAIM))
 
     return user
 

@@ -5,6 +5,11 @@ session state, so "when does this session end" is answerable only from the
 token itself. These are the numbers around that -- no request, no database, no
 token decoding -- which is what makes the rule checkable on its own.
 
+Two doors, two lengths. A session signed in without "Stay signed in" is gone
+after a day of renewals and does not outlive the browser. One that was asked to
+stay renews for as long as it is used, sliding its end by a month on every
+renewal, and the browser keeps its cookies across a restart (keepup-177).
+
 Why it matters beyond a person's convenience: the host agent logs in the same
 way and authorises its reconnect with the same token. An expired one leaves it
 unable to obtain a websocket key at all, so the host drops out of the system
@@ -30,42 +35,74 @@ WARNING_WINDOW = timedelta(minutes=5)
 #:
 #: A day bounds the session without making the normal case a password in the
 #: middle of a rental: the host agent renews on its own, and an administrator
-#: who has been away signs in once a day rather than once a month.
+#: who has been away signs in once a day rather than once a month. A session
+#: that was signed in with "Stay signed in" is the exception, below.
 RENEWAL_WINDOW_ENV = "SESSION_RENEWAL_WINDOW_HOURS"
 DEFAULT_RENEWAL_WINDOW = timedelta(hours=24)
+
+#: How long a remembered session may go unused before it ends. Every renewal
+#: moves the end of the window, so a session that is used lasts as long as it
+#: is used; a month without a visit is where the promise stops. The number is
+#: also the browser's cookie lifetime: there is no point in a credential the
+#: browser has already dropped (keepup-177).
+REMEMBER_WINDOW_ENV = "SESSION_REMEMBER_DAYS"
+DEFAULT_REMEMBER_WINDOW = timedelta(days=30)
+
+
+def _positive_days(environ, name: str, default: timedelta, unit: timedelta,
+                   limit: int = 1) -> timedelta:
+    """A window from the environment: a positive number, else the default."""
+    import os
+
+    environ = environ if environ is not None else os.environ
+    raw = environ.get(name)
+    if raw is None:
+        return default
+    try:
+        value = int(raw)
+    except (TypeError, ValueError):
+        return default
+    return unit * value if value >= limit else default
 
 
 def renewal_window(environ=None) -> timedelta:
     """How long a session may go on being renewed."""
-    import os
+    return _positive_days(environ, RENEWAL_WINDOW_ENV, DEFAULT_RENEWAL_WINDOW,
+                          timedelta(hours=1))
 
-    environ = environ if environ is not None else os.environ
-    raw = environ.get(RENEWAL_WINDOW_ENV)
-    if raw is None:
-        return DEFAULT_RENEWAL_WINDOW
-    try:
-        hours = int(raw)
-    except (TypeError, ValueError):
-        return DEFAULT_RENEWAL_WINDOW
-    return timedelta(hours=hours) if hours > 0 else DEFAULT_RENEWAL_WINDOW
+
+def remember_window(environ=None) -> timedelta:
+    """How long a remembered session may go unused before it is over."""
+    return _positive_days(environ, REMEMBER_WINDOW_ENV, DEFAULT_REMEMBER_WINDOW,
+                          timedelta(days=1))
 
 
 def is_renewable(
         session_started_at: Optional[datetime],
         now: Optional[datetime] = None,
         environ=None,
+        remember: bool = False,
 ) -> bool:
     """Whether a session that began then may still be renewed.
 
     A session with no recorded beginning is not renewable. Those tokens were
     issued before the mark existed, and accepting them was the one path that
     renewed for ever: every exchange carried ``None`` forward, and ``None`` had
-    no end (keepup-173). A deployment upgrading signs those holders in once.
+    no end (keepup-173). A remembered session carries the mark of its last
+    renewal, so the same check counts a month (keepup-177).
+
+    Args:
+        session_started_at: when the window the token is held to began.
+        now: the moment to judge by; the clock otherwise.
+        environ: the environment to read the windows from.
+        remember: whether this session was asked to stay signed in.
     """
     if session_started_at is None:
         return False
     now = now or clock.utcnow()
-    return now - session_started_at <= renewal_window(environ)
+    window = remember_window(environ) if remember else renewal_window(environ)
+    return now - session_started_at <= window
+
 
 
 def seconds_left(expires_at: Optional[datetime], now: Optional[datetime] = None) -> int:

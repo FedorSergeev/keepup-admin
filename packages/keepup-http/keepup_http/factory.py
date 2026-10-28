@@ -169,6 +169,11 @@ def apply_settings(settings: KeepupSettings) -> None:
         favicon_file=settings.favicon_file,
     )
     auth_dependencies.configure_panel_gate(pending=settings.pending_documents)
+    # The panel's cookies carry the application's name, so several keepup
+    # applications on one host do not overwrite each other's session (0.7.0).
+    panel_session.configure(
+        settings.cookie_prefix if settings.cookie_prefix is not None
+        else settings.project_name)
     if not settings.database_dialect:
         # The framework's configuration is the default; naming the dialect lets
         # the kernel choose a driver without importing a database (keepup-123).

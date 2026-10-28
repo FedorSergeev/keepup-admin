@@ -206,7 +206,7 @@ def register_oidc_routes(app, settings) -> None:
             status_code=status.HTTP_303_SEE_OTHER,
         )
         response.set_cookie(
-            oidc.FLOW_COOKIE,
+            oidc.flow_cookie_name(),
             oidc.issue_flow_token(state, nonce, verifier),
             max_age=oidc.FLOW_COOKIE_MAX_AGE,
             path="/api/auth/oidc",
@@ -231,7 +231,7 @@ def register_oidc_routes(app, settings) -> None:
             raise _refuse("the return carries no code or no state")
 
         try:
-            flow = oidc.read_flow_token(request.cookies.get(oidc.FLOW_COOKIE))
+            flow = oidc.read_flow_token(request.cookies.get(oidc.flow_cookie_name()))
             if flow.get("state") != state:
                 raise oidc.SignInRefused("the state does not belong to this attempt")
 
@@ -255,11 +255,13 @@ def register_oidc_routes(app, settings) -> None:
 
         response = RedirectResponse(provider.after_login_path,
                                     status_code=status.HTTP_303_SEE_OTHER)
-        panel_session.set_cookies(response, request, issued["access_token"],
-                                  issued["expires_in"])
+        # Not a remembered sign-in: the external flow has no checkbox, so the
+        # cookies end with the browser, as they do for a password sign-in that
+        # was not asked to stay (keepup-177).
+        panel_session.set_cookies(response, request, issued["access_token"], None)
         # One attempt, one use: the cookie is spent, so a replayed return finds
         # nothing to check itself against.
-        response.delete_cookie(oidc.FLOW_COOKIE, path="/api/auth/oidc")
+        response.delete_cookie(oidc.flow_cookie_name(), path="/api/auth/oidc")
 
         logger.info(f"OIDC sign-in: {account['username']} via {issuer}")
         if settings.record_login is not None:

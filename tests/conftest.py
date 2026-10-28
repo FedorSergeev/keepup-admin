@@ -100,7 +100,7 @@ def framework_state_restored():
     from keepup_log_shipping import log_shipping
     from keepup_modules import catalogue as modules
     from keepup_http import web
-    from keepup_auth import dependencies, routes
+    from keepup_auth import dependencies, panel_session, routes
     from keepup_auth.identity import access as identity_access
     from keepup.kernel import observability, security
     from keepup_modules import decisions as plugins_admin
@@ -127,13 +127,16 @@ def framework_state_restored():
         log_shipping.REMOTE_LOG_TOKEN,
         routes.password_rule, routes.record_login, dependencies.pending_documents,
         plugins_admin.MODULES_CONFIG_PATH, modules.MODULES_CONFIG_PATH,
+        panel_session.COOKIE_PREFIX,
     )
     yield
     (web.STATIC_DIR, web.CLIENT_PAGE, web.VERSION_FILE, web.FAVICON_FILE,
      audit.redact, log_shipping.PROJECT_NAME, log_shipping.REMOTE_LOG_URL,
      log_shipping.REMOTE_LOG_TOKEN,
      routes.password_rule, routes.record_login, dependencies.pending_documents,
-     plugins_admin.MODULES_CONFIG_PATH, modules.MODULES_CONFIG_PATH) = saved
+     plugins_admin.MODULES_CONFIG_PATH, modules.MODULES_CONFIG_PATH,
+     cookie_prefix) = saved
+    panel_session.configure(cookie_prefix)
     observability.set_recording(saved_recording)
     security.set_identity(saved_identity)
     # The identity provider too: an application built with one must not hand it

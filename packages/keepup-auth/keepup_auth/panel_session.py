@@ -14,10 +14,25 @@ where the token used to be, so the many sections that check "is there a token"
 and send `Bearer <token>` keep working; the server reads such a header as no
 header at all and falls back to the cookie.
 
+A cookie belongs to a host, not to a port. Two keepup applications opened on
+one host -- `localhost:8000` and `localhost:8010` -- therefore used to write the
+same `ss_session`, and whichever signed in last took the other's session away.
+Since 0.7.0 the names carry the application's own name (`ss_session_artgallery`,
+`ss_csrf_artgallery`), which `configure()` sets from the deployment's
+`project_name`; the names of 0.6.0 are read only by an application that asks
+for them with an empty prefix.
+
 A cookie is sent by the browser on its own, so a request authenticated by it must
 also prove it came from the panel: the double-submit `ss_csrf` cookie, readable by
 the page, echoed in `X-CSRF-Token`. A real `Authorization: Bearer` (an agent, a
 script) needs no such proof -- another site cannot set that header.
+
+"Stay signed in" adds a third cookie, `ss_refresh` (HttpOnly, also `__Host-` over
+HTTPS): an opaque secret whose digest is kept in the session row. It buys a new
+access token after the old one has expired, which is what makes a remembered
+session survive a closed browser and a machine that slept. It is spent only
+against the row: revoked, blocked and past its idle window all refuse it
+(keepup-177).
 """
 
 import base64
@@ -25,6 +40,7 @@ import hashlib
 import hmac
 import logging
 import os
+import re
 import secrets
 from datetime import datetime, timedelta
 from typing import Optional, Tuple
@@ -49,10 +65,22 @@ __all__ = [
     "CSRF_COOKIE",
     "CSRF_HEADER",
     "HOST_PREFIX",
+    "REFRESH_COOKIE",
     "SESSION_COOKIE",
     "clear_cookies",
+    "clear_refresh_cookies",
+    "configure",
+    "cookie_base",
     "cookie_names",
+    "cookie_prefix",
     "is_https",
+    "new_refresh_secret",
+    "refresh_cookie_name",
+    "refresh_digest",
+    "refresh_token_in",
+    "remember_cookie_age",
+    "session_for_refresh",
+    "session_of_refresh",
     "session_token_in",
     "set_cookies",
 ]
@@ -61,7 +89,66 @@ TABLE = "auth_session"
 SESSION_CLAIM = "sid"
 SESSION_COOKIE = "ss_session"
 CSRF_COOKIE = "ss_csrf"
+REFRESH_COOKIE = "ss_refresh"
 CSRF_HEADER = "X-CSRF-Token"
+
+#: Bytes behind the renewal credential. It is never shown to the page and the
+#: database keeps only its digest, so a leaked table is not a set of sessions.
+REFRESH_SECRET_BYTES = 32
+
+#: The application's name inside its cookie names. Empty keeps the names of
+#: releases before 0.7.0 (`ss_session`, `ss_csrf`), which one application per
+#: host can still use; everything else appends `_<prefix>`.
+COOKIE_PREFIX = ""
+
+
+def _namespace(value) -> str:
+    """Make one cookie-name-safe token of an application's name.
+
+    A cookie name may carry only a small set of characters, and two names that
+    differ only in the characters a browser refuses would become the same
+    cookie. A value that had to be changed, or shortened, therefore gains a
+    short digest of what it was: `My App` and `My-App` stay different cookies,
+    and a name longer than the limit does not lose its tail unnoticed.
+    """
+    raw = str(value or "").strip()
+    if not raw:
+        return ""
+    slug = re.sub(r"[^A-Za-z0-9_-]+", "-", raw).strip("-_")
+    if not slug:
+        slug = "app"
+    if slug != raw or len(raw) > 32:
+        digest = hashlib.sha256(raw.encode("utf-8")).hexdigest()[:8]
+        slug = f"{slug[:32].strip('-_')}-{digest}"
+    return slug
+
+
+def configure(prefix=None) -> None:
+    """Name this application's cookies.
+
+    Cookies are scoped to a host, not to a port or a path: two keepup panels
+    opened on one host -- `localhost:8000` and `localhost:8010` -- write the
+    same `ss_session`, and whichever signs in last takes the other's session
+    away. A deployment says who it is here, and the panel's cookies carry that
+    name; `None` gives the shared names of 0.6.0 and earlier.
+
+    Args:
+        prefix: the application's name, or None for the shared names of 0.6.0
+            and earlier.
+    """
+    global COOKIE_PREFIX
+    COOKIE_PREFIX = _namespace(prefix)
+
+
+def cookie_prefix() -> str:
+    """The namespace the panel's cookies carry, or "" for the shared names."""
+    return COOKIE_PREFIX
+
+
+def cookie_base(name: str) -> str:
+    """One cookie's name without the `__Host-` prefix a secure request adds."""
+    return f"{name}_{COOKIE_PREFIX}" if COOKIE_PREFIX else name
+
 
 #: The prefix that ties a cookie to one host. A browser accepts a `__Host-`
 #: cookie only from the host that set it, only with Secure, only with Path=/,
@@ -76,7 +163,8 @@ def cookie_names(secure: bool) -> Tuple[str, str]:
     Over HTTPS both names carry the `__Host-` prefix; over plain HTTP they stay
     as they were, because a browser refuses a `__Host-` cookie that is not
     Secure and a deployment on a local network without TLS would never stay
-    signed in.
+    signed in. The application's namespace, when it has one, sits inside the
+    name in both schemes.
 
     Args:
         secure: whether the browser reached this server over HTTPS
@@ -85,21 +173,84 @@ def cookie_names(secure: bool) -> Tuple[str, str]:
     Returns:
         The session cookie name and the CSRF cookie name.
     """
+    session_name = cookie_base(SESSION_COOKIE)
+    csrf_name = cookie_base(CSRF_COOKIE)
     if secure:
-        return f"{HOST_PREFIX}{SESSION_COOKIE}", f"{HOST_PREFIX}{CSRF_COOKIE}"
-    return SESSION_COOKIE, CSRF_COOKIE
+        return f"{HOST_PREFIX}{session_name}", f"{HOST_PREFIX}{csrf_name}"
+    return session_name, csrf_name
 
 
 def session_token_in(cookies) -> Optional[str]:
-    """The session token a request carries, under either name.
+    """The session token a request carries, under either scheme's name.
 
-    The plain name is what a panel signed in before this release holds, and it
-    is read for one release so that upgrading does not sign everybody out. The
-    prefixed name wins when both are there: over HTTPS it is the one a sibling
-    subdomain cannot have set.
+    The prefixed name wins when both are there: over HTTPS it is the one a
+    sibling subdomain cannot have set. A namespaced application reads only its
+    own names -- the shared `ss_session` of 0.6.0 belongs to whichever
+    application wrote it last, and reading it here is exactly the collision the
+    namespace exists to end.
     """
     cookies = cookies or {}
-    return cookies.get(HOST_PREFIX + SESSION_COOKIE) or cookies.get(SESSION_COOKIE)
+    session_name = cookie_base(SESSION_COOKIE)
+    return cookies.get(HOST_PREFIX + session_name) or cookies.get(session_name)
+
+
+def refresh_cookie_name(secure: bool) -> str:
+    """The name the renewal credential travels under."""
+    name = cookie_base(REFRESH_COOKIE)
+    return f"{HOST_PREFIX}{name}" if secure else name
+
+
+def refresh_token_in(cookies) -> Optional[str]:
+    """The renewal credential a request carries, or None.
+
+    Read under the prefixed name first, for the same reason the session token
+    is: over HTTPS that is the name a sibling subdomain cannot write.
+    """
+    cookies = cookies or {}
+    name = cookie_base(REFRESH_COOKIE)
+    return cookies.get(HOST_PREFIX + name) or cookies.get(name)
+
+
+def new_refresh_secret() -> str:
+    """A fresh renewal credential: long, random, and never derived from anything."""
+    return secrets.token_urlsafe(REFRESH_SECRET_BYTES)
+
+
+def refresh_digest(secret: Optional[str]) -> Optional[str]:
+    """What the database keeps of a renewal credential: a digest, not the secret."""
+    if not secret:
+        return None
+    return hashlib.sha256(str(secret).encode("utf-8")).hexdigest()
+
+
+def remember_cookie_age(environ=None) -> int:
+    """How long the browser keeps the cookies of a remembered session."""
+    from keepup_auth import session_lifetime
+
+    return int(session_lifetime.remember_window(environ).total_seconds())
+
+
+def _as_datetime(value) -> Optional[datetime]:
+    """A datetime a database returned, whichever dialect and driver it came from."""
+    if value is None or isinstance(value, datetime):
+        return value
+    try:
+        return datetime.fromisoformat(str(value).replace("Z", "+00:00"))
+    except (TypeError, ValueError):
+        return None
+
+
+def _remembered(token: Optional[str]) -> bool:
+    """Whether this token belongs to a session that was asked to stay signed in."""
+    if not token:
+        return False
+    try:
+        from keepup_auth.dependencies import REMEMBER_CLAIM
+        from keepup_auth.signing_key import decode_token
+
+        return bool(decode_token(token, options={"verify_exp": False}).get(REMEMBER_CLAIM))
+    except Exception:
+        return False
 
 #: What the panel keeps in localStorage instead of the token, and the values a
 #: section sends when it had nothing there. None of them is a credential.
@@ -121,13 +272,22 @@ def init_table() -> None:
 
 # --- the record ------------------------------------------------------------------------------
 
-def open_session(user_id: int, lifetime: timedelta, now: Optional[datetime] = None) -> str:
+def open_session(user_id: int, lifetime: timedelta, now: Optional[datetime] = None,
+                 remember: bool = False,
+                 refresh_hash: Optional[str] = None) -> str:
+    """Open a session; a remembered one also gets a renewal digest.
+
+    ``lifetime`` is how far the row's end is set -- the token's life for an
+    ordinary session, the remember window for one that stays signed in. The
+    token's own end is still an hour (keepup-177).
+    """
     now = now or clock.utcnow()
     sid = secrets.token_urlsafe(32)
     DatabaseManagerV2.execute_commit(
-        f"INSERT INTO {TABLE} (sid, user_id, created_at, expires_at) "
-        f"VALUES (:sid, :user_id, :now, :expires_at)",
-        {"sid": sid, "user_id": user_id, "now": now, "expires_at": now + lifetime})
+        f"INSERT INTO {TABLE} (sid, user_id, created_at, expires_at, remember, refresh_hash) "
+        f"VALUES (:sid, :user_id, :now, :expires_at, :remember, :refresh_hash)",
+        {"sid": sid, "user_id": user_id, "now": now, "expires_at": now + lifetime,
+         "remember": bool(remember), "refresh_hash": refresh_hash})
     return sid
 
 
@@ -146,6 +306,44 @@ def session_owner(sid: str) -> Optional[int]:
     if not row or row.get("revoked_at") is not None:
         return None
     return int(row["user_id"])
+
+
+def session_for_refresh(secret: str,
+                        now: Optional[datetime] = None) -> Optional[dict]:
+    """The live remembered session this renewal credential names, or None.
+
+    Every condition a person's "stay signed in" rests on is checked here: the
+    digest is known, the row was not revoked (logout, a password change, a
+    block), it was signed in with the box ticked, and the idle window has not
+    passed. A blocked account is checked by the caller, which has the tools to
+    read one.
+    """
+    if not secret:
+        return None
+    row = DatabaseManagerV2.execute_one(
+        f"SELECT sid, user_id, remember, expires_at, revoked_at FROM {TABLE} "
+        f"WHERE refresh_hash = :digest", {"digest": refresh_digest(secret)})
+    if not row or row.get("revoked_at") is not None or not row.get("remember"):
+        return None
+    expires_at = _as_datetime(row.get("expires_at"))
+    if expires_at is None or expires_at <= (now or clock.utcnow()):
+        return None
+    return row
+
+
+def session_of_refresh(secret: str) -> Optional[str]:
+    """The session a renewal credential belongs to, ended or not.
+
+    Only signing out asks this: a session whose token has already expired must
+    still be revoked when its holder presses "Sign out", rather than left alive
+    in the database until the credential ages out.
+    """
+    if not secret:
+        return None
+    row = DatabaseManagerV2.execute_one(
+        f"SELECT sid FROM {TABLE} WHERE refresh_hash = :digest",
+        {"digest": refresh_digest(secret)})
+    return row["sid"] if row else None
 
 
 def is_active(sid: str, user_id: Optional[int] = None) -> bool:
@@ -304,7 +502,24 @@ def is_https(request: Request) -> bool:
     return request.url.scheme == "https"
 
 
-def set_cookies(response, request: Request, token: str, max_age: int) -> str:
+def set_cookies(response, request: Request, token: str, max_age: Optional[int],
+                refresh: Optional[str] = None) -> str:
+    """Put the session in the browser, and the renewal credential if there is one.
+
+    Args:
+        response: the answer the cookies are set on.
+        request: the request that caused it, read for HTTPS.
+        token: the access token.
+        max_age: how long the browser keeps the cookies, or None for cookies
+            that end with the browser. A remembered sign-in passes the remember
+            window; every other sign-in passes None (keepup-177).
+        refresh: the renewal secret of a remembered session, or None. Without
+            one a stale credential is removed: it must not outlive the session
+            it was issued for.
+
+    Returns:
+        The CSRF value the page has to send back, which the cookie carries.
+    """
     secure = is_https(request)
     session_name, csrf_name = cookie_names(secure)
     response.set_cookie(session_name, token, max_age=max_age, path="/",
@@ -314,11 +529,21 @@ def set_cookies(response, request: Request, token: str, max_age: int) -> str:
     csrf = csrf_for(token) or secrets.token_urlsafe(32)
     response.set_cookie(csrf_name, csrf, max_age=max_age, path="/",
                         httponly=False, secure=secure, samesite="lax")
-    if secure:
+    if refresh:
+        response.set_cookie(refresh_cookie_name(secure), refresh, max_age=max_age, path="/",
+                            httponly=True, secure=secure, samesite="lax")
+    else:
+        # A credential from an earlier, remembered sign-in must not outlive the
+        # session that replaced it.
+        clear_refresh_cookies(response, secure)
+    if not COOKIE_PREFIX and secure:
         # The plain names are what a sibling subdomain could plant, so a sign-in
         # over HTTPS puts out only the names that belong to this host. The old
         # session cookie is still read here for one release (session_token_in),
         # which is what keeps an open panel signed in across the upgrade.
+        # A namespaced application leaves the shared names alone: they may
+        # still belong to another panel on this host, and signing in here must
+        # not sign anybody out there.
         response.delete_cookie(SESSION_COOKIE, path="/")
         response.delete_cookie(CSRF_COOKIE, path="/")
     return csrf
@@ -353,9 +578,13 @@ class CsrfCookieRefresh:
 
         from starlette.responses import Response
         carrier = Response()
+        # A remembered session keeps the pair while the renewal credential
+        # lives; replacing its value must not silently reduce the cookie to the
+        # browser's session (keepup-177).
         carrier.set_cookie(csrf_name, expected, path="/", httponly=False,
-                           secure=secure, samesite="lax")
-        if secure:
+                           secure=secure, samesite="lax",
+                           max_age=remember_cookie_age() if _remembered(token) else None)
+        if not COOKIE_PREFIX and secure:
             # The value moves to the name that belongs to this host; the plain
             # one a panel signed in earlier holds stops being written.
             carrier.delete_cookie(CSRF_COOKIE, path="/")
@@ -370,8 +599,32 @@ class CsrfCookieRefresh:
         await self.app(scope, receive, send_with_cookie)
 
 
+def clear_refresh_cookies(response, secure: bool = False) -> None:
+    """Forget the renewal credential under this scheme's name.
+
+    A sign-in over HTTPS also expires the plain name: what a sibling subdomain
+    may plant is exactly that one. Over plain HTTP only the plain name is
+    touched, because a `__Host-` cookie without Secure is one a browser refuses
+    to keep -- and setting one there would be a line the server never means.
+    """
+    name = refresh_cookie_name(secure)
+    response.delete_cookie(name, path="/", secure=name.startswith(HOST_PREFIX))
+    if secure:
+        response.delete_cookie(cookie_base(REFRESH_COOKIE), path="/")
+
+
 def clear_cookies(response) -> None:
-    """Signing out clears the cookies of either scheme and of both releases."""
-    for name in (f"{HOST_PREFIX}{SESSION_COOKIE}", SESSION_COOKIE,
-                 f"{HOST_PREFIX}{CSRF_COOKIE}", CSRF_COOKIE):
-        response.delete_cookie(name, path="/")
+    """Signing out clears this application's cookies, under either scheme.
+
+    Another application's names are not in this set: its namespace is its own,
+    and signing out here must not sign anybody out there. An application that
+    kept the shared names of 0.6.0 (an empty prefix) clears those, because they
+    are the ones it reads. The renewal credential goes with them: leaving it
+    behind would let the next refresh sign the person back in (keepup-177).
+    """
+    names = set()
+    for secure in (False, True):
+        names.update(cookie_names(secure))
+        names.add(refresh_cookie_name(secure))
+    for name in names:
+        response.delete_cookie(name, path="/", secure=name.startswith(HOST_PREFIX))

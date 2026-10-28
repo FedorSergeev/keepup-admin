@@ -13,13 +13,20 @@ let currentUser = null;
    which the wrapper below adds to every same-origin request that is not a read.
    ========================================================================== */
 const SESSION_MARKER = 'cookie';
-// The CSRF cookie carries the __Host- prefix over HTTPS (keepup-92): that name
-// belongs to this exact host, so a sibling subdomain cannot plant it. The plain
-// name is what a panel signed in before this release holds and is read for one
-// release; the prefixed value wins when both are there.
-const CSRF_COOKIES = ['__Host-ss_csrf', 'ss_csrf'];
+// A cookie belongs to a host, not to a port: several keepup panels on one host
+// used to write the same `ss_csrf`, and whichever signed in last left the
+// others unable to prove a change came from their own page. Since 0.7.0 the
+// CSRF cookie carries the application's own name, and the server publishes
+// both names in /api/public/config -- they are not credentials. Over HTTPS the
+// name also carries the `__Host-` prefix (keepup-92), which belongs to this
+// exact host, so a sibling subdomain cannot plant it; the plain names of
+// 0.6.0 are kept as a fallback for a page whose config did not arrive.
+const LEGACY_CSRF_COOKIES = ['__Host-ss_csrf', 'ss_csrf'];
 const CSRF_HEADER = 'X-CSRF-Token';
 const CSRF_SAFE_METHODS = ['GET', 'HEAD', 'OPTIONS'];
+
+let publicConfigPromise = null;
+let csrfCookieNamesPromise = null;
 
 function readCookie(name) {
     const prefix = name + '=';
@@ -29,8 +36,21 @@ function readCookie(name) {
     return found ? decodeURIComponent(found.slice(prefix.length)) : null;
 }
 
-function readCsrfCookie() {
-    for (const name of CSRF_COOKIES) {
+function csrfCookieNames() {
+    if (!csrfCookieNamesPromise) {
+        csrfCookieNamesPromise = Promise.resolve()
+            .then(() => (typeof loadPublicConfig === 'function' ? loadPublicConfig() : null))
+            .then(config => {
+                const base = config && config.panel_cookies && config.panel_cookies.csrf;
+                return base ? ['__Host-' + base, base] : LEGACY_CSRF_COOKIES;
+            })
+            .catch(() => LEGACY_CSRF_COOKIES);
+    }
+    return csrfCookieNamesPromise;
+}
+
+async function readCsrfCookie() {
+    for (const name of await csrfCookieNames()) {
         const value = readCookie(name);
         if (value) return value;
     }
@@ -50,17 +70,19 @@ function installCsrfFetch(target) {
     if (!originalFetch || originalFetch.csrfAware) {
         return;
     }
-    const wrapped = function (input, init) {
+    const wrapped = async function (input, init) {
         const request = typeof Request !== 'undefined' && input instanceof Request ? input : null;
         const method = String((init && init.method) || (request && request.method) || 'GET').toUpperCase();
         const url = request ? request.url : String(input);
-        const csrf = readCsrfCookie();
-        if (csrf && !CSRF_SAFE_METHODS.includes(method) && isSameOriginUrl(url)) {
-            const headers = new Headers((init && init.headers) || (request && request.headers) || undefined);
-            if (!headers.has(CSRF_HEADER)) {
-                headers.set(CSRF_HEADER, csrf);
+        if (!CSRF_SAFE_METHODS.includes(method) && isSameOriginUrl(url)) {
+            const csrf = await readCsrfCookie();
+            if (csrf) {
+                const headers = new Headers((init && init.headers) || (request && request.headers) || undefined);
+                if (!headers.has(CSRF_HEADER)) {
+                    headers.set(CSRF_HEADER, csrf);
+                }
+                init = Object.assign({}, init || {}, { headers });
             }
-            init = Object.assign({}, init || {}, { headers });
         }
         return originalFetch.call(target, input, init);
     };
@@ -667,6 +689,7 @@ function initializeApp() {
     setupNavigation();
     setupModuleSearch();
     setupAuthForms();
+    installSessionKeepAlive();
 
     // A token left from before the cookie is traded for one and forgotten; with
     // no token at all the cookie may still hold a session, so it is asked too.
@@ -872,7 +895,15 @@ async function adoptSession() {
         }
         localStorage.removeItem('authToken');
     }
-    return verifyToken();
+    let valid = await verifyToken();
+    if (!valid) {
+        // The token in the cookie is gone -- the browser was closed, or the
+        // machine slept past it. A session asked to stay signed in still has
+        // its renewal credential and renews here without asking for a
+        // password; one that was not keeps the refusal (keepup-177).
+        valid = await refreshSession(false);
+    }
+    return valid;
 }
 
 function showSection(sectionId) {
@@ -1078,8 +1109,8 @@ function showAuthModal() {
 
 // What this deployment offers before anybody has signed in: whether accounts
 // can be created here at all, and the terms a person is asked to agree to.
-let publicConfigPromise = null;
-
+// (The promise itself is declared with the CSRF wrapper above, because the
+// cookie names a change must send arrive in the same answer.)
 function loadPublicConfig() {
     if (!publicConfigPromise) {
         publicConfigPromise = fetch('/api/public/config')
@@ -1228,7 +1259,6 @@ function applyModuleSearch(rawQuery) {
             matches: query !== '' && label.toLowerCase().indexOf(query) !== -1,
         };
     });
-
     const matches = items.filter(item => item.matches).length;
     items.forEach(item => {
         // An entry survives a search when it matches, or when a match lives
@@ -1444,12 +1474,24 @@ function registerAppSections() {
     );
 }
 
-// The token lives a day and expires silently: without this the panel simply
-// starts getting refusals in the middle of the work. The server tells how long
-// it has at login, and the session is exchanged an hour before the end -- while
-// the token is still valid, which is the only time the exchange is allowed.
-const SESSION_REFRESH_LEAD_SECONDS = 3600;
+// The access token lives an hour and expires silently: without this the panel
+// simply starts getting refusals in the middle of the work. The server says how
+// long the token has at sign-in and on every renewal, and the next one is
+// bought five minutes before the end -- while the token is still valid, which
+// is the only time the exchange is allowed. A tab that was asleep for longer
+// (a laptop that closed its lid) is picked up by the wake handlers below: a
+// session that was asked to stay signed in renews from its own credential even
+// after the token has gone (keepup-177).
+const SESSION_REFRESH_LEAD_SECONDS = 300;
+const SESSION_RETRY_SECONDS = 60;
 let sessionRefreshTimer = null;
+let sessionExpiresAt = null;
+let sessionRefreshing = false;
+
+function noteSessionLifetime(expiresInSeconds) {
+    const seconds = Number(expiresInSeconds);
+    sessionExpiresAt = seconds > 0 ? Date.now() + seconds * 1000 : null;
+}
 
 function scheduleSessionRefresh(expiresInSeconds) {
     if (sessionRefreshTimer) {
@@ -1459,43 +1501,101 @@ function scheduleSessionRefresh(expiresInSeconds) {
     if (!expiresInSeconds) {
         return;
     }
+    noteSessionLifetime(expiresInSeconds);
     // Never sooner than a minute: a token that short is about to be replaced
-    // by a login anyway, and a tight timer would spin.
-    const delay = Math.max(60, expiresInSeconds - SESSION_REFRESH_LEAD_SECONDS);
-    sessionRefreshTimer = setTimeout(refreshSession, delay * 1000);
+    // by a sign-in anyway, and a tight timer would spin.
+    const delay = Math.max(60, Number(expiresInSeconds) - SESSION_REFRESH_LEAD_SECONDS);
+    sessionRefreshTimer = setTimeout(function () { refreshSession(); }, delay * 1000);
 }
 
-async function refreshSession() {
-    if (!localStorage.getItem('authToken')) {
-        return;
+function forgetSession() {
+    localStorage.removeItem('authToken');
+    localStorage.removeItem('auth_token');
+    if (window.MfaPanel) MfaPanel.clearChallenge();
+    if (sessionRefreshTimer) {
+        clearTimeout(sessionRefreshTimer);
+        sessionRefreshTimer = null;
     }
+    sessionExpiresAt = null;
+    currentUser = null;
+    headerBadge = null;
+    updateUIAfterAuth();
+}
+
+async function refreshSession(showSignIn = true) {
+    if (sessionRefreshing) {
+        return false;
+    }
+    sessionRefreshing = true;
     try {
         const response = await fetch('/api/auth/refresh', { method: 'POST' });
-        if (!response.ok) {
-            // Nothing to do about it here: the next request will be refused and
-            // the panel asks for a login as before.
-            console.warn('Failed to refresh session:', response.status);
-            return;
+        if (response.ok) {
+            const data = await response.json();
+            if (data.access_token) {
+                // The renewed session is already in the cookie; the body's
+                // token is for agents and is not kept.
+                localStorage.setItem('authToken', SESSION_MARKER);
+                scheduleSessionRefresh(data.expires_in);
+                if (!currentUser) {
+                    // A renewal that came back after a retry (a server that was
+                    // down while the page loaded) still has to show the panel.
+                    return await verifyToken();
+                }
+                return true;
+            }
         }
-        const data = await response.json();
-        if (data.access_token) {
-            // The renewed session is already in the cookie; the body's token
-            // is for agents and is not kept.
-            scheduleSessionRefresh(data.expires_in);
+        if (response.status === 401) {
+            // There is nothing left to renew, not even the credential a
+            // remembered session carries: asking for the sign-in is honest.
+            forgetSession();
+            if (showSignIn) showAuthModal();
+            return false;
         }
+        // A server that is down, or a proxy answering for it, is not the end of
+        // the session: try again rather than letting the token run out.
+        scheduleSessionRefresh(SESSION_RETRY_SECONDS);
+        return false;
     } catch (error) {
         console.warn('Failed to refresh session:', error);
+        scheduleSessionRefresh(SESSION_RETRY_SECONDS);
+        return false;
+    } finally {
+        sessionRefreshing = false;
     }
 }
 
+// A tab whose timers were frozen (a closed lid, a phone that slept) wakes up
+// after the token has already expired. The timer cannot have fired in time, so
+// the wake itself asks for the next token: the cookie is sent, and a session
+// that was asked to stay signed in renews without a password (keepup-177).
+function installSessionKeepAlive() {
+    const wake = function () {
+        if (!localStorage.getItem('authToken')) {
+            return;
+        }
+        if (sessionExpiresAt === null ||
+            Date.now() >= sessionExpiresAt - SESSION_REFRESH_LEAD_SECONDS * 1000) {
+            refreshSession();
+        }
+    };
+    document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) wake();
+    });
+    window.addEventListener('focus', wake);
+    window.addEventListener('online', wake);
+}
+// --- end of the panel session renewal ---------------------------------------
+
 async function login(username, password) {
+    const rememberBox = document.getElementById('loginRemember');
+    const remember = !!(rememberBox && rememberBox.checked);
     try {
         const response = await fetch('/api/auth/login', {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json'
             },
-            body: JSON.stringify({ username, password })
+            body: JSON.stringify({ username, password, remember })
         });
 
         const data = await response.json();
@@ -1761,18 +1861,17 @@ window.AppHeader = {
 
 async function logout() {
     // The server ends the session first: forgetting it only in this browser
-    // would leave a copied token working.
+    // would leave a copied token working -- and a remembered session's renewal
+    // credential working with it (keepup-177).
     try {
         await fetch('/api/auth/logout', { method: 'POST' });
     } catch (error) {
         console.warn('Could not end the session on the server:', error);
     }
-    localStorage.removeItem('authToken');
-    localStorage.removeItem('auth_token');
-    if (window.MfaPanel) MfaPanel.clearChallenge();
-    currentUser = null;
+    forgetSession();
+    // The corner belongs to whoever is signed in; the helper clears it for an
+    // expired session too, and signing out is its own way there.
     headerBadge = null;
-    updateUIAfterAuth();
     showAuthModal();
     hideVersionPanel();
 }
@@ -1787,6 +1886,12 @@ async function verifyToken() {
             localStorage.setItem('authToken', SESSION_MARKER);
             currentUser = data.user;
             updateUIAfterAuth();
+            // The server says how long the token still has, so a panel opened
+            // on an hour-old session schedules its renewal at the right moment
+            // instead of guessing (keepup-177).
+            if (typeof data.expires_in === 'number') {
+                scheduleSessionRefresh(data.expires_in);
+            }
             return true;
         } else {
             localStorage.removeItem('authToken');

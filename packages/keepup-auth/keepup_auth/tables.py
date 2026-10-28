@@ -6,7 +6,7 @@ creates them and every reader keeps working; the declarations belong to the
 capability that keeps the sessions and the attempts.
 """
 
-from sqlalchemy import (Column, DateTime, Index, Integer,
+from sqlalchemy import (Boolean, Column, DateTime, Index, Integer,
                         String, Text)
 
 from keepup_db import tables
@@ -24,7 +24,14 @@ AUTH_SESSION = tables.table(
     Column("expires_at", DateTime, nullable=False),
     Column("revoked_at", DateTime),
     Column("revoked_reason", String(64).with_variant(Text(), "sqlite")),
+    # A session that was asked not to end with the browser keeps the promise
+    # with a second, long-lived credential: the cookie carries the secret, this
+    # column its digest, and the row alone decides whether it may still be
+    # exchanged (keepup-177).
+    Column("remember", Boolean, nullable=False, server_default=tables.sql_text("FALSE")),
+    Column("refresh_hash", String(128).with_variant(Text(), "sqlite")),
     Index(f"idx_{TABLE}_user", "user_id"),
+    Index(f"idx_{TABLE}_refresh", "refresh_hash"),
 )
 
 LOGIN_ATTEMPTS = tables.table(

@@ -68,8 +68,8 @@ def begin(client):
     # Read, not kept: what matters is that the cookie just issued can be read
     # at all -- an unreadable one would leave the return from the provider
     # with nothing to be checked against.
-    assert oidc.read_flow_token(response.cookies[oidc.FLOW_COOKIE])
-    return query["state"][0], query["nonce"][0], response.cookies[oidc.FLOW_COOKIE]
+    assert oidc.read_flow_token(response.cookies[oidc.flow_cookie_name()])
+    return query["state"][0], query["nonce"][0], response.cookies[oidc.flow_cookie_name()]
 
 
 def return_from_provider(client, provider, state, nonce, cookie, claims=None, code=None):
@@ -79,7 +79,7 @@ def return_from_provider(client, provider, state, nonce, cookie, claims=None, co
     once; passing the same code twice on purpose is what the replay test does.
     """
     provider.next_token = provider.sign(provider.claims(nonce=nonce, **(claims or {})))
-    client.cookies.set(oidc.FLOW_COOKIE, cookie)
+    client.cookies.set(oidc.flow_cookie_name(), cookie)
     return client.get("/api/auth/oidc/callback",
                       params={"code": code or f"code-{uuid.uuid4()}", "state": state})
 
@@ -102,7 +102,7 @@ def test_with_a_provider_the_login_redirects(client_and_provider):
 
     assert response.status_code == 303
     assert response.headers["location"].startswith(f"{ISSUER}/authorize?")
-    assert oidc.FLOW_COOKIE in response.cookies
+    assert oidc.flow_cookie_name() in response.cookies
 
 
 # --- the whole way through -----------------------------------------------------
@@ -117,7 +117,7 @@ def test_a_person_signs_in_and_gets_the_application_session(client_and_provider)
     assert response.status_code == 303
     assert response.headers["location"] == "/selfcare"
     # The session is the application's ordinary one, not something OIDC-shaped.
-    assert panel_session.SESSION_COOKIE in response.cookies
+    assert panel_session.cookie_names(secure=False)[0] in response.cookies
 
 
 def test_the_same_person_comes_back_to_the_same_account(client_and_provider):
@@ -171,7 +171,7 @@ def test_the_flow_cookie_is_cleared_at_the_return(client_and_provider):
     response = return_from_provider(client, provider, state, nonce, cookie)
 
     cleared = [value for value in response.headers.get_list("set-cookie")
-               if value.startswith(oidc.FLOW_COOKIE)]
+               if value.startswith(oidc.flow_cookie_name())]
     assert cleared, "the attempt cookie is not cleared at the return"
     assert 'Max-Age=0' in cleared[0] or 'expires=' in cleared[0].lower()
 
@@ -202,13 +202,13 @@ def test_every_refusal_answers_the_same(client_and_provider):
 
     state, nonce, cookie = begin(client)
     provider.next_token = provider.sign(provider.claims(nonce=nonce, aud="somebody-else"))
-    client.cookies.set(oidc.FLOW_COOKIE, cookie)
+    client.cookies.set(oidc.flow_cookie_name(), cookie)
     answers.append(client.get("/api/auth/oidc/callback", params={"code": "c", "state": state}))
 
     state, nonce, cookie = begin(client)
     provider.next_token = provider.sign(
         provider.claims(nonce=nonce, exp=int(time.time()) - 60))
-    client.cookies.set(oidc.FLOW_COOKIE, cookie)
+    client.cookies.set(oidc.flow_cookie_name(), cookie)
     answers.append(client.get("/api/auth/oidc/callback", params={"code": "c", "state": state}))
 
     assert {response.status_code for response in answers} == {401}

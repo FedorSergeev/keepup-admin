@@ -281,8 +281,9 @@ def test_12_the_last_administrator_keeps_the_role(start):
 def test_13_the_csrf_value_belongs_to_the_session_and_changes_with_it(start, throttle):
     running = start("bare")
     actor = audit_actors.client_actor()
-    planted = {"Cookie": f"{panel_session.SESSION_COOKIE}={actor.token}; "
-                         f"{panel_session.CSRF_COOKIE}=chosen-by-the-attacker",
+    session_name, csrf_name = panel_session.cookie_names(secure=False)
+    planted = {"Cookie": f"{session_name}={actor.token}; "
+                         f"{csrf_name}=chosen-by-the-attacker",
                panel_session.CSRF_HEADER: "chosen-by-the-attacker"}
     assert running.client.post("/api/auth/refresh", headers=planted).status_code == 403
 
@@ -291,7 +292,7 @@ def test_13_the_csrf_value_belongs_to_the_session_and_changes_with_it(start, thr
         answer = running.client.post("/api/auth/login", json={
             "username": actor.username, "password": audit_actors.ACTOR_PASSWORD})
         assert answer.status_code == 200, answer.text
-        values.append(answer.cookies.get(panel_session.CSRF_COOKIE))
+        values.append(answer.cookies.get(csrf_name))
         running.client.cookies.clear()
     assert values[0] and values[1] and values[0] != values[1]
 

@@ -32,6 +32,11 @@ def tokens(monkeypatch):
 def build():
     seen = []
 
+    # This is a stand-alone application, not a deployment: the shared names of
+    # 0.6.0 are what the checks below set. (Another module's application may
+    # have left its own namespace configured process-wide.)
+    panel_session.configure("")
+
     async def handler(websocket, current_user):
         seen.append(current_user)
         await websocket.accept()

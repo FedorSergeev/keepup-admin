@@ -43,6 +43,19 @@ logger = logging.getLogger(__name__)
 FLOW_COOKIE = "ss_oidc"
 FLOW_COOKIE_MAX_AGE = 600
 
+
+def flow_cookie_name() -> str:
+    """The cookie of one sign-in attempt, under the application's namespace.
+
+    Two panels on one host would otherwise overwrite each other's half-finished
+    sign-in, and the return from the provider would present state and nonce of
+    the other one (0.7.0).
+    """
+    from keepup_auth import panel_session
+
+    return panel_session.cookie_base(FLOW_COOKIE)
+
+
 #: Symmetric algorithms and "none" are never accepted for an id_token: the
 #: provider signs with its private key, and anything else means the token was
 #: signed by whoever handed it to us.
