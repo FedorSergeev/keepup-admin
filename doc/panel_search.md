@@ -40,6 +40,32 @@ Hiding the parent of a match would hide the match with it, because a submenu is
 part of the parent's subtree. A parent kept this way is not marked as a result,
 so the eye goes to the match.
 
+## Where the match is
+
+A match is marked where it matched: the substring is wrapped in a `<mark>`
+inside the entry's own label, in the case the label was written in, and the rest
+of the label — an icon, a badge — is put back as it was. The label of a parent
+kept only as the path to a match is not marked; the mark says "this is why the
+row is here", and a row that is here for its child has no such reason.
+
+Marking rewrites the label, so the search keeps the label's original nodes in a
+`WeakMap` and puts them back before every search. That is what stops a mark from
+a previous query surviving into the next one, and what leaves a cleared field
+with exactly the labels the sections drew.
+
+## The arrows
+
+The field is a filter with a keyboard. `ArrowDown` and `ArrowUp` walk the matches
+on screen, wrapping at both ends, and the row they are on gets
+`nav-search-current` — a ring rather than a fill, because hover already claims
+the fill — and is scrolled into view. `Enter` opens that row; with no arrow
+pressed it opens the first result, which is what it did before the arrows
+existed.
+
+A new query drops the arrow's place: the row was chosen among results that no
+longer exist, and opening it because the letters changed would be a surprise.
+The same happens when the current match is filtered out by a narrowing query.
+
 ## A submodule in the results
 
 A submenu is drawn from the same `.nav-item` elements as the top level, and a
@@ -65,9 +91,9 @@ attribute and the search finds the level without being told anything else.
 ## The keys
 
 `Esc` clears the field and shows the whole menu; the clear button does the same
-and puts the focus back in the field. `Enter` opens the first result: the shell
-clicks that entry, so whichever handler the section bound runs exactly as if it
-had been clicked.
+and puts the focus back in the field. `Enter` opens the row the arrows are on,
+or the first result when they were not used: the shell clicks that entry, so
+whichever handler the section bound runs exactly as if it had been clicked.
 
 The field binds its own listeners in `main_new.js`; the markup carries no inline
 handler, because the panel is served with a Content-Security-Policy that refuses
@@ -81,7 +107,9 @@ shown as typed.
 - `static/js/main_new.js`, the region between `the search field of the sidebar`
   markers — filtering, depth, the keys, and `window.AppNavSearch` for what a
   section or a test may ask of the field;
-- `static/css/main_new.css` — the rules and the tokens;
-- `static/css/main_nebula.css` — the second theme's values;
+- `static/css/main_new.css` — the rules and the tokens: the field, the indent of
+  a submodule, the mark of a match (`--nav-search-hit-*`) and the row the arrows
+  are on (`--nav-search-current-*`);
+- `static/css/main_nebula.css` — the second theme's values for those tokens;
 - `tests/panel_search_tests.py` — the region run under `node` against a
   stand-in document, and the pages and stylesheets read as data.

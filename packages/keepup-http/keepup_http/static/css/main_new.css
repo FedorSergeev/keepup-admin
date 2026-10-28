@@ -49,6 +49,15 @@
     --nav-item-search-base: 1.5rem;
     --nav-item-search-step: 1.1rem;
 
+    /* The match inside a result, and the row the arrow keys are on
+       (keepup-181). The mark is a colour pair of its own so it reads on the
+       sidebar; the current row is a ring rather than a fill, because hover has
+       already claimed the fill. */
+    --nav-search-hit-bg: #fde68a;
+    --nav-search-hit-fg: #1e3a8a;
+    --nav-search-current-bg: rgba(255, 255, 255, 0.2);
+    --nav-search-current-ring: rgba(255, 255, 255, 0.55);
+
     /* Adaptive layout. --layout-breakpoint is the single source of the
        narrow/wide boundary: main_new.js reads it off :root, drives a
        matchMedia off it and keeps the .is-narrow class on <html>, and the
@@ -360,6 +369,24 @@
     border-radius: 9999px;
     background-color: currentColor;
     opacity: 0.55;
+}
+
+/* The substring that matched is marked in place, so the eye lands on it before
+   it reads the rest of the label. The mark's colours are the theme's: on a
+   saturated sidebar the text alone is not enough of a cue. */
+.nav-search-hit {
+    padding: 0 2px;
+    border-radius: 3px;
+    background-color: var(--nav-search-hit-bg, #fde68a);
+    color: var(--nav-search-hit-fg, #1e3a8a);
+    font-weight: 600;
+}
+
+/* Where the arrow keys are. It is not hover -- the pointer may be elsewhere --
+   so it gets a ring that survives the row's own hover and active colours. */
+.nav-item.nav-search-current {
+    background-color: var(--nav-search-current-bg, rgba(255, 255, 255, 0.2));
+    box-shadow: inset 0 0 0 1px var(--nav-search-current-ring, rgba(255, 255, 255, 0.55));
 }
 
 /* Collapsed sidebar. Declared once, for the whole panel, and only for the wide

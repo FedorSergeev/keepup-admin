@@ -61,6 +61,14 @@
     --nav-item-search-base: 1.25rem;
     --nav-item-search-step: 1rem;
 
+    /* The match and the keyboard's row (keepup-181). The mark borrows the
+       theme's cyan rather than the default amber: on this sidebar the amber
+       reads as a warning, and the cyan is what a control here looks like. */
+    --nav-search-hit-bg: rgba(6, 182, 212, 0.9);
+    --nav-search-hit-fg: #04121c;
+    --nav-search-current-bg: rgba(6, 182, 212, 0.2);
+    --nav-search-current-ring: rgba(6, 182, 212, 0.7);
+
     --modules-nav-max-height: calc(100vh - 200px);
     --modules-nav-padding: 8px 10px 16px;
     --sidebar-scrollbar-track: rgba(255, 255, 255, 0.04);

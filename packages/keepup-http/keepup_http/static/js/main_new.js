@@ -1180,6 +1180,11 @@ function setupNavigation() {
    hiding it would hide the child that lives inside it. A parent whose children
    sit in a sibling container can be hidden, and then the child stands alone --
    which is the case the indentation exists for.
+
+   A result also says where the match is: the substring that matched is marked
+   inside the label, in the label's own case, and ArrowDown/ArrowUp walk the
+   matches on screen so Enter can open the one that was aimed at rather than
+   whichever came first.
    ========================================================================== */
 // --- the search field of the sidebar
 const NAV_SEARCH_ROOT_ID = 'modules-nav-container';
@@ -1191,12 +1196,65 @@ const NAV_SEARCH_CHILDREN = '[data-nav-children]';
 const NAV_SEARCH_HIDDEN = 'nav-search-hidden';
 const NAV_SEARCH_MATCH = 'nav-search-match';
 const NAV_SEARCH_NESTED = 'nav-search-nested';
+const NAV_SEARCH_HIT = 'nav-search-hit';
+const NAV_SEARCH_CURRENT = 'nav-search-current';
+
+//: The element a menu entry keeps its text in.
+function navSearchLabelElement(item) {
+    return item.querySelector ? item.querySelector('.nav-text') : null;
+}
 
 //: What a menu entry says, without the icon beside it.
 function navSearchLabel(item) {
-    const text = item.querySelector ? item.querySelector('.nav-text') : null;
+    const text = navSearchLabelElement(item);
     const label = (text && text.textContent) || item.textContent || '';
     return String(label).trim();
+}
+
+//: The children a label had before the search first marked it. The nodes are
+//: kept, not their markup: putting them back restores a label that carries more
+//: than text, and the next search marks a clean label rather than its own marks.
+const navSearchOriginal = new WeakMap();
+
+function navSearchRestoreLabel(label) {
+    const original = label && navSearchOriginal.get(label);
+    if (!original) return;
+    if (label.replaceChildren) label.replaceChildren(...original);
+}
+
+//: Mark every occurrence of `query` in the label, keeping the label's own case.
+function navSearchMark(label, query) {
+    if (!label || !query) return;
+    if (!navSearchOriginal.has(label)) {
+        navSearchOriginal.set(label, Array.from(label.childNodes || label.children || []));
+    } else {
+        navSearchRestoreLabel(label);
+    }
+    const lower = query.toLowerCase();
+    const marked = [];
+    navSearchOriginal.get(label).forEach(node => {
+        const value = node.nodeValue;
+        // An icon or a badge beside the words is put back untouched: only the
+        // label's own text says where the match is.
+        if (typeof value !== 'string') { marked.push(node); return; }
+        const hay = value.toLowerCase();
+        let at = 0;
+        let from = 0;
+        while (true) {
+            const found = hay.indexOf(lower, from);
+            if (found === -1) break;
+            if (found > at) marked.push(document.createTextNode(value.slice(at, found)));
+            const hit = document.createElement('mark');
+            hit.className = NAV_SEARCH_HIT;
+            hit.textContent = value.slice(found, found + query.length);
+            marked.push(hit);
+            at = found + query.length;
+            from = at;
+        }
+        if (at === 0) { marked.push(node); return; }
+        if (at < value.length) marked.push(document.createTextNode(value.slice(at)));
+    });
+    if (label.replaceChildren) label.replaceChildren(...marked);
 }
 
 //: The typed text, comparable: padded text is not a different search.
@@ -1233,6 +1291,43 @@ function navSearchSetHidden(element, hidden) {
     if (element.classList) element.classList.toggle(NAV_SEARCH_HIDDEN, Boolean(hidden));
 }
 
+//: The match the arrow keys are on; it is what Enter opens.
+let navSearchCurrent = null;
+
+//: The query the menu is showing, so a changed one drops the arrow's place.
+let navSearchApplied = '';
+
+function navSearchMatches(root) {
+    return root && root.querySelectorAll
+        ? Array.from(root.querySelectorAll('.' + NAV_SEARCH_MATCH))
+        : [];
+}
+
+//: Put the keyboard's place on one match, and keep it in view.
+function navSearchSelect(element) {
+    if (navSearchCurrent && navSearchCurrent.classList) {
+        navSearchCurrent.classList.remove(NAV_SEARCH_CURRENT);
+    }
+    navSearchCurrent = element || null;
+    if (!navSearchCurrent) return null;
+    if (navSearchCurrent.classList) navSearchCurrent.classList.add(NAV_SEARCH_CURRENT);
+    if (navSearchCurrent.scrollIntoView) {
+        navSearchCurrent.scrollIntoView({block: 'nearest'});
+    }
+    return navSearchCurrent;
+}
+
+//: Step through the matches on screen, wrapping at either end.
+function navSearchStep(step) {
+    const items = navSearchMatches(document.getElementById(NAV_SEARCH_ROOT_ID));
+    if (!items.length) return null;
+    const at = items.indexOf(navSearchCurrent);
+    const next = at === -1
+        ? (step > 0 ? 0 : items.length - 1)
+        : (at + step + items.length) % items.length;
+    return navSearchSelect(items[next]);
+}
+
 /**
  * Narrow the sidebar to the entries whose text contains `rawQuery`.
  *
@@ -1250,7 +1345,19 @@ function applyModuleSearch(rawQuery) {
         return {query: query, matches: 0};
     }
 
-    const items = Array.from(root.querySelectorAll(NAV_SEARCH_ITEM)).map(element => {
+    // Every label goes back to what it was before this search: the marks of the
+    // query typed a moment ago must not survive into this one.
+    const elements = Array.from(root.querySelectorAll(NAV_SEARCH_ITEM));
+    elements.forEach(element => navSearchRestoreLabel(navSearchLabelElement(element)));
+
+    // A new query is a new set of results: the row the arrows were on belongs
+    // to the old one, and Enter must not open a section nobody aimed at.
+    if (query !== navSearchApplied) {
+        navSearchApplied = query;
+        navSearchSelect(null);
+    }
+
+    const items = elements.map(element => {
         const label = navSearchLabel(element);
         return {
             element: element,
@@ -1274,7 +1381,17 @@ function applyModuleSearch(rawQuery) {
         if (item.element.style && item.element.style.setProperty) {
             item.element.style.setProperty('--nav-search-depth', String(item.depth));
         }
+        // The result says where it matched: only the substring is marked, in
+        // the case the label was written in, and the rest of the label stays.
+        if (query !== '' && item.matches) {
+            navSearchMark(navSearchLabelElement(item.element), query);
+        }
     });
+
+    // A match that this search took away cannot stay where the arrows were.
+    if (navSearchCurrent && !items.some(item => item.element === navSearchCurrent && item.matches)) {
+        navSearchSelect(null);
+    }
 
     if (empty) {
         empty.hidden = !(query !== '' && matches === 0);
@@ -1306,14 +1423,21 @@ function setupModuleSearch() {
             clearModuleSearch();
             return;
         }
+        if (event.key === 'ArrowDown' || event.key === 'ArrowUp') {
+            const matches = navSearchMatches(document.getElementById(NAV_SEARCH_ROOT_ID));
+            if (!matches.length) return;
+            // The arrows belong to the results while the field is focused: the
+            // caret stays where it was, and the menu takes the key instead.
+            event.preventDefault();
+            navSearchStep(event.key === 'ArrowDown' ? 1 : -1);
+            return;
+        }
         if (event.key === 'Enter') {
-            const root = document.getElementById(NAV_SEARCH_ROOT_ID);
-            const first = root && root.querySelectorAll
-                ? Array.from(root.querySelectorAll('.' + NAV_SEARCH_MATCH))[0]
-                : null;
-            if (first && first.click) {
+            const chosen = navSearchCurrent
+                || navSearchMatches(document.getElementById(NAV_SEARCH_ROOT_ID))[0];
+            if (chosen && chosen.click) {
                 event.preventDefault();
-                first.click();
+                chosen.click();
             }
         }
     });

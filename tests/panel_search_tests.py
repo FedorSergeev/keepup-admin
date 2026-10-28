@@ -54,6 +54,12 @@ class FakeClassList {
     }
 }
 
+class FakeTextNode {
+    constructor(value) { this.nodeValue = String(value); this.children = []; }
+    get textContent() { return this.nodeValue; }
+    set textContent(value) { this.nodeValue = String(value); }
+}
+
 class FakeElement {
     constructor(tag, className) {
         this.tagName = String(tag || 'div').toUpperCase();
@@ -65,18 +71,25 @@ class FakeElement {
         this.listeners = {};
         this.clicked = 0;
         this.focused = false;
+        this.scrolled = 0;
         this.attributes = {};
-        this.text = '';
         this.styleProps = {};
         this.style = {setProperty: (name, value) => { this.styleProps[name] = value; }};
     }
+    get childNodes() { return this.children; }
     get classList() { return new FakeClassList(this); }
-    set textContent(value) { this.text = String(value); }
+    set textContent(value) {
+        this.children = [];
+        this.appendChild(new FakeTextNode(value));
+    }
     get textContent() {
-        if (this.text) return this.text;
-        return this.children.map(child => child.textContent).join(' ');
+        return this.children.map(child => child.textContent).join('');
     }
     appendChild(child) { child.parentElement = this; this.children.push(child); return child; }
+    replaceChildren(...nodes) {
+        this.children = [];
+        nodes.forEach(node => this.appendChild(node));
+    }
     setAttribute(name, value) { this.attributes[name] = String(value); }
     getAttribute(name) { return name in this.attributes ? this.attributes[name] : null; }
     hasAttribute(name) { return name in this.attributes; }
@@ -85,6 +98,9 @@ class FakeElement {
             if (part === '.nav-item') return this.classList.contains('nav-item');
             if (part === '.nav-text') return this.classList.contains('nav-text');
             if (part === '.nav-search-match') return this.classList.contains('nav-search-match');
+            if (part === '.nav-search-hit') return this.classList.contains('nav-search-hit');
+            if (part === '.nav-search-current') return this.classList.contains('nav-search-current');
+            if (part === 'mark') return this.tagName === 'MARK';
             if (part === '[data-nav-children]') return this.hasAttribute('data-nav-children');
             return false;
         });
@@ -96,21 +112,31 @@ class FakeElement {
     querySelectorAll(selector) {
         const found = [];
         const walk = node => node.children.forEach(child => {
-            if (child.matches(selector)) found.push(child);
-            walk(child);
+            if (child.matches && child.matches(selector)) found.push(child);
+            if (child.children) walk(child);
         });
         walk(this);
         return found;
     }
     addEventListener(type, handler) { (this.listeners[type] = this.listeners[type] || []).push(handler); }
     dispatch(type, event) { (this.listeners[type] || []).forEach(handler => handler(event || {})); }
+    remove() {
+        if (!this.parentElement) return;
+        this.parentElement.children = this.parentElement.children.filter(child => child !== this);
+        this.parentElement = null;
+    }
     click() { this.clicked += 1; this.dispatch('click'); }
     focus() { this.focused = true; }
+    scrollIntoView() { this.scrolled += 1; }
 }
 
 const elements = {};
 global.window = {};
-global.document = {getElementById: id => elements[id] || null};
+global.document = {
+    getElementById: id => elements[id] || null,
+    createElement: tag => new FakeElement(tag, ''),
+    createTextNode: value => new FakeTextNode(value),
+};
 function element(id, tag, className) {
     const made = new FakeElement(tag, className);
     if (id) elements[id] = made;
@@ -151,14 +177,34 @@ function build() {
     routeChildren.appendChild(upstreams);
     return {root, users, metrics, gateway, routes, upstreams};
 }
-function state(fixture) {
+function three() {
+    const fixture = build();
+    fixture.users.querySelector('.nav-text').textContent = 'Alpha';
+    fixture.metrics.querySelector('.nav-text').textContent = 'Beta';
+    fixture.gateway.querySelector('.nav-text').textContent = 'Gamma';
+    fixture.routes.remove();
+    fixture.upstreams.remove();
+    return Object.assign({}, fixture, {routes: null, upstreams: null});
+}
+function items(fixture) {
     return [fixture.users, fixture.metrics, fixture.gateway,
-            fixture.routes, fixture.upstreams].map(item => ({
+            fixture.routes, fixture.upstreams].filter(Boolean);
+}
+function state(fixture) {
+    return items(fixture).map(item => ({
         label: item.querySelector('.nav-text').textContent.trim(),
         hidden: item.classList.contains('nav-search-hidden'),
         match: item.classList.contains('nav-search-match'),
         nested: item.classList.contains('nav-search-nested'),
         depth: Number(item.styleProps['--nav-search-depth']),
+    }));
+}
+function detail(fixture) {
+    return items(fixture).map(item => ({
+        label: item.querySelector('.nav-text').textContent.trim(),
+        current: item.classList.contains('nav-search-current'),
+        scrolled: item.scrolled,
+        marks: item.querySelectorAll('mark').map(mark => mark.textContent),
     }));
 }
 const vm = require('vm');
@@ -319,6 +365,136 @@ def test_labels_outside_ascii_match_in_any_case():
     assert shown["answer"]["matches"] == 1
     assert shown["state"][0]["hidden"] is True
     assert shown["state"][1]["hidden"] is False
+
+
+# --- where the match is, and the arrows (keepup-181) ------------------------------
+
+def test_the_matched_substring_is_marked_in_the_labels_own_case():
+    shown = run("""
+    const fixture = three();
+    applyModuleSearch('LPH');
+    console.log(JSON.stringify(detail(fixture)));
+    """)
+    assert shown[0]["marks"] == ["lph"]
+    assert shown[1]["marks"] == [] and shown[2]["marks"] == []
+    assert [item["label"] for item in shown] == ["Alpha", "Beta", "Gamma"]
+
+
+def test_every_occurrence_is_marked_and_the_label_still_reads_as_before():
+    shown = run("""
+    const fixture = three();
+    fixture.users.querySelector('.nav-text').textContent = 'Alpha alpha';
+    applyModuleSearch('alpha');
+    console.log(JSON.stringify(detail(fixture)[0]));
+    """)
+    assert shown["marks"] == ["Alpha", "alpha"]
+    assert shown["label"] == "Alpha alpha"
+
+
+def test_a_new_search_restores_the_label_before_it_marks_it():
+    shown = run("""
+    const fixture = three();
+    applyModuleSearch('alph');
+    const first = detail(fixture).map(item => item.marks);
+    applyModuleSearch('ma');
+    console.log(JSON.stringify({first, second: detail(fixture).map(item => item.marks)}));
+    """)
+    assert shown["first"] == [["Alph"], [], []]
+    assert shown["second"] == [[], [], ["ma"]]
+
+
+def test_clearing_the_search_takes_every_mark_out_of_the_labels():
+    shown = run("""
+    const fixture = three();
+    applyModuleSearch('a');
+    clearModuleSearch();
+    console.log(JSON.stringify(detail(fixture)));
+    """)
+    assert [item["marks"] for item in shown] == [[], [], []]
+    assert [item["label"] for item in shown] == ["Alpha", "Beta", "Gamma"]
+
+
+def test_the_parent_of_a_match_is_not_marked():
+    shown = run("""
+    const fixture = build();
+    applyModuleSearch('routes');
+    console.log(JSON.stringify(detail(fixture)));
+    """)
+    assert shown[2]["label"] == "Gateway" and shown[2]["marks"] == []
+    assert shown[3]["marks"] == ["Routes"]
+
+
+def test_arrows_walk_the_matches_wrap_and_keep_the_row_in_view():
+    shown = run("""
+    const fixture = three();
+    setupModuleSearch();
+    const input = document.getElementById('nav-search-input');
+    const step = (key) => input.dispatch('keydown', {key, preventDefault() {}});
+    input.value = 'a';
+    input.dispatch('input');
+    const walked = [];
+    step('ArrowDown'); walked.push(detail(fixture).map(item => item.current));
+    step('ArrowDown'); walked.push(detail(fixture).map(item => item.current));
+    step('ArrowUp');   walked.push(detail(fixture).map(item => item.current));
+    step('ArrowUp');   walked.push(detail(fixture).map(item => item.current));
+    console.log(JSON.stringify({walked, scrolled: detail(fixture).map(item => item.scrolled)}));
+    """)
+    assert shown["walked"] == [
+        [True, False, False],   # ArrowDown starts at the first match
+        [False, True, False],
+        [True, False, False],
+        [False, False, True],   # ArrowUp at the first wraps to the last
+    ]
+    assert shown["scrolled"] == [2, 1, 1], "the row the arrows are on is brought into view"
+
+
+def test_enter_opens_the_row_the_arrows_are_on():
+    shown = run("""
+    const fixture = three();
+    setupModuleSearch();
+    const input = document.getElementById('nav-search-input');
+    const step = (key) => input.dispatch('keydown', {key, preventDefault() {}});
+    input.value = 'a';
+    input.dispatch('input');
+    step('ArrowDown');
+    step('ArrowDown');
+    step('Enter');
+    console.log(JSON.stringify({
+        clicked: [fixture.users.clicked, fixture.metrics.clicked, fixture.gateway.clicked],
+    }));
+    """)
+    assert shown["clicked"] == [0, 1, 0]
+
+
+def test_a_new_query_drops_the_arrows_place():
+    shown = run("""
+    const fixture = three();
+    setupModuleSearch();
+    const input = document.getElementById('nav-search-input');
+    input.value = 'a';
+    input.dispatch('input');
+    input.dispatch('keydown', {key: 'ArrowDown', preventDefault() {}});
+    const before = detail(fixture).map(item => item.current);
+    input.value = 'be';
+    input.dispatch('input');
+    console.log(JSON.stringify({before, after: detail(fixture).map(item => item.current),
+                                marks: detail(fixture).map(item => item.marks)}));
+    """)
+    assert shown["before"] == [True, False, False]
+    assert shown["after"] == [False, False, False]
+    assert shown["marks"] == [[], ["Be"], []]
+
+
+def test_the_theme_styles_the_mark_and_the_current_row():
+    css = SHELL_CSS.read_text(encoding="utf-8")
+    for selector in (".nav-search-hit", ".nav-item.nav-search-current"):
+        assert selector in css, f"{selector} is not in the shared stylesheet"
+    for token in ("--nav-search-hit-bg", "--nav-search-hit-fg",
+                  "--nav-search-current-bg", "--nav-search-current-ring"):
+        assert token in css, f"{token} is not in the shared stylesheet"
+    nebula = NEBULA_CSS.read_text(encoding="utf-8")
+    assert "--nav-search-hit-bg" in nebula and ".nav-search-hit" not in nebula, (
+        "the second theme sets the colours, not the rules")
 
 
 # --- the field's own controls -----------------------------------------------------
