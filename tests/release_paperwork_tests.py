@@ -42,12 +42,21 @@ def release_section():
     return text[headings[0].start():end]
 
 
+def _version(text):
+    return tuple(int(part) for part in text.split("."))
+
+
 def test_the_changelog_says_what_the_release_did_and_what_is_left():
     """A release that hides its remainder is one that promises too much."""
     section = release_section()
     for part in ("### Added", "### Changed", "### Fixed"):
         assert part in section, f"the release section has no {part}"
-    assert "0.6.0" in section, "the release section does not say what is left for 0.6.0"
+    declared = declared_version()
+    left = re.search(r"left for (\d+\.\d+\.\d+)", section)
+    assert left, "the release section does not say what is left for the next release"
+    assert _version(left.group(1)) > _version(declared), (
+        f"the release section leaves its work for {left.group(1)}, "
+        f"which is not newer than {declared}")
 
 
 def test_the_capabilities_the_release_names_are_the_distributions_that_exist():

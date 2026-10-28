@@ -6,3 +6,20 @@ build
 **/__pycache__
 .pytest_cache
 .ruff_cache
+
+# What no build from this tree needs to see. The generator's image
+# (keepupproject.ru/start.keepupproject.ru/Dockerfile) is built with this
+# directory as its context, so a local virtual environment, the runtime data of
+# the site and its generator, and an editor's leftovers must not travel: a
+# context of three hundred megabytes is built on a host with 380 MB of memory.
+**/.venv
+venv
+/logs
+/data
+*.pyc
+.env
+.DS_Store
+.idea
+keepupproject.ru/.e2e
+keepupproject.ru/start.keepupproject.ru/data
+keepupproject.ru/start.keepupproject.ru/.env

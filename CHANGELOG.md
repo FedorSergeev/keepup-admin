@@ -2,6 +2,96 @@
 
 Notable changes to `keepup-admin`.
 
+## 0.7.0 -- a session that stays, and a menu that is found
+
+The release in which the panel stops forgetting. A sign-in may ask to stay: the
+session renews while the tab is in use, waits out a night asleep, and survives a
+browser that was closed. The cookies of one application stop belonging to
+another on the same host, which is what used to end a session on one port when
+another panel signed in on the next. The sidebar gains a field that narrows the
+menu to the sections whose text contains what was typed, marks the substring it
+matched and lets the arrow keys choose among the results. The sign-in screen
+forgets the Telegram bot of one deployment.
+
+**Upgrading from 0.6.0.** Everyone signs in again. The panel's cookies carry the
+application's name since 0.7.0 -- `ss_session_<project_name>` -- so a browser
+holding the shared `ss_session` of 0.6.0 is not read. A deployment that needs the
+old names (a host that runs one keepup application) sets `cookie_prefix=""` and
+keeps them; two applications on one host should leave the default in place. The
+"Forgot your password?" line is hidden unless the application names
+`password_reset_url` in its public config; an application that showed the bot's
+link has to name its own reset page. A remembered session may go unused for
+`SESSION_REMEMBER_DAYS` (30 by default), and a session without the box still
+ends 24 hours after the sign-in.
+
+### Added
+
+- **A session that stays (`keepup-auth`).** "Stay signed in" issues a renewal
+  credential in `ss_refresh` (HttpOnly, `__Host-` over HTTPS) and keeps its digest
+  in the session row. Every renewal moves the end of the remembered window
+  `SESSION_REMEMBER_DAYS` from the last renewal; without the box nothing changes.
+  `POST /api/auth/refresh` accepts an expired access token against the credential
+  and the CSRF pair, and the second factor carries the answer through its
+  challenge (keepup-177).
+- **An application's own cookie names (`keepup-auth`).** `KeepupSettings.cookie_prefix`
+  names the panel's cookies after the application (the project name by default):
+  two keepup panels on one host no longer take each other's session away, and the
+  OIDC flow cookie and the second factor's cookie follow the same name. A value
+  that cannot be a cookie name is made into one with a digest of what it was
+  (keepup-177).
+- **A search above the panel's menu (`keepup-http`).** A field in the sidebar of
+  both themes narrows the menu to the entries whose visible text contains the
+  query -- case-insensitive, front-end only, nothing asked of the server. A match
+  that is a submodule is indented by its depth and carries a dot, so a result
+  without its parent still reads as a sub-item; `Esc` clears and an empty result
+  says so (keepup-179).
+- **The match marked, and the arrows (`keepup-http`).** The substring that made
+  an entry match is marked inside its label, in the label's own case; the label
+  goes back to what it was when the query changes or the field is cleared.
+  `ArrowDown` and `ArrowUp` walk the results with a wrap at both ends, the row
+  they are on is brought into view, and `Enter` opens it instead of the first
+  result (keepup-181).
+- **`SESSION_REMEMBER_DAYS`.** The idle window of a remembered session, 30 days
+  by default (keepup-177).
+
+### Changed
+
+- **The panel renews itself instead of ending.** It renews five minutes before
+  the token expires, renews quietly when the page loads or a tab wakes, and tries
+  again when the server does not answer, rather than showing the sign-in screen
+  at the end of a working day (keepup-177).
+- **The sign-in screen does not name a bot.** A refused self-registration asks
+  for an invitation from an administrator, and the password line appears only
+  when the deployment names `password_reset_url` (keepup-178).
+- **The search opens the first result only until the arrows are used.** `Enter`
+  then follows the keyboard's row, and a new query drops it (keepup-181).
+
+### Fixed
+
+- **A session asked to stay survives a closed browser and a machine that slept.**
+  The renewal credential is exchanged for a token in the same session, and a
+  logout revokes the session even when the access token has already expired
+  (keepup-177).
+- **Two panels on one host no longer sign each other out.** The collision of the
+  shared `ss_session` and `ss_csrf` is gone with the names (keepup-177).
+- **A result says why it is a result.** The marked substring answers "where did
+  it match", and a submodule found without its parent keeps its level
+  (keepup-179, keepup-181).
+- **The panel carries no empty profile card.** Both theme pages had a
+  `#profile-section` whose "Loading profile..." text no script ever replaced; it
+  sat before the sections and pushed them down by a card's height.
+
+### Known, and left for 0.8.0
+
+- **Step-up is still not in this release.** A second factor is required at
+  sign-in, not freshly before a role, password or plugin change; a stolen
+  session with `otp` can still take those actions until it expires.
+- **The enrolment screen shows a secret and an `otpauth://` URI, not a QR image.**
+  An authenticator accepts both; a camera is faster.
+- **Trusted hosts and the proxy allowlist** are not configurable yet. The
+  sign-in's forwarded address is the direct peer, and `X-Forwarded-*` is trusted
+  where the deployment put a proxy in front.
+
 ## 0.6.0 -- one way in
 
 The release in which a deployment of several processes becomes one address:

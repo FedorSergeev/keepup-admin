@@ -11,8 +11,8 @@ when the same change applies without a migration.
 
 | Version | Supported |
 |---|---|
-| 0.6.x | yes |
-| 0.5.x | critical fixes only |
+| 0.7.x | yes |
+| 0.6.x | critical fixes only |
 | older | no |
 
 ## Reporting a vulnerability

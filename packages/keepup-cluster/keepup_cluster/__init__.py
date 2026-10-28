@@ -24,7 +24,7 @@ from keepup_cluster.cluster import (
     set_controller,
 )
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 __all__ = [
     "ACTION_RESTART",

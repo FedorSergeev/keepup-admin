@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "keepup-tasks"
-version = "0.6.0"
+version = "0.7.0"
 description = "The one scheduler, the declared jobs and the distributed locks they run under."
 readme = "README.md"
 requires-python = ">=3.11"

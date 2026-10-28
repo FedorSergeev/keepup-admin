@@ -134,6 +134,27 @@ def test_every_asset_a_theme_page_asks_for_exists_in_the_package(asset):
 
 
 @pytest.mark.parametrize("page", ["index_new.html", "index_nebula.html"])
+def test_the_content_area_holds_only_the_module_container(page):
+    """A section is the markup of the module that appends it, not the shell's.
+
+    Both pages used to carry an empty ``#profile-section`` card whose text said
+    "Loading profile..." for ever -- no script ever filled it. It sat in
+    ``<main>`` before the sections, so a theme that showed it pushed every
+    section down by a card's height. The shell owns the mount point and nothing
+    else; a page that grows a section of its own has stopped being a shell.
+    """
+    markup = (SHELL / page).read_text(encoding="utf-8")
+    main = re.search(r"<main\b[^>]*>(.*?)</main>", markup, re.S)
+    assert main is not None, f"{page} has no <main>"
+    content = main.group(1)
+    assert 'class="content-section"' not in content, (
+        f"{page} carries a section of its own; sections belong to the module "
+        f"that appends them")
+    assert 'id="modules-container"' in content, (
+        f"{page} has nowhere for a module to append its section")
+
+
+@pytest.mark.parametrize("page", ["index_new.html", "index_nebula.html"])
 def test_a_theme_page_bootstraps_the_narrow_layout(page):
     """A theme that links main_new.css has to publish the narrow layout.
 
