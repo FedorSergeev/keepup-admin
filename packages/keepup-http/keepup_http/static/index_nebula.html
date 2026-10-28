@@ -80,10 +80,12 @@
                     <button type="submit" class="w-full bg-blue-600 text-white py-3 rounded-lg hover:bg-blue-700 font-medium">
                         Sign in
                     </button>
-                    <p class="mt-3 text-center text-sm text-gray-500">
+                    <!-- Shown only when the deployment names a page of its own
+                         for a reset: where a password is reset is the
+                         application's business, not the shell's (keepup-178). -->
+                    <p id="forgotPasswordHint" class="mt-3 text-center text-sm text-gray-500 hidden">
                         Forgot your password?
-                        <a id="forgotPasswordLink" href="#" class="text-blue-600 hover:underline">Ask the bot</a>
-                        and send <code>/password</code>.
+                        <a id="forgotPasswordLink" href="#" class="text-blue-600 hover:underline">Reset it</a>.
                     </p>
                 </form>
             </div>

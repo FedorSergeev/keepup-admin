@@ -332,7 +332,7 @@ async def register(user: UserCreate):
         # while this one names the way in.
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail="Registration is by invitation. Ask our Telegram bot for an "
+            detail="Registration is by invitation. Ask an administrator for an "
                    "invitation link, and it will let you set your own password.",
         )
 

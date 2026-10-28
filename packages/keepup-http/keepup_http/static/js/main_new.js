@@ -1126,7 +1126,7 @@ async function applyPublicConfig() {
 
     // Registration closed is the default, so the tab stays out of sight unless
     // the server says otherwise: a form that creates accounts nobody activates
-    // contradicts the landing page, which sends people to the bot.
+    // contradicts the sign-in screen, which says registration is by invitation.
     if (registerTab) {
         registerTab.hidden = !(config && config.self_registration);
     }
@@ -1400,11 +1400,10 @@ function setupAuthForms() {
         });
     }
 
-    // Forgot password (task 272): the link leads to the bot, and the reset is
-    // issued by it. The bot's name comes from the server -- it differs between
-    // the stand and production, and hardcoding it into the markup would mean
-    // keeping two truths. If the server doesn't answer, the link stays a hint
-    // with no destination, rather than a broken address.
+    // Forgot password: the address, when the deployment has one, comes from
+    // the server. The framework does not know where a password is reset, and
+    // hardcoding somebody's page into the shell would keep two truths. Without
+    // an answer the line stays hidden rather than showing a broken link.
     applyForgotPasswordLink();
 
     // Updated sign-in form handler
@@ -2390,25 +2389,22 @@ document.addEventListener('DOMContentLoaded', function() {
 });
 
 /**
- * The "forgot password" link leads to the bot: the reset is issued by it,
- * not this page (task 272). The bot's name is known to the server; without
- * a response the link stays plain text.
+ * The "forgot password" link, when the deployment has somewhere to send people.
+ *
+ * The address is the application's: the framework knows nothing about where a
+ * password is reset, and named no page of its own. Without one the line stays
+ * out of sight rather than offering a link that goes nowhere (keepup-178).
  */
 function applyForgotPasswordLink() {
     const link = document.getElementById('forgotPasswordLink');
+    const hint = document.getElementById('forgotPasswordHint');
     if (!link) return;
     loadPublicConfig().then(config => {
-        // The whole address comes from the server: building it here would mean
-        // hardcoding someone else's domain into a panel that loads nothing of
-        // its own. Where it comes from is the application's business: for one
-        // it's a Telegram bot, for another its own page, for a third there's
-        // no reset at all, and then the link stays plain text. Before task
-        // keepup-27 the shell asked for the address directly at the bot's
-        // route, meaning the framework knew about the bot (keepup-27).
         const url = config && config.password_reset_url;
         if (!url) return;
         link.href = url;
         link.target = '_blank';
         link.rel = 'noopener noreferrer';
+        if (hint) hint.classList.remove('hidden');
     }).catch(() => { /* without an address the sign-in page works as before */ });
 }
