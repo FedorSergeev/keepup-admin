@@ -14,6 +14,8 @@ is set at start-up, and a deployment that sets nothing records nothing --
 which is a deployment, not a failure.
 """
 
+import asyncio
+import inspect
 from contextlib import asynccontextmanager
 from dataclasses import dataclass, field
 from functools import wraps
@@ -133,6 +135,27 @@ async def emit(event_type: str, payload: Mapping[str, Any] = None) -> int:
     return written
 
 
+async def _run_route(handler, *args, **kwargs):
+    """Run a route the way the transport would, and hand back its answer.
+
+    A route is declared either with `async def` or with `def`, and the second is
+    a decision rather than an oversight: FastAPI runs a `def` route in a worker
+    thread, which is where a database call or a `bcrypt` hash belongs. The audit
+    wrapper around it is a coroutine either way, so awaiting a plain function was
+    a `TypeError` -- `object dict can't be used in 'await' expression` -- thrown
+    *after* the handler had already done its work: (0.7.0) the administrator's
+    password change and the profile update applied their change and answered 500
+    (keepup-182).
+
+    A synchronous handler therefore goes to a thread of its own, not to the event
+    loop; `asyncio.to_thread` copies the context, so the audit's request id and
+    actor are the ones the handler sees.
+    """
+    if inspect.iscoroutinefunction(handler):
+        return await handler(*args, **kwargs)
+    return await asyncio.to_thread(handler, *args, **kwargs)
+
+
 def audited(action: str, method: str = "POST", actor: str = "current_user",
             host: str = "framework"):
     """Record a framework route that the transport did not wrap (keepup-172).
@@ -160,7 +183,7 @@ def audited(action: str, method: str = "POST", actor: str = "current_user",
             caller = kwargs.get(actor)
             async with start_call(method, action, host, {}, actor=caller) as request_id:
                 try:
-                    answer = await handler(*args, **kwargs)
+                    answer = await _run_route(handler, *args, **kwargs)
                 except Exception as error:
                     await end_call(
                         request_id,

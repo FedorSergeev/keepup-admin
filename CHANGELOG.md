@@ -2,6 +2,49 @@
 
 Notable changes to `keepup-admin`.
 
+## 0.7.1 -- a framework route answers as it did before the audit
+
+A corrective release. 0.6.0 put the framework's own administrative routes
+through the audit seam, and two of them were declared with `def`: the
+administrator's password change (`PUT /api/admin/users/{id}/password`) and the
+profile update (`PUT /api/auth/profile`). The wrapper that writes the audit is a
+coroutine either way, and awaiting a plain function raises `TypeError: object
+dict can't be used in 'await' expression` -- after the handler had already done
+its work, so the change was applied and the browser was told it had failed with
+a 500.
+
+**Upgrading from 0.7.0.** Drop-in. Nothing in an application has to move: the
+two routes are the only change, and their request and answer are what they were.
+
+### Added
+
+- Nothing, on purpose: a patch release corrects and adds no capability. The
+  features of this line -- the session that stays, the application's own cookie
+  names, the search above the menu -- arrived in 0.7.0.
+
+### Changed
+
+- **A route declared with `def` runs in a worker thread.** `audited()` hands a
+  synchronous handler to `asyncio.to_thread`, the way FastAPI runs a `def`
+  route, and awaits a coroutine where the route is one. The thread inherits the
+  call's context, so the audit row still carries the id and the actor of the
+  request it describes.
+
+### Fixed
+
+- **The administrator's password change and the profile update answer 200
+  (keepup-182).** Both routes are `keepup-auth`'s, the wrapper that broke them is
+  the base's: the handler applied its change and then answered 500, because that
+  wrapper awaited a function returning a dict. A refused change was never
+  affected -- the handler raised before returning -- which is why the rule check
+  that covered these routes never saw it.
+
+### Known, and left for 0.8.0
+
+What 0.7.0 named and this release does not move: step-up before a sensitive
+change, a QR image on the enrolment screen, and the trusted-host and proxy
+allowlist.
+
 ## 0.7.0 -- a session that stays, and a menu that is found
 
 The release in which the panel stops forgetting. A sign-in may ask to stay: the
