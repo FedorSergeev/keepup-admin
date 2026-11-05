@@ -9,7 +9,7 @@ The code moves here in keepup-124: until then the plugin lives in the framework'
 own `builtin/audit.py` and this package is the home it is moving to.
 """
 
-__version__ = "0.7.1"
+__version__ = "0.7.2"
 
 
 # The names below live in the module that owns them since keepup-155: the

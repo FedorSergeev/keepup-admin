@@ -2,6 +2,85 @@
 
 Notable changes to `keepup-admin`.
 
+## 0.7.2 -- a menu the person orders
+
+The release in which the sidebar stops being the deployment's alone. Every entry
+of the menu can be dragged over another, and the order a drag leaves is kept for
+that person, on the server: it survives a reload, a new tab and another browser,
+and nobody else's menu moves. Two faults of the 0.7.0 line are corrected with it
+-- the search field above the menu froze the tab on the first character typed,
+and two of the framework's own sections never initialised, so "Users" and
+"Cluster" were missing from every panel.
+
+**Upgrading from 0.7.1.** Drop-in. The new table `user_nav` is created at start-up
+from its declaration, as every other table is; no migration and no configuration.
+A person who has never dragged sees exactly the menu 0.7.1 drew. The panel's page
+and its script are served with revalidation, so a browser picks the new script up
+on the next load.
+
+### Added
+
+- **A menu the person orders (`keepup-http`, `keepup-modules`).** An entry of the
+  sidebar is dragged over another with the browser's own drag events and lands
+  before or after it -- the top half of an entry means before, the bottom half
+  after. The sequence the drag leaves is saved for that person in `user_nav` and
+  read back on every load, so it holds across a refresh, a new tab and a second
+  browser; the entries the person never moved keep the deployment's order
+  (`nav_order`, then the name). An entry is named by the page it opens
+  (`data-target`), not by the module that drew it: a section may fetch its data
+  first and draw its entry long after the catalogue was read. Entries that appear
+  late are armed and placed as they arrive, and a name the menu no longer has is
+  harmless (keepup-183).
+- **`GET` and `POST /api/user/nav-order`.** The person's own sequence, read and
+  written under the id the session carries: the body cannot name somebody else's
+  id, and a sequence that is not a list of names is refused rather than stored. A
+  write of the same sequence changes nothing (keepup-183).
+- **The drag states, in the theme.** `.nav-reorder-dragging` and
+  `.nav-reorder-over` are drawn with the theme's own variables; a section styles
+  none of it, and no inline handler is used -- the panel's
+  Content-Security-Policy still refuses those (keepup-183).
+
+### Changed
+
+- **The section catalogue stops promising an order the shell cannot apply.** A
+  menu entry names the page it opens, and a section may draw it long after the
+  catalogue was read, so a list of entries is not a list of modules:
+  `get_modules_for_user` answers the deployment's order, and the person's
+  sequence is applied by the shell to the entries, which is the only place the two
+  lists are the same one (keepup-183).
+
+### Fixed
+
+- **The search field above the menu froze the tab on the first character typed
+  (keepup-184).** Marking a match rewrites the label of the entry that matched,
+  and the watcher that re-applied the search on any change under the menu answered
+  its own marking: for ever, in one task. The watcher now asks whether an entry
+  arrived, and a rewritten label is not one. The tests could not see it, because
+  `node` has no `MutationObserver` and the watcher was never installed under test;
+  it is now.
+- **"Users" and "Cluster" were missing from the menu of every panel
+  (keepup-185).** The shell calls a section by the name the catalogue gives it, and
+  two capabilities declared a function their script does not have -- `initUsers`
+  for `renderUsers`, `initCluster` for `initClusterModule`. The section never
+  initialised, its entry never appeared, and nothing was logged. Both names are
+  their script's now, `integration_logs.js` declares its initialiser where it is a
+  global, and `tests/panel_section_init_tests.py` holds every declared section to
+  the function its script really declares.
+
+### Known, and left for 0.8.0
+
+What 0.7.0 and 0.7.1 named and this release does not move: step-up before a
+sensitive change, a QR image on the enrolment screen, the trusted-host and proxy
+allowlist, and the capabilities the kernel is still the one to declare. Named
+here rather than fixed in a patch: each of them changes an answer somebody reads,
+and a patch release is a drop-in.
+
+The panel's own section catalogue (`panel_sections`) is declared by `keepup-ui`
+with a script the package does not ship. Nothing grants it and nothing draws it;
+`tests/panel_section_init_tests.py` names it as the one exception, so that a new
+section without a script fails instead of joining a silence. It is removed, with
+the rest of the panel's catalogue, in 0.8.0.
+
 ## 0.7.1 -- a framework route answers as it did before the audit
 
 A corrective release. 0.6.0 put the framework's own administrative routes

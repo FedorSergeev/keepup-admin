@@ -14,17 +14,23 @@ from keepup_modules.catalogue import (
     get_module_by_id,
     get_modules_for_role,
     get_modules_for_roles,
+    get_modules_for_user,
+    get_user_nav_order,
+    set_user_nav_order,
     sync_framework_sections,
     sync_new_modules_from_json,
 )
 
-__version__ = "0.7.1"
+__version__ = "0.7.2"
 
 __all__ = [
     "get_all_modules_from_db",
     "get_module_by_id",
     "get_modules_for_role",
     "get_modules_for_roles",
+    "get_modules_for_user",
+    "get_user_nav_order",
+    "set_user_nav_order",
     "sync_framework_sections",
     "sync_new_modules_from_json",
 ]

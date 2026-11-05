@@ -10,7 +10,7 @@ route wrapper; they move in one slice at a time, and the base answers their old
 names through the compatibility layer for one release (keepup-122).
 """
 
-__version__ = "0.7.1"
+__version__ = "0.7.2"
 
 __all__ = ["HttpPlugin", "SERVICE_HTTP", "register_api_documentation",
            "register_event_api_routes"]
