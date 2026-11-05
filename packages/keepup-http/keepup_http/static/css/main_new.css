@@ -247,6 +247,39 @@
     transition: margin 0.3s ease;
 }
 
+/* The entries are links, and the browser drags what a link points at, not the
+   entry: a drag that started one would open the section. The drag of the menu
+   (keepup-183) takes the link's own drag away and gives it to the reorder. */
+.nav-item[draggable="true"] {
+    -webkit-user-drag: element;
+    user-drag: element;
+    cursor: grab;
+}
+
+/* The states a drag puts on an entry. The menu is chrome, so they are chrome
+   too: the entry the pointer hovers shows where the move will land, the one
+   being moved says it is in flight. A theme that wants another look names its
+   own values on the same classes. */
+.nav-item.nav-reorder-dragging {
+    opacity: var(--nav-reorder-dragging-opacity, 0.5);
+}
+
+.nav-item.nav-reorder-over {
+    background-color: var(--nav-reorder-over-bg, rgba(255, 255, 255, 0.18));
+}
+
+/* The drag of the menu's entries (keepup-183). The menu is chrome, so the
+   states a drag puts on an entry are chrome too: the entry the pointer hovers
+   shows where the move will land, the one being moved says it is in flight.
+   A theme that wants another look names its own values on the same classes. */
+.nav-item.nav-reorder-dragging {
+    opacity: var(--nav-reorder-dragging-opacity, 0.5);
+}
+
+.nav-item.nav-reorder-over {
+    background-color: var(--nav-reorder-over-bg, rgba(255, 255, 255, 0.18));
+}
+
 /* The field above the menu (keepup-179). Chrome, so it is declared here and a
    section must not restate it. It sits outside #modules-nav-container on
    purpose: the entries scroll under it, the field stays where it was put. */

@@ -142,7 +142,7 @@ PRODUCT_NAMES = ("ozon", "wildberries", "yamarket", "yookassa", "servershare",
 #: front end calls must be one of these.
 FRAMEWORK_ROUTES = ("/api/admin/", "/api/auth/", "/api/events", "/api/modules",
                     "/api/integration-logs", "/api/theme/", "/api/version",
-                    "/api/public/config")
+                    "/api/public/config", "/api/user/nav-order")
 
 #: Routes of an application that the package's front end still calls, with what
 #: it takes to stop. An explicit list that only shrinks -- a new one fails the

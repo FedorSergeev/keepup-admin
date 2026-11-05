@@ -46,7 +46,7 @@ SECTION = {
                     "and restart a replica from the panel"),
     "js": "/keepup-static/modules/js/cluster.js",
     "css": "/keepup-static/modules/css/cluster.css",
-    "initFunction": "initCluster",
+    "initFunction": "initClusterModule",
     "icon": "server",
     "version": "1.0.0",
 }

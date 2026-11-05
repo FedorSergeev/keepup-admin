@@ -194,7 +194,11 @@
                 </div>
                 <p id="nav-search-empty" class="nav-search-empty" role="status" hidden></p>
 
-                <div id="modules-nav-container"></div>
+                <!-- The entries are a list, because the person may move them
+                     (keepup-183): dragging an entry over another reorders the
+                     menu for that person and saves it. No inline handler -- the
+                     panel is served with a Content-Security-Policy. -->
+                <div id="modules-nav-container" role="list"></div>
             </nav>
         </div>
 

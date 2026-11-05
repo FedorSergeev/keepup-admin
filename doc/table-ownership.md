@@ -36,6 +36,7 @@ it, and the distribution named here is where it goes.
 | `incoming_requests` | `keepup-audit` | declared by the capability since keepup-111 |
 | `app_events` | `keepup-audit` | declared by the capability since keepup-111 |
 | `visual_themes` | `keepup-ui` | declared by the capability since keepup-104 |
+| `user_nav` | `keepup-ui` | the person's own sequence of the sidebar's entries, keepup-183 |
 
 Three tables do not appear here because they are not in the kernel's schema at
 all: the panel's sessions (`auth_session`) and login attempts

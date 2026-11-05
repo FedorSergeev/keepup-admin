@@ -121,7 +121,7 @@ class UsersPlugin(BasePlugin):
             "description": "Accounts, the roles they hold and the rights granted",
             "js": "/keepup-static/modules/js/users.js",
             "css": "/keepup-static/modules/css/users.css",
-            "initFunction": "initUsers",
+            "initFunction": "renderUsers",
             "icon": "people",
             "version": "1.0.0",
         }]

@@ -9,9 +9,9 @@ already switched off or taken away from a role.
 
 import asyncio
 import json
-from pathlib import Path
 import logging
 import time
+from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import keepup
@@ -33,12 +33,16 @@ __all__ = [
     "get_module_by_id",
     "get_modules_for_role",
     "get_modules_for_roles",
+    "get_modules_for_user",
     "import_modules_from_json",
     "register_module_routes",
     "sync_framework_sections",
     "sync_new_modules_from_json",
     "update_role_modules",
+    "get_user_nav_order",
+    "set_user_nav_order",
 ]
+
 
 logger = logging.getLogger(__name__)
 
@@ -184,6 +188,21 @@ def get_modules_for_roles(role_names):
         return (order is None, order or 0, module.get("name") or "", module["module_id"])
 
     return sorted(glued.values(), key=place)
+
+
+def get_modules_for_user(current_user: dict):
+    """The modules this person sees, in the deployment's own order.
+
+    The person's sequence of the *menu* is not applied here (keepup-183): a
+    menu entry is drawn by its section and names the page it opens in
+    `data-target`, and a section may fetch its data first and draw its entry
+    long after the catalogue was read -- so the entry's name is not the
+    module's id, and a list of entries is not a list of modules. The sequence
+    is kept for the person (`get_user_nav_order`) and applied by the shell, to
+    the entries as they arrive, which is the only place the two are the same
+    list.
+    """
+    return get_modules_for_roles(user_roles.held_by(current_user))
 
 
 def _sections_changed() -> None:
@@ -779,12 +798,64 @@ def register_module_routes(app):
         except Exception as e:
             logger.error(f"Error exporting modules to JSON: {str(e)}")
             raise HTTPException(status_code=500, detail="Error exporting modules")
+    @app.get("/api/user/nav-order")
+    def get_user_nav_order_endpoint(current_user: dict = Depends(get_current_user)):
+        """The order this person keeps in the sidebar's menu (keepup-183).
+
+        The ids of the entries the person dragged, in the order the drag left
+        them. Absent, or older than what the catalogue has since, the answer is
+        empty and the menu falls back to the deployment's own sequence.
+        """
+        order = _user_order_of(current_user.get("id"))
+        return {"order": order or []}
+
+    @app.post("/api/user/nav-order")
+    async def set_user_nav_order_endpoint(
+            request: Dict[str, Any] = None,
+            current_user: dict = Depends(get_current_user)
+    ):
+        """Replace this person's sequence of the sidebar's entries (keepup-183).
+
+        The body is {"order": [id, id, ...]}: the ids, in the order the person
+        left them. The sequence is theirs and only theirs: it is never written
+        for another user, and the entries it does not name keep the deployment's
+        own places. A drag that leaves the entries where they were writes the
+        same sequence back, which is a no-op in the database, not a change.
+        """
+        from pydantic import BaseModel
+
+        class NavOrderUpdate(BaseModel):
+            order: List[str]
+
+        try:
+            payload = NavOrderUpdate(**(request or {}))
+        except Exception:
+            # A body that is not {"order": [id, ...]} is refused before it is
+            # stored; what was refused is not what the log needs.
+            raise HTTPException(status_code=400, detail="The menu order must be a list of ids")
+        order = [str(module_id) for module_id in payload.order]
+        try:
+            await asyncio.to_thread(_store_user_nav_order, current_user.get("id"), order)
+            return {"success": True}
+        except HTTPException:
+            # A body that was refused is already refused: the 400 says so.
+            raise
+        except Exception as e:
+            logger.error("Could not save the menu order of %s: %s",
+                         current_user.get("username"), for_log(e))
+            raise HTTPException(status_code=400, detail="Could not save the menu order; "
+                                                        "see the application log")
+
     @app.get("/api/modules")
-    async def get_modules(current_user: dict = Depends(get_current_user)):
+    async def get_modules_for_current_user(current_user: dict = Depends(get_current_user)):
         """Return the modules available to the current user, from the database."""
         try:
             # Every page of the panel asks for this; the read leaves the loop.
-            modules = await asyncio.to_thread(get_modules_for_roles, user_roles.held_by(current_user))
+            # In the person's own order where the person has one: the sequence
+            # the drag left, and the deployment's for what it has not named
+            # (keepup-183).
+            modules = await asyncio.to_thread(
+                lambda: get_modules_for_user(current_user))
 
             if modules:
                 formatted_modules = []
@@ -800,6 +871,10 @@ def register_module_routes(app):
                     }
                     if module['config']:
                         formatted_module["config"] = json.loads(module['config'])
+                    # The deployment's default position, for the shell: what the
+                    # person's own sequence has not yet decided (keepup-183).
+                    if module.get("nav_order") is not None:
+                        formatted_module["order"] = module["nav_order"]
                     formatted_modules.append(formatted_module)
 
                 return {"modules": formatted_modules}
@@ -810,3 +885,78 @@ def register_module_routes(app):
         except Exception as e:
             logger.error(f"Error getting modules from DB: {str(e)}")
             return await get_modules_from_json_fallback(current_user)
+
+
+def _user_order_of(user_id: Optional[int]) -> Optional[List[str]]:
+    """The stored sequence of ids, or None when nothing is stored."""
+    row = get_user_nav_order(user_id)
+    if not row or not row.get("nav_order"):
+        return None
+    try:
+        value = json.loads(row["nav_order"])
+    except (TypeError, ValueError):
+        return None
+    return [str(item) for item in value] if isinstance(value, list) else None
+
+
+def get_user_nav_order(user_id: Optional[int]) -> Optional[Dict[str, Any]]:
+    """The sequence this person left the sidebar's entries in.
+
+    A person who never dragged has no row, and so does a person whose id the
+    database no longer knows: either way the read says *nothing is stored*,
+    and the caller falls back to the deployment's own sequence.
+    """
+    if user_id is None:
+        return None
+    from keepup_db import DatabaseManagerV2
+
+    try:
+        return DatabaseManagerV2.execute_one(
+            "SELECT user_id, nav_order FROM user_nav WHERE user_id = :id",
+            {"id": user_id})
+    except Exception as e:
+        # Never fatal: a database that cannot answer is read as "no sequence
+        # of your own", which is the default -- not as an error the panel
+        # would have to show for a preference.
+        logger.warning("Could not read the menu order of user %s: %s", user_id, for_log(e))
+        return None
+
+
+def _store_user_nav_order(user_id: Optional[int], order: List[str]) -> None:
+    """The write of one person's sequence, by their id (keepup-183).
+
+    Storing what the row already says would move `updated_at` on every save
+    for no reason, so a same-value write is left alone, and a value that is
+    not a sequence of ids is refused rather than stored.
+    """
+    if user_id is None:
+        raise HTTPException(status_code=401, detail="Not authenticated")
+    if not isinstance(order, list) or not all(isinstance(item, str) and item for item in order):
+        raise HTTPException(status_code=400, detail="The menu order must be a list of ids")
+    encoded = json.dumps(order)
+    from keepup import clock
+    from keepup_db import DatabaseManagerV2
+
+    existing = get_user_nav_order(user_id)
+    if existing and existing.get("nav_order") == encoded:
+        return
+    DatabaseManagerV2.execute_commit(
+        "INSERT INTO user_nav (user_id, nav_order, updated_at) "
+        "VALUES (:id, :order, :now) "
+        "ON CONFLICT (user_id) DO UPDATE SET nav_order = :order, updated_at = :now",
+        {"id": user_id, "order": encoded, "now": clock.utcnow()})
+    # The read of this user is the catalogue's cache, and it is the cache that
+    # hands the next request its answer: the write invalidates it, which is
+    # what makes the route see the new value in the same process (keepup-183).
+    _sections_changed()
+
+
+def set_user_nav_order(user_id: Optional[int], order: List[str]) -> None:
+    """Replace this person's sequence of the sidebar's entries (keepup-183).
+
+    The public entry point; the write itself is the `_store_` of this module,
+    kept apart because a name here must not collide with the route of the same
+    name it serves.
+    """
+    _store_user_nav_order(user_id, order)
+

@@ -349,6 +349,36 @@ def test_an_entry_added_after_the_search_is_searched_too():
     assert shown == {"answer": {"query": "billing", "matches": 1}, "hidden": False}
 
 
+def test_the_search_does_not_answer_its_own_marking():
+    """Marking a match rewrites the label, which is a change under the very
+    root the shell watches for new entries. Reacting to it would be the search
+    calling itself for ever -- a tab that freezes the moment anything is typed.
+    The watcher is told only about an entry that arrived."""
+    shown = run("""
+    const fixture = build();
+    applyModuleSearch('met');
+    const marked = detail(fixture).map(entry => entry.marks);
+    // What the browser's own watcher asks, on the change the marking made.
+    const arrived = navSearchEntriesArrived(fixture.root);
+    console.log(JSON.stringify({marked, arrived}));
+    """)
+    # The mark keeps the label's own case: "System metrics" holds "met".
+    assert shown["marked"] == [[], ["met"], [], [], []]
+    assert shown["arrived"] is False
+
+
+def test_an_entry_that_really_arrived_is_reported():
+    shown = run("""
+    const fixture = build();
+    applyModuleSearch('billing');
+    const before = navSearchEntriesArrived(fixture.root);
+    fixture.root.appendChild(navItem('Billing'));
+    const after = navSearchEntriesArrived(fixture.root);
+    console.log(JSON.stringify({before, after}));
+    """)
+    assert shown == {"before": False, "after": True}
+
+
 def test_labels_outside_ascii_match_in_any_case():
     """A deployment names its sections in its own language, and the search folds
     that case too. The letters are escapes because the framework is checked for

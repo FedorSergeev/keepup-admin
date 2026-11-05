@@ -69,6 +69,10 @@ function addModulesNavigation() {
 
     if (document.querySelector('[data-target="modules-management-section"]')) return;
 
+    // The entries of the menu live in one list, which is the one the person
+    // may reorder (keepup-183); `#main-nav` is its frame.
+    const container = document.getElementById('modules-nav-container') || mainNav;
+
     const modulesNavItem = document.createElement('a');
     modulesNavItem.href = '#';
     modulesNavItem.className = 'nav-item flex items-center px-6 py-3 text-blue-100 hover:bg-blue-600 admin-only';
@@ -83,13 +87,13 @@ function addModulesNavigation() {
         handleModulesNavigation.call(this, e);
     });
 
-    const adminItems = document.querySelectorAll('.admin-only');
+    const adminItems = container.querySelectorAll('.admin-only');
     const lastAdminItem = adminItems[adminItems.length - 1];
 
     if (lastAdminItem) {
         lastAdminItem.parentNode.insertBefore(modulesNavItem, lastAdminItem.nextSibling);
     } else {
-        mainNav.appendChild(modulesNavItem);
+        container.appendChild(modulesNavItem);
     }
 
     // Update the state for the collapsed menu

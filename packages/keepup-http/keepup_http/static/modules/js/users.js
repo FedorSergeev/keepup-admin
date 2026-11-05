@@ -123,6 +123,10 @@ function addUsersNavigation() {
 
     if (document.querySelector('[data-target="users-section"]')) return;
 
+    // The entries of the menu live in one list, which is the one the person
+    // may reorder (keepup-183); `#main-nav` is its frame.
+    const container = document.getElementById('modules-nav-container') || mainNav;
+
     const usersNavItem = document.createElement('a');
     usersNavItem.href = '#';
     usersNavItem.className = 'nav-item flex items-center px-6 py-3 text-blue-100 hover:bg-blue-600';
@@ -132,7 +136,7 @@ function addUsersNavigation() {
         <span>Users</span>
     `;
 
-    mainNav.appendChild(usersNavItem);
+    container.appendChild(usersNavItem);
     feather.replace();
 }
 

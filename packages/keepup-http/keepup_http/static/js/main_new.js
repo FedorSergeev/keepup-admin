@@ -688,6 +688,10 @@ function initializeApp() {
     registerAppSections();
     setupNavigation();
     setupModuleSearch();
+    // The menu is the person's to order (keepup-183). The entries appear as
+    // the sections initialise, so the watching starts here, before any of them
+    // has drawn one, and every late entry is armed as it arrives.
+    enableNavDrag();
     setupAuthForms();
     installSessionKeepAlive();
 
@@ -935,6 +939,11 @@ async function loadModules() {
 
         if (response.ok) {
             const data = await response.json();
+            // The person's own sequence, read once before any entry is drawn
+            // (keepup-183). The menu the sections draw is put in it as the
+            // entries arrive; reading it here is what makes the order hold in
+            // a browser that has never seen this deployment.
+            await rememberStoredNavOrder();
             await initializeModules(data.modules);
             return data.modules; // Return the modules
         }
@@ -1071,6 +1080,8 @@ function updateNavigationWithModules() {
         navItem.href = '#';
         navItem.className = 'nav-item';
         navItem.setAttribute('data-target', `${module.id}-section`);
+        // The id of the entry, so a drag can say which one it moved (keepup-183).
+        navItem.setAttribute('data-module-id', module.id);
 
         navItem.innerHTML = `
             <i data-feather="users" class="w-5 h-5"></i>
@@ -1081,6 +1092,10 @@ function updateNavigationWithModules() {
     });
 
     setupNavigation();
+    // The entries just drawn are armed with the drag: the person's own
+    // sequence holds until one of them is moved (keepup-183). The sequence
+    // itself was applied before the draw, where the entries come from.
+    if (typeof enableNavDrag === 'function') enableNavDrag();
     feather.replace();
 }
 
@@ -1454,12 +1469,41 @@ function setupModuleSearch() {
     // field is on screen; a search typed meanwhile has to reach them too.
     const root = document.getElementById(NAV_SEARCH_ROOT_ID);
     if (root && typeof MutationObserver !== 'undefined') {
+        navSearchEntries = navSearchEntryList(root);
         new MutationObserver(() => {
+            // Only an entry that arrived is news. Marking a match rewrites the
+            // label of every entry it matched, which is a change under this
+            // very root: reacting to that would be the search answering itself
+            // -- for ever, in the same task, which is a tab that stops
+            // answering the moment anything is typed.
+            if (!navSearchEntriesArrived(root)) return;
             if (input.value.trim() !== '') applyModuleSearch(input.value);
         }).observe(root, {childList: true, subtree: true});
     }
 
     update();
+}
+
+//: The entries the search was last applied to, in the order they stand there.
+//: Nothing until the first look, which is the baseline rather than an arrival.
+let navSearchEntries = null;
+
+function navSearchEntryList(root) {
+    return root && root.querySelectorAll
+        ? Array.from(root.querySelectorAll(NAV_SEARCH_ITEM))
+        : [];
+}
+
+//: Whether an entry has arrived since this was last asked. The list itself is
+//: remembered, so a label rewritten by a marking is not mistaken for a section
+//: appearing.
+function navSearchEntriesArrived(root) {
+    const entries = navSearchEntryList(root);
+    const previous = navSearchEntries;
+    navSearchEntries = entries;
+    if (!previous) return false;
+    return !(entries.length === previous.length
+             && entries.every((entry, index) => entry === previous[index]));
 }
 
 // What a section -- or a test -- may ask of the field without owning it.
@@ -1470,6 +1514,280 @@ window.AppNavSearch = {
     depth: navSearchDepth,
 };
 // --- end of the search field of the sidebar
+
+/* ==========================================================================
+   The order of the menu, in the hands of the person (keepup-183).
+
+   The deployment decides the default sequence of the entries -- the `order`
+   the catalogue carries, then the name, so a menu never has to guess. The
+   person decides their own: dragging an entry of the sidebar over another
+   moves it there, and the sequence the drag left is saved for that person,
+   not for anybody else. It is stored on the server, under the person's own
+   id, which is what makes it hold across a refresh and a new tab; what it
+   does not say is left alone, so the default stands where it was not named.
+
+   Nothing about this may become an inline handler: the panel is served with
+   a Content-Security-Policy that refuses one, so the entries are armed with
+   listeners, like everything else the shell does.
+   ========================================================================== */
+// --- the order of the menu, in the hands of the person (keepup-183)
+const NAV_REORDER_CACHE = 'userNavOrder';
+const NAV_REORDER_EVENT = 'app:nav-order:saved';
+
+//: What an entry is called in a saved sequence. A section draws its own entry
+//: and names the page it opens in `data-target`; the shell keeps that name,
+//: because it is the one thing every entry carries whether it was drawn before
+//: the shell was ready or long after -- a section may fetch its data first and
+//: draw its entry minutes later, and the id of the module that drew it would
+//: not survive that wait. A menu the shell drew itself names the module.
+function navEntryId(item) {
+    if (!item || !item.getAttribute) return '';
+    return item.getAttribute('data-target') || item.getAttribute('data-module-id') || '';
+}
+
+//: The entries of the menu that a drag may move: the top-level ones. A
+//: submodule lives inside its parent, and moving it would mean moving what
+//: contains it, which a drag between the top-level entries never does.
+function navReorderableItems(container) {
+    if (!container || !container.children) return [];
+    return Array.from(container.children).filter(child =>
+        child.classList && child.classList.contains('nav-item') && navEntryId(child));
+}
+
+//: The ids of the entries, in the order they stand on screen.
+function navCurrentOrder(container) {
+    return navReorderableItems(container).map(navEntryId);
+}
+
+//: The sequence the person left, in this browser; [] when they have none.
+//: An id said twice is said once: the menu holds an entry once, and an order
+//: that asked for two of it could never be the order the menu stands in.
+function readCachedNavOrder() {
+    try {
+        const value = JSON.parse(localStorage.getItem(NAV_REORDER_CACHE) || '[]');
+        if (!Array.isArray(value)) return [];
+        return Array.from(new Set(value.map(String)));
+    } catch (error) {
+        return [];
+    }
+}
+
+function cacheNavOrder(order) {
+    try {
+        localStorage.setItem(NAV_REORDER_CACHE, JSON.stringify(order));
+    } catch (error) {
+        /* The preference is not worth a page error when storage is closed. */
+    }
+}
+
+//: The person's own sequence, or nothing.
+async function readStoredNavOrder() {
+    try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch('/api/user/nav-order', {
+            headers: { 'Authorization': 'Bearer ' + token }
+        });
+        if (!response.ok) return [];
+        const data = await response.json();
+        return Array.isArray(data.order) ? data.order.map(String) : [];
+    } catch (error) {
+        // A preference read that fails is not a failure of the panel: the
+        // default sequence stands and the drag still works.
+        return [];
+    }
+}
+
+async function saveStoredNavOrder(order) {
+    try {
+        const token = localStorage.getItem('authToken');
+        const response = await fetch('/api/user/nav-order', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'Authorization': 'Bearer ' + token
+            },
+            body: JSON.stringify({ order: order })
+        });
+        if (!response.ok) {
+            console.warn('Could not save the menu order:', response.status);
+        }
+        return response.ok;
+    } catch (error) {
+        return false;
+    }
+}
+
+//: Read the person's own sequence from the server and keep it in this browser.
+//: The menu is drawn by the sections, entry by entry, so the sequence cannot be
+//: applied here: it is remembered, and the entries are put in it as they arrive
+//: (`applyUserNavOrder`). Reading it on every load is what makes a drag in one
+//: browser reach the next one; the server is the truth, so a sequence that is
+//: no longer there is dropped rather than resurrected from the cache.
+async function rememberStoredNavOrder() {
+    try {
+        cacheNavOrder(await readStoredNavOrder());
+    } catch (error) {
+        /* A sequence that cannot be read is no sequence: the default stands. */
+    }
+}
+
+//: Put the entries where the person's sequence says. The ids it does not name
+//: keep their places, which is the deployment's own order; the ids it names
+//: but the catalogue no longer knows are out, not an error. An order that the
+//: menu already stands in is left alone, so watching the menu cannot reorder
+//: it into a loop.
+function applyUserNavOrder() {
+    const container = document.getElementById('modules-nav-container');
+    if (!container) return;
+
+    const order = readCachedNavOrder();
+    if (!order.length) return;
+
+    const items = {};
+    const standing = navReorderableItems(container);
+    standing.forEach(item => { items[navEntryId(item)] = item; });
+
+    const byStored = order.filter(id => items[id]);
+    const storedSet = new Set(byStored);
+    // The rest is in the order it stands, and that is the deployment's own.
+    const byDefault = standing.filter(item => !storedSet.has(navEntryId(item)));
+    const wanted = byStored.map(id => items[id]).concat(byDefault);
+
+    if (wanted.every((item, index) => item === standing[index])) return;
+    wanted.forEach(item => container.appendChild(item));
+}
+
+//: A drag has left the entries in a new sequence: make it stick.
+async function persistUserNavOrder() {
+    const container = document.getElementById('modules-nav-container');
+    if (!container) return;
+
+    const order = navCurrentOrder(container);
+    const previous = readCachedNavOrder();
+    if (order.length && order.join('\u0000') === previous.join('\u0000')) {
+        return; // The drag left the entries where they were.
+    }
+    cacheNavOrder(order);
+    const saved = await saveStoredNavOrder(order);
+    if (saved) {
+        AppEventTarget.dispatchEvent(new CustomEvent(NAV_REORDER_EVENT, { detail: { order } }));
+    }
+}
+
+//: Arm the entries with the drag. A listener per entry, because a rebuilt
+//: menu has rebuilt entries; the drag itself is the browser's. Not every entry
+//: is here yet when the shell runs: each section draws its own as it
+//: initialises, so the menu is watched and a late entry is armed on arrival.
+function enableNavDrag() {
+    const container = document.getElementById('modules-nav-container');
+    if (!container) return;
+    watchNavEntries(container);
+
+    // The entry in flight. The container carries it, not the region: the region
+    // is re-read when the test cuts it out of the shell, and a `let` of a
+    // function's own is invisible from that read -- the drop handler would see
+    // `undefined` and do nothing. The container lives on through a re-read.
+    const drag = container.navDrag || (container.navDrag = { entry: null });
+    navReorderableItems(container).forEach(item => {
+        if (item.navReorderArmed) return;
+        item.navReorderArmed = true;
+        item.setAttribute('draggable', 'true');
+
+        item.addEventListener('dragstart', event => {
+            drag.entry = item;
+            event.dataTransfer.effectAllowed = 'move';
+            try {
+                event.dataTransfer.setData('text/plain', navEntryId(item));
+            } catch (error) {
+                /* The value is not what the move is for; the entry is. */
+            }
+            item.classList.add('nav-reorder-dragging');
+        });
+        item.addEventListener('dragend', () => {
+            if (drag.entry === item) drag.entry = null;
+            item.classList.remove('nav-reorder-dragging');
+            item.classList.remove('nav-reorder-over');
+        });
+        item.addEventListener('dragover', event => {
+            // Without this the entries refuse a drop; the menu is a list of
+            // links, and a browser does not drop onto a link by default.
+            event.preventDefault();
+            if (!drag.entry || drag.entry === item) return;
+            const position = navDropPosition(event, item);
+            item.classList.toggle('nav-reorder-over', position !== null);
+        });
+        item.addEventListener('dragleave', event => {
+            if (drag.entry !== item) return;
+            const related = event.relatedTarget;
+            if (related && item.contains(related)) return;
+            item.classList.remove('nav-reorder-over');
+        });
+        item.addEventListener('drop', event => {
+            event.preventDefault();
+            if (!drag.entry || drag.entry === item) return;
+            const position = navDropPosition(event, item);
+            if (position === null) return;
+            item.classList.remove('nav-reorder-over');
+            if (drag.entry.parentElement === container) {
+                if (position < 0) container.insertBefore(drag.entry, item);
+                else container.insertBefore(drag.entry, item.nextSibling);
+            }
+            persistUserNavOrder();
+        });
+    });
+    // The entries armed just now are put where the person left them. The
+    // watcher above covers the entries that arrive later; this covers the ones
+    // that were here when the shell started.
+    applyUserNavOrder();
+}
+
+//: Watch the menu for entries that arrive after the shell ran. A section adds
+//: its own entry when it initialises -- which is after this script, and in the
+//: order the server gave the sections -- so the person's sequence is put back
+//: over the menu each time one lands.
+function watchNavEntries(container) {
+    if (!container || container.navReorderWatched) return;
+    if (typeof MutationObserver === 'undefined') return;
+    container.navReorderWatched = true;
+    const observer = new MutationObserver(() => {
+        // Only an entry that arrived is news. The reorder below moves entries
+        // that are already armed, and reacting to that move would be this
+        // watcher answering itself -- for ever, in the same task, which is a
+        // tab that stops answering. What is watched for is an entry without
+        // its listeners yet.
+        const fresh = navReorderableItems(container).filter(item => !item.navReorderArmed);
+        if (!fresh.length) return;
+        // `enableNavDrag` arms the newcomers and puts the menu in the person's
+        // own order, which is where a late entry belongs.
+        enableNavDrag();
+    });
+    observer.observe(container, { childList: true });
+}
+
+//: Where a drop over `item` puts the entry being dragged: before it, or after
+//: it. Half of the entry's height is the line; the pointer above it lands
+//: before, below it lands after.
+function navDropPosition(event, item) {
+    if (!item.getBoundingClientRect) return null;
+    const rect = item.getBoundingClientRect();
+    const middle = rect.top + rect.height / 2;
+    return (event.clientY || 0) < middle ? -1 : 1;
+}
+
+// What a section -- or a test -- may ask of the order of the menu without
+// owning it.
+window.AppNavReorder = {
+    apply: applyUserNavOrder,
+    persist: persistUserNavOrder,
+    order: navCurrentOrder,
+    readStored: readStoredNavOrder,
+    saveStored: saveStoredNavOrder,
+    readCached: readCachedNavOrder,
+    cache: cacheNavOrder,
+    enableDrag: enableNavDrag,
+    SAVED_EVENT: NAV_REORDER_EVENT,
+};
+// --- end of the order of the menu, in the hands of the person (keepup-183)
 
 const appSections = {
     sections: new Map(),
@@ -1995,6 +2313,14 @@ async function logout() {
     // The corner belongs to whoever is signed in; the helper clears it for an
     // expired session too, and signing out is its own way there.
     headerBadge = null;
+    // The menu's own sequence is a preference of this person in this browser:
+    // the next person on this machine starts from the deployment's order
+    // (keepup-183). The server's copy stays theirs, by their id.
+    try {
+        localStorage.removeItem(NAV_REORDER_CACHE);
+    } catch (error) {
+        /* A preference that cannot be dropped is not worth a page error. */
+    }
     showAuthModal();
     hideVersionPanel();
 }

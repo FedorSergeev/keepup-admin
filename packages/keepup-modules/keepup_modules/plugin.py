@@ -106,9 +106,10 @@ class ModulesPlugin(BasePlugin):
 
     def get_declared_tables(self) -> List[Any]:
         """The catalogue's tables, declared by the capability that owns them."""
-        from keepup_modules.tables import FRONTEND_MODULES, PLUGIN_OVERRIDES, ROLE_MODULES
+        from keepup_modules.tables import (FRONTEND_MODULES, PLUGIN_OVERRIDES,
+                                           ROLE_MODULES, USER_NAV)
 
-        return [FRONTEND_MODULES, ROLE_MODULES, PLUGIN_OVERRIDES]
+        return [FRONTEND_MODULES, ROLE_MODULES, PLUGIN_OVERRIDES, USER_NAV]
 
     def get_api_routes(self) -> List[Dict[str, Any]]:
         """No routes yet: the application registers the ten through the bridge."""

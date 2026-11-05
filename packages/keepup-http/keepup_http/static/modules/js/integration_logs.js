@@ -767,16 +767,15 @@ Error rate
 // Initialize the plugin only if it is not already initialized
 if (!window.integrationLogsPlugin) {
     window.integrationLogsPlugin = new IntegrationLogsPlugin();
-
-    function initIntegrationLogs() {
-        return window.integrationLogsPlugin.initialize();
-    }
 } else {
     console.log('Integration logs plugin already exists');
+}
 
-    function initIntegrationLogs() {
-        return Promise.resolve(true);
-    }
+// The function the catalogue names, declared where the shell can find it: the
+// panel calls `window[initFunction]`, and a declaration inside an `if` is not a
+// global on every engine.
+function initIntegrationLogs() {
+    return window.integrationLogsPlugin.initialize();
 }
 
 // The actions this section's markup asks the shell to take (keepup-93). The log

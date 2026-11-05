@@ -13,8 +13,8 @@ navigation is rendered from `icon`, the order from `nav_order`, and
 (doc/plugin_constructor.md, section 9.1).
 """
 
-from sqlalchemy import (Boolean, Column, DateTime, Index, Integer, Text,
-                        UniqueConstraint)
+from sqlalchemy import (Boolean, Column, DateTime, Index,
+                        Integer, Text, UniqueConstraint)
 from sqlalchemy import text as sql_text
 
 from keepup_db import tables
@@ -23,8 +23,9 @@ from keepup_db import tables
 MODULES_TABLE = "frontend_modules"
 ROLE_MODULES_TABLE = "role_modules"
 PLUGIN_OVERRIDES_TABLE = "plugin_overrides"
+USER_NAV_TABLE = "user_nav"
 
-__all__ = ["FRONTEND_MODULES", "PLUGIN_OVERRIDES", "ROLE_MODULES"]
+__all__ = ["FRONTEND_MODULES", "PLUGIN_OVERRIDES", "ROLE_MODULES", "USER_NAV"]
 
 FRONTEND_MODULES = tables.table(
     MODULES_TABLE,
@@ -78,4 +79,20 @@ PLUGIN_OVERRIDES = tables.table(
     Column("enabled", Boolean, nullable=False),
     Column("changed_by", Integer),
     Column("changed_at", DateTime, server_default=tables.NOW),
+)
+
+#: The order one person keeps in the sidebar's own menu (task keepup-183).
+#:
+#: `nav_order` on `frontend_modules` is the deployment's default: what the
+#: declaring file or plugin says, the same for everybody. The sequence a
+#: person puts the entries into by dragging is this person's, and it stays
+#: theirs: it is read only for that person, and the read leaves it alone
+#: until a drag of theirs writes a new one. A user without a row is not
+#: missing data: the read falls back to the default for that user.
+USER_NAV = tables.table(
+    USER_NAV_TABLE,
+    Column("user_id", Integer, primary_key=True, nullable=False),
+    tables.foreign_key("user_id", "users", ("id",), ondelete="CASCADE"),
+    Column("nav_order", Text, nullable=False),
+    Column("updated_at", DateTime, server_default=tables.NOW),
 )
